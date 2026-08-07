@@ -1,5 +1,6 @@
 :root {
     --sidebar-width: 460px;
+    --nodes-panel-width: 285px;
 }
 
 * {
@@ -27,7 +28,6 @@ body {
    ======================================================== */
 
 #topbar {
-
     height: 58px;
 
     display: flex;
@@ -47,7 +47,6 @@ body {
 }
 
 #search {
-
     width: 340px;
     max-width: 40vw;
 
@@ -64,30 +63,22 @@ body {
 }
 
 #search:focus {
-
     border-color: #666;
 }
 
 #graph-stats {
-
     color: #666;
-
     font-size: 13px;
-
     white-space: nowrap;
 }
 
 #top-actions {
-
     display: flex;
-
     gap: 8px;
-
     margin-left: auto;
 }
 
 .top-button {
-
     display: inline-flex;
 
     align-items: center;
@@ -114,7 +105,6 @@ body {
 }
 
 .top-button:hover {
-
     background: #eeeeee;
 }
 
@@ -124,7 +114,6 @@ body {
    ======================================================== */
 
 #main {
-
     display: flex;
 
     width: 100%;
@@ -137,11 +126,231 @@ body {
 
 
 /* ========================================================
+   PANEL IZQUIERDO - LISTA DE NODOS
+   ======================================================== */
+
+#nodes-panel {
+    flex:
+        0 0
+        var(--nodes-panel-width);
+
+    width:
+        var(--nodes-panel-width);
+
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #f7f7f7;
+
+    border-right:
+        1px solid #d4d4d4;
+}
+
+#nodes-panel-header {
+    flex: 0 0 auto;
+
+    padding: 14px 12px 10px 12px;
+
+    background: white;
+
+    border-bottom:
+        1px solid #dddddd;
+}
+
+.nodes-title-row {
+    display: flex;
+
+    align-items: center;
+
+    justify-content:
+        space-between;
+
+    margin-bottom: 10px;
+}
+
+.nodes-title-row h2 {
+    margin: 0;
+
+    font-size: 17px;
+
+    color: #222;
+}
+
+#nodes-counter {
+    min-width: 30px;
+
+    padding: 3px 7px;
+
+    border-radius: 12px;
+
+    background: #eeeeee;
+
+    color: #555;
+
+    font-size: 12px;
+
+    text-align: center;
+}
+
+.visibility-buttons {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 6px;
+}
+
+.visibility-buttons button {
+    min-height: 32px;
+
+    border:
+        1px solid #cccccc;
+
+    border-radius: 5px;
+
+    background: #fafafa;
+
+    color: #333;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.visibility-buttons button:hover {
+    background: #eeeeee;
+}
+
+
+/* ========================================================
+   LISTA DE ARCHIVOS
+   ======================================================== */
+
+#nodes-list {
+    flex: 1 1 auto;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 6px;
+}
+
+.node-list-item {
+    display: grid;
+
+    grid-template-columns:
+        1fr 34px;
+
+    align-items: center;
+
+    gap: 4px;
+
+    min-height: 43px;
+
+    margin-bottom: 3px;
+
+    border:
+        1px solid transparent;
+
+    border-radius: 6px;
+
+    background: transparent;
+}
+
+.node-list-item:hover {
+    background: white;
+
+    border-color:
+        #dddddd;
+}
+
+.node-list-item.selected-list-node {
+    background: #e9f2ff;
+
+    border-color: #8bb7e8;
+}
+
+.node-list-main {
+    min-width: 0;
+
+    padding: 6px 5px 6px 8px;
+
+    cursor: pointer;
+}
+
+.node-list-name {
+    display: block;
+
+    overflow: hidden;
+
+    color: #222;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+.node-list-path {
+    display: block;
+
+    margin-top: 2px;
+
+    overflow: hidden;
+
+    color: #888;
+
+    font-family: monospace;
+
+    font-size: 10px;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+.node-list-toggle {
+    width: 30px;
+    height: 30px;
+
+    padding: 0;
+
+    border:
+        1px solid #cccccc;
+
+    border-radius: 5px;
+
+    background: white;
+
+    cursor: pointer;
+}
+
+.node-list-toggle:hover {
+    background: #eeeeee;
+}
+
+.node-list-item.hidden-node-item {
+    opacity: 0.48;
+}
+
+.node-list-item.hidden-node-item
+.node-list-name {
+    text-decoration:
+        line-through;
+}
+
+
+/* ========================================================
    ÁREA DEL GRAFO
    ======================================================== */
 
 #graph-wrapper {
-
     position: relative;
 
     flex: 1 1 auto;
@@ -156,7 +365,6 @@ body {
 }
 
 #graph {
-
     position: absolute;
 
     inset: 0;
@@ -181,7 +389,6 @@ body {
    ======================================================== */
 
 #graph-controls {
-
     position: absolute;
 
     top: 14px;
@@ -209,7 +416,6 @@ body {
 }
 
 #graph-controls button {
-
     height: 34px;
 
     min-width: 36px;
@@ -231,24 +437,20 @@ body {
 }
 
 #graph-controls button:hover {
-
     background: #eeeeee;
 }
 
 #graph-controls .wide-control {
-
-    font-size: 12px;
-
     min-width: 70px;
+    font-size: 12px;
 }
 
 
 /* ========================================================
-   INDICACIÓN TOUCHPAD
+   AYUDA TOUCHPAD
    ======================================================== */
 
 #graph-hint {
-
     position: absolute;
 
     left: 14px;
@@ -275,15 +477,13 @@ body {
 
 
 /* ========================================================
-   REDIMENSIONADOR
+   REDIMENSIONADOR DERECHO
    ======================================================== */
 
 #sidebar-resizer {
-
     flex: 0 0 7px;
 
     width: 7px;
-
     height: 100%;
 
     cursor: col-resize;
@@ -301,30 +501,25 @@ body {
 }
 
 #sidebar-resizer:hover {
-
     background: #a7c7e7;
 }
 
 body.resizing-sidebar {
-
     cursor: col-resize;
-
     user-select: none;
 }
 
 body.resizing-sidebar
 #sidebar-resizer {
-
     background: #4f81bd;
 }
 
 
 /* ========================================================
-   SIDEBAR
+   SIDEBAR DERECHO
    ======================================================== */
 
 #sidebar {
-
     flex:
         0 0
         var(--sidebar-width);
@@ -345,7 +540,6 @@ body.resizing-sidebar
 }
 
 #sidebar h2 {
-
     margin:
         0 0 18px 0;
 
@@ -355,7 +549,6 @@ body.resizing-sidebar
 }
 
 #info {
-
     color: #444;
 
     font-size: 14px;
@@ -365,11 +558,10 @@ body.resizing-sidebar
 
 
 /* ========================================================
-   PANEL DE INFORMACIÓN
+   SECCIONES DE INFORMACIÓN
    ======================================================== */
 
 .info-section {
-
     margin-bottom: 16px;
 
     padding: 14px;
@@ -383,7 +575,6 @@ body.resizing-sidebar
 }
 
 .section-title {
-
     margin-bottom: 12px;
 
     padding-bottom: 9px;
@@ -399,7 +590,6 @@ body.resizing-sidebar
 }
 
 .section-counter {
-
     display: inline-block;
 
     min-width: 22px;
@@ -421,16 +611,65 @@ body.resizing-sidebar
 
 
 /* ========================================================
+   ACCIONES DEL NODO
+   ======================================================== */
+
+.node-actions {
+    display: flex;
+
+    gap: 8px;
+
+    margin-top: 12px;
+
+    padding-top: 12px;
+
+    border-top:
+        1px solid #eeeeee;
+}
+
+.node-action-button {
+    flex: 1;
+
+    min-height: 34px;
+
+    border:
+        1px solid #cccccc;
+
+    border-radius: 5px;
+
+    background: #fafafa;
+
+    color: #333;
+
+    cursor: pointer;
+}
+
+.node-action-button:hover {
+    background: #eeeeee;
+}
+
+.node-action-button.danger {
+    border-color: #e4b4b4;
+
+    background: #fff5f5;
+
+    color: #a12d2d;
+}
+
+.node-action-button.danger:hover {
+    background: #ffe6e6;
+}
+
+
+/* ========================================================
    METADATOS
    ======================================================== */
 
 .info-item {
-
     margin-bottom: 11px;
 }
 
 .info-title {
-
     margin-bottom: 2px;
 
     color: #333;
@@ -439,12 +678,10 @@ body.resizing-sidebar
 }
 
 .info-value {
-
     color: #555;
 }
 
 .info-grid {
-
     display: grid;
 
     grid-template-columns:
@@ -455,7 +692,6 @@ body.resizing-sidebar
 }
 
 .path-value {
-
     padding: 5px 7px;
 
     border-radius: 4px;
@@ -475,14 +711,12 @@ body.resizing-sidebar
    ======================================================== */
 
 #relations-list {
-
     max-height: 280px;
 
     overflow-y: auto;
 }
 
 .relation-item {
-
     display: grid;
 
     grid-template-columns:
@@ -503,17 +737,14 @@ body.resizing-sidebar
 }
 
 .relation-item:last-child {
-
     border-bottom: none;
 }
 
 .relation-item:hover {
-
     background: #f2f2f2;
 }
 
 .relation-arrow {
-
     font-size: 18px;
 
     font-weight: bold;
@@ -522,14 +753,12 @@ body.resizing-sidebar
 }
 
 .relation-name {
-
     color: #222;
 
     overflow-wrap: anywhere;
 }
 
 .relation-type {
-
     padding: 2px 6px;
 
     border-radius: 4px;
@@ -544,7 +773,6 @@ body.resizing-sidebar
 }
 
 .empty-message {
-
     color: #888;
 
     font-style: italic;
@@ -556,7 +784,6 @@ body.resizing-sidebar
    ======================================================== */
 
 #code-status {
-
     margin-bottom: 8px;
 
     color: #777;
@@ -565,7 +792,6 @@ body.resizing-sidebar
 }
 
 #code-view {
-
     width: 100%;
 
     max-height: 560px;
@@ -605,18 +831,18 @@ body.resizing-sidebar
    SCROLLBARS
    ======================================================== */
 
+#nodes-list::-webkit-scrollbar,
 #sidebar::-webkit-scrollbar,
 #relations-list::-webkit-scrollbar,
 #code-view::-webkit-scrollbar {
-
     width: 9px;
     height: 9px;
 }
 
+#nodes-list::-webkit-scrollbar-thumb,
 #sidebar::-webkit-scrollbar-thumb,
 #relations-list::-webkit-scrollbar-thumb,
 #code-view::-webkit-scrollbar-thumb {
-
     border-radius: 5px;
 
     background: #bbbbbb;
@@ -624,53 +850,17 @@ body.resizing-sidebar
 
 
 /* ========================================================
-   IMPRESIÓN
+   PANTALLAS PEQUEÑAS
    ======================================================== */
 
-@media print {
-
-    #topbar,
-    #sidebar-resizer,
-    #sidebar,
-    #graph-controls,
-    #graph-hint {
-
-        display: none !important;
-    }
-
-    #main {
-
-        height: 100vh;
-    }
-
-    #graph-wrapper {
-
-        width: 100vw;
-        height: 100vh;
-    }
-
-}
-
-
-/* ========================================================
-   PANTALLA PEQUEÑA
-   ======================================================== */
-
-@media (max-width: 900px) {
+@media (max-width: 1150px) {
 
     :root {
-
-        --sidebar-width: 360px;
+        --nodes-panel-width: 240px;
+        --sidebar-width: 380px;
     }
 
     #graph-stats {
-
         display: none;
     }
-
-    #top-actions .top-button {
-
-        padding: 6px;
-    }
-
 }

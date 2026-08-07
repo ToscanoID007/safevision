@@ -1,13 +1,15 @@
 let cy = null;
 let graphData = null;
 
+let hiddenNodeIds = new Set();
+let selectedNodeId = null;
+
 
 // =========================================================
-// CONFIGURACIÓN VISUAL
+// COLORES
 // =========================================================
 
 const COLORS = {
-
     ".py": "#4F81BD",
     ".sh": "#6AA84F",
     ".bat": "#8E7CC3",
@@ -34,9 +36,7 @@ const COLORS = {
 
 function escaparHTML(valor) {
 
-    return String(
-        valor ?? ""
-    )
+    return String(valor ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -64,6 +64,7 @@ function formatearBytes(bytes) {
 
     const indice = Math.min(
         unidades.length - 1,
+
         Math.floor(
             Math.log(bytes) /
             Math.log(1024)
@@ -106,6 +107,514 @@ function limitar(
 
 
 // =========================================================
+// ESTADÍSTICAS
+// =========================================================
+
+function actualizarEstadisticas() {
+
+    if (!graphData) {
+        return;
+    }
+
+    const total =
+        graphData.nodes.length;
+
+    const ocultos =
+        hiddenNodeIds.size;
+
+    const visibles =
+        total - ocultos;
+
+    document
+        .getElementById(
+            "graph-stats"
+        )
+        .textContent =
+            `${total} archivos · ` +
+            `${graphData.edges.length} relaciones · ` +
+            `${visibles} visibles`;
+
+    document
+        .getElementById(
+            "nodes-counter"
+        )
+        .textContent =
+            `${visibles}/${total}`;
+}
+
+
+// =========================================================
+// VISIBILIDAD DE NODOS
+// =========================================================
+
+function aplicarVisibilidad() {
+
+    if (!cy) {
+        return;
+    }
+
+
+    cy.nodes().forEach(
+        nodo => {
+
+            if (
+                hiddenNodeIds.has(
+                    nodo.id()
+                )
+            ) {
+
+                nodo.addClass(
+                    "node-hidden"
+                );
+
+            } else {
+
+                nodo.removeClass(
+                    "node-hidden"
+                );
+            }
+
+        }
+    );
+
+
+    cy.edges().forEach(
+        edge => {
+
+            const sourceId =
+                edge.source().id();
+
+            const targetId =
+                edge.target().id();
+
+            if (
+                hiddenNodeIds.has(sourceId) ||
+                hiddenNodeIds.has(targetId)
+            ) {
+
+                edge.addClass(
+                    "edge-hidden"
+                );
+
+            } else {
+
+                edge.removeClass(
+                    "edge-hidden"
+                );
+            }
+
+        }
+    );
+
+
+    actualizarEstadisticas();
+
+    reconstruirListaNodos(
+        document
+            .getElementById(
+                "search"
+            )
+            .value
+    );
+}
+
+
+function ocultarNodo(id) {
+
+    hiddenNodeIds.add(
+        id
+    );
+
+    aplicarVisibilidad();
+
+
+    if (
+        selectedNodeId === id
+    ) {
+
+        selectedNodeId = null;
+
+        cy.elements()
+            .unselect();
+
+        cy.elements()
+            .removeClass(
+                "related-node related-edge"
+            );
+
+        document
+            .getElementById(
+                "info"
+            )
+            .innerHTML = `
+                <div class="info-section">
+                    El nodo fue ocultado.
+                    Puedes volver a mostrarlo desde
+                    la lista de archivos de la izquierda.
+                </div>
+            `;
+    }
+}
+
+
+function mostrarNodoOculto(id) {
+
+    hiddenNodeIds.delete(
+        id
+    );
+
+    aplicarVisibilidad();
+}
+
+
+function alternarVisibilidadNodo(id) {
+
+    if (
+        hiddenNodeIds.has(id)
+    ) {
+
+        mostrarNodoOculto(
+            id
+        );
+
+    } else {
+
+        ocultarNodo(
+            id
+        );
+    }
+}
+
+
+function ocultarTodos() {
+
+    if (!graphData) {
+        return;
+    }
+
+    hiddenNodeIds =
+        new Set(
+            graphData.nodes.map(
+                n => n.id
+            )
+        );
+
+    selectedNodeId =
+        null;
+
+    cy.elements()
+        .unselect();
+
+    cy.elements()
+        .removeClass(
+            "related-node related-edge search-match"
+        );
+
+    document
+        .getElementById(
+            "info"
+        )
+        .innerHTML = `
+            <div class="info-section">
+                Todos los nodos están ocultos.
+                Usa <strong>Mostrar todo</strong>
+                o los botones 👁 de la lista izquierda.
+            </div>
+        `;
+
+    aplicarVisibilidad();
+}
+
+
+function mostrarTodos() {
+
+    hiddenNodeIds.clear();
+
+    aplicarVisibilidad();
+
+    setTimeout(
+        () => {
+
+            if (!cy) {
+                return;
+            }
+
+            cy.resize();
+
+            cy.fit(
+                cy.elements(),
+                80
+            );
+
+        },
+        50
+    );
+}
+
+
+// =========================================================
+// LISTA IZQUIERDA
+// =========================================================
+
+function reconstruirListaNodos(
+    filtro = ""
+) {
+
+    if (!graphData) {
+        return;
+    }
+
+    const texto =
+        String(filtro || "")
+            .trim()
+            .toLowerCase();
+
+
+    const nodos =
+        [...graphData.nodes]
+            .sort(
+                (a, b) =>
+                    a.name.localeCompare(
+                        b.name
+                    )
+            )
+            .filter(
+                nodo => {
+
+                    if (!texto) {
+                        return true;
+                    }
+
+                    return (
+                        nodo.name
+                            .toLowerCase()
+                            .includes(texto) ||
+
+                        nodo.id
+                            .toLowerCase()
+                            .includes(texto)
+                    );
+                }
+            );
+
+
+    const contenedor =
+        document.getElementById(
+            "nodes-list"
+        );
+
+
+    if (
+        nodos.length === 0
+    ) {
+
+        contenedor.innerHTML = `
+            <div
+                style="
+                    padding:15px;
+                    color:#888;
+                    font-size:12px;
+                "
+            >
+                No hay archivos que coincidan.
+            </div>
+        `;
+
+        return;
+    }
+
+
+    contenedor.innerHTML =
+        nodos.map(
+            nodo => {
+
+                const oculto =
+                    hiddenNodeIds.has(
+                        nodo.id
+                    );
+
+                const seleccionado =
+                    selectedNodeId ===
+                    nodo.id;
+
+                return `
+
+                    <div
+                        class="
+                            node-list-item
+                            ${oculto ? "hidden-node-item" : ""}
+                            ${seleccionado ? "selected-list-node" : ""}
+                        "
+                    >
+
+                        <div
+                            class="node-list-main"
+                            data-node-open="${escaparHTML(nodo.id)}"
+                            title="${escaparHTML(nodo.id)}"
+                        >
+
+                            <span class="node-list-name">
+                                ${escaparHTML(nodo.name)}
+                            </span>
+
+                            <span class="node-list-path">
+                                ${escaparHTML(nodo.id)}
+                            </span>
+
+                        </div>
+
+
+                        <button
+                            class="node-list-toggle"
+                            data-node-toggle="${escaparHTML(nodo.id)}"
+                            title="${
+                                oculto
+                                    ? "Mostrar nodo"
+                                    : "Ocultar nodo"
+                            }"
+                        >
+                            ${
+                                oculto
+                                    ? "🚫"
+                                    : "👁"
+                            }
+                        </button>
+
+                    </div>
+                `;
+            }
+        )
+        .join("");
+
+
+    // -----------------------------------------------------
+    // ABRIR NODO DESDE LA LISTA
+    // -----------------------------------------------------
+
+    document
+        .querySelectorAll(
+            "[data-node-open]"
+        )
+        .forEach(
+            elemento => {
+
+                elemento.addEventListener(
+                    "click",
+                    () => {
+
+                        const id =
+                            elemento.dataset.nodeOpen;
+
+                        abrirNodoDesdeLista(
+                            id
+                        );
+                    }
+                );
+            }
+        );
+
+
+    // -----------------------------------------------------
+    // BOTÓN OCULTAR / MOSTRAR
+    // -----------------------------------------------------
+
+    document
+        .querySelectorAll(
+            "[data-node-toggle]"
+        )
+        .forEach(
+            boton => {
+
+                boton.addEventListener(
+                    "click",
+                    evento => {
+
+                        evento.stopPropagation();
+
+                        const id =
+                            boton.dataset.nodeToggle;
+
+                        alternarVisibilidadNodo(
+                            id
+                        );
+                    }
+                );
+            }
+        );
+}
+
+
+function abrirNodoDesdeLista(id) {
+
+    if (!cy) {
+        return;
+    }
+
+
+    // Si estaba oculto, lo mostramos
+    // automáticamente.
+
+    if (
+        hiddenNodeIds.has(id)
+    ) {
+
+        hiddenNodeIds.delete(
+            id
+        );
+
+        aplicarVisibilidad();
+    }
+
+
+    const nodo =
+        cy.getElementById(
+            id
+        );
+
+
+    if (
+        !nodo ||
+        nodo.length === 0
+    ) {
+        return;
+    }
+
+
+    cy.elements()
+        .unselect();
+
+    nodo.select();
+
+
+    cy.animate(
+        {
+
+            center: {
+                eles:
+                    nodo
+            },
+
+            zoom:
+                Math.max(
+                    cy.zoom(),
+                    1.15
+                )
+
+        },
+        {
+            duration:
+                300
+        }
+    );
+
+
+    mostrarNodo(
+        nodo
+    );
+}
+
+
+// =========================================================
 // LAYOUT
 // =========================================================
 
@@ -116,7 +625,8 @@ function crearLayout(
 
     return {
 
-        name: "cose",
+        name:
+            "cose",
 
         animate:
             animar,
@@ -181,9 +691,10 @@ function reordenarGrafo() {
         return;
     }
 
-    cy.elements().removeClass(
-        "related-node related-edge search-match"
-    );
+    cy.elements()
+        .removeClass(
+            "related-node related-edge search-match"
+        );
 
     cy.layout(
         crearLayout(
@@ -202,6 +713,7 @@ function obtenerRelaciones(nodo) {
 
     const relaciones = [];
 
+
     nodo.connectedEdges().forEach(
         edge => {
 
@@ -214,6 +726,7 @@ function obtenerRelaciones(nodo) {
             const tipo =
                 edge.data("type") ||
                 "reference";
+
 
             if (
                 source.id() ===
@@ -251,11 +764,11 @@ function obtenerRelaciones(nodo) {
                     nodo:
                         source
                 });
-
             }
 
         }
     );
+
 
     relaciones.sort(
         (a, b) =>
@@ -268,24 +781,43 @@ function obtenerRelaciones(nodo) {
                 )
     );
 
+
     return relaciones;
 }
 
 
 function resaltarNodo(nodo) {
 
-    cy.elements().removeClass(
-        "related-node related-edge"
-    );
+    cy.elements()
+        .removeClass(
+            "related-node related-edge"
+        );
+
 
     nodo
         .connectedEdges()
+        .filter(
+            edge =>
+                !hiddenNodeIds.has(
+                    edge.source().id()
+                ) &&
+                !hiddenNodeIds.has(
+                    edge.target().id()
+                )
+        )
         .addClass(
             "related-edge"
         );
 
+
     nodo
         .neighborhood("node")
+        .filter(
+            n =>
+                !hiddenNodeIds.has(
+                    n.id()
+                )
+        )
         .addClass(
             "related-node"
         );
@@ -293,26 +825,40 @@ function resaltarNodo(nodo) {
 
 
 // =========================================================
-// INFORMACIÓN DEL NODO
+// MOSTRAR INFORMACIÓN
 // =========================================================
 
-async function mostrarNodo(
-    nodo
-) {
+async function mostrarNodo(nodo) {
+
+    selectedNodeId =
+        nodo.id();
+
+    reconstruirListaNodos(
+        document
+            .getElementById(
+                "search"
+            )
+            .value
+    );
+
 
     const n =
         nodo.data();
 
+
     resaltarNodo(
         nodo
     );
+
 
     const relaciones =
         obtenerRelaciones(
             nodo
         );
 
+
     let htmlRelaciones = "";
+
 
     if (
         relaciones.length === 0
@@ -329,27 +875,40 @@ async function mostrarNodo(
         htmlRelaciones =
             relaciones
                 .map(
-                    rel => `
+                    rel => {
 
-                <div
-                    class="relation-item"
-                    data-node-id="${escaparHTML(rel.nodo.id())}"
-                >
+                        const oculto =
+                            hiddenNodeIds.has(
+                                rel.nodo.id()
+                            );
 
-                    <span class="relation-arrow">
-                        ${rel.simbolo}
-                    </span>
+                        return `
 
-                    <span class="relation-name">
-                        ${escaparHTML(rel.nodo.data("label"))}
-                    </span>
+                            <div
+                                class="relation-item"
+                                data-node-id="${escaparHTML(rel.nodo.id())}"
+                            >
 
-                    <span class="relation-type">
-                        ${escaparHTML(rel.tipo)}
-                    </span>
+                                <span class="relation-arrow">
+                                    ${rel.simbolo}
+                                </span>
 
-                </div>
-            `
+                                <span class="relation-name">
+                                    ${escaparHTML(rel.nodo.data("label"))}
+                                    ${
+                                        oculto
+                                            ? " 🚫"
+                                            : ""
+                                    }
+                                </span>
+
+                                <span class="relation-type">
+                                    ${escaparHTML(rel.tipo)}
+                                </span>
+
+                            </div>
+                        `;
+                    }
                 )
                 .join("");
     }
@@ -360,6 +919,7 @@ async function mostrarNodo(
             "info"
         );
 
+
     info.innerHTML = `
 
         <div class="info-section">
@@ -367,6 +927,7 @@ async function mostrarNodo(
             <div class="section-title">
                 Archivo
             </div>
+
 
             <div class="info-item">
 
@@ -449,6 +1010,19 @@ async function mostrarNodo(
 
             </div>
 
+
+            <div class="node-actions">
+
+                <button
+                    id="hide-selected-node"
+                    class="node-action-button danger"
+                    type="button"
+                >
+                    🚫 Ocultar nodo
+                </button>
+
+            </div>
+
         </div>
 
 
@@ -488,7 +1062,26 @@ async function mostrarNodo(
 
 
     // -----------------------------------------------------
-    // NAVEGAR ENTRE RELACIONES
+    // OCULTAR NODO SELECCIONADO
+    // -----------------------------------------------------
+
+    document
+        .getElementById(
+            "hide-selected-node"
+        )
+        .addEventListener(
+            "click",
+            function () {
+
+                ocultarNodo(
+                    n.id
+                );
+            }
+        );
+
+
+    // -----------------------------------------------------
+    // RELACIONES CLICABLES
     // -----------------------------------------------------
 
     document
@@ -503,46 +1096,11 @@ async function mostrarNodo(
                     () => {
 
                         const id =
-                            elemento
-                                .dataset
-                                .nodeId;
+                            elemento.dataset.nodeId;
 
-                        const relacionado =
-                            cy.getElementById(
-                                id
-                            );
-
-                        if (
-                            relacionado &&
-                            relacionado.length > 0
-                        ) {
-
-                            relacionado.select();
-
-                            cy.animate(
-                                {
-
-                                    center: {
-                                        eles:
-                                            relacionado
-                                    },
-
-                                    zoom:
-                                        Math.max(
-                                            cy.zoom(),
-                                            1.15
-                                        )
-                                },
-                                {
-                                    duration:
-                                        280
-                                }
-                            );
-
-                            mostrarNodo(
-                                relacionado
-                            );
-                        }
+                        abrirNodoDesdeLista(
+                            id
+                        );
                     }
                 );
             }
@@ -550,7 +1108,7 @@ async function mostrarNodo(
 
 
     // -----------------------------------------------------
-    // CÓDIGO
+    // SOLICITAR CÓDIGO
     // -----------------------------------------------------
 
     const codeStatus =
@@ -563,6 +1121,7 @@ async function mostrarNodo(
             "code-view"
         );
 
+
     try {
 
         const respuesta =
@@ -570,8 +1129,10 @@ async function mostrarNodo(
                 `/code?id=${encodeURIComponent(n.id)}`
             );
 
+
         const resultado =
             await respuesta.json();
+
 
         if (
             !respuesta.ok ||
@@ -588,6 +1149,7 @@ async function mostrarNodo(
             return;
         }
 
+
         if (
             !resultado.readable
         ) {
@@ -602,6 +1164,7 @@ async function mostrarNodo(
             return;
         }
 
+
         const lineas =
             resultado.code === ""
                 ? 0
@@ -609,8 +1172,10 @@ async function mostrarNodo(
                     .split("\n")
                     .length;
 
+
         codeStatus.textContent =
             `${lineas} líneas`;
+
 
         codeView.textContent =
             resultado.code;
@@ -630,9 +1195,7 @@ async function mostrarNodo(
 // ZOOM
 // =========================================================
 
-function zoomCentro(
-    factor
-) {
+function zoomCentro(factor) {
 
     if (!cy) {
         return;
@@ -643,12 +1206,14 @@ function zoomCentro(
             "graph"
         );
 
+
     const nivel =
         limitar(
             cy.zoom() * factor,
             cy.minZoom(),
             cy.maxZoom()
         );
+
 
     cy.zoom({
 
@@ -668,12 +1233,17 @@ function zoomCentro(
 }
 
 
+// =========================================================
+// TOUCHPAD
+// =========================================================
+
 function configurarTouchpad() {
 
     const graph =
         document.getElementById(
             "graph"
         );
+
 
     graph.addEventListener(
         "wheel",
@@ -683,7 +1253,9 @@ function configurarTouchpad() {
                 return;
             }
 
+
             evento.preventDefault();
+
 
             let dx =
                 evento.deltaX;
@@ -692,9 +1264,6 @@ function configurarTouchpad() {
                 evento.deltaY;
 
 
-            // Algunos navegadores usan líneas
-            // en lugar de píxeles.
-
             if (
                 evento.deltaMode === 1
             ) {
@@ -702,6 +1271,7 @@ function configurarTouchpad() {
                 dx *= 16;
                 dy *= 16;
             }
+
 
             if (
                 evento.deltaMode === 2
@@ -715,9 +1285,7 @@ function configurarTouchpad() {
             }
 
 
-            // -------------------------------------------------
-            // PELLIZCO DEL TOUCHPAD / CTRL + RUEDA = ZOOM
-            // -------------------------------------------------
+            // PELLIZCO / CTRL + RUEDA
 
             if (
                 evento.ctrlKey
@@ -727,10 +1295,12 @@ function configurarTouchpad() {
                     graph
                         .getBoundingClientRect();
 
+
                 const intensidad =
                     Math.exp(
                         -dy * 0.006
                     );
+
 
                 const nivel =
                     limitar(
@@ -739,6 +1309,7 @@ function configurarTouchpad() {
                         cy.minZoom(),
                         cy.maxZoom()
                     );
+
 
                 cy.zoom({
 
@@ -758,16 +1329,16 @@ function configurarTouchpad() {
 
                 });
 
+
                 return;
             }
 
 
-            // -------------------------------------------------
-            // DOS DEDOS = DESPLAZAMIENTO DEL GRAFO
-            // -------------------------------------------------
+            // DOS DEDOS = PAN
 
             const pan =
                 cy.pan();
+
 
             cy.pan({
 
@@ -787,7 +1358,7 @@ function configurarTouchpad() {
 
 
 // =========================================================
-// PANEL REDIMENSIONABLE
+// PANEL DERECHO REDIMENSIONABLE
 // =========================================================
 
 function configurarSidebarRedimensionable() {
@@ -796,6 +1367,7 @@ function configurarSidebarRedimensionable() {
         document.getElementById(
             "sidebar-resizer"
         );
+
 
     let inicioX = 0;
     let anchoInicial = 0;
@@ -811,6 +1383,7 @@ function configurarSidebarRedimensionable() {
             inicioX =
                 evento.clientX;
 
+
             anchoInicial =
                 document
                     .getElementById(
@@ -819,9 +1392,13 @@ function configurarSidebarRedimensionable() {
                     .getBoundingClientRect()
                     .width;
 
-            document.body.classList.add(
-                "resizing-sidebar"
-            );
+
+            document.body
+                .classList
+                .add(
+                    "resizing-sidebar"
+                );
+
 
             resizer.setPointerCapture(
                 evento.pointerId
@@ -838,15 +1415,18 @@ function configurarSidebarRedimensionable() {
                 return;
             }
 
+
             const diferencia =
                 inicioX -
                 evento.clientX;
+
 
             const maximo =
                 Math.min(
                     900,
                     window.innerWidth * 0.72
                 );
+
 
             const nuevoAncho =
                 limitar(
@@ -856,6 +1436,7 @@ function configurarSidebarRedimensionable() {
                     maximo
                 );
 
+
             document
                 .documentElement
                 .style
@@ -864,27 +1445,30 @@ function configurarSidebarRedimensionable() {
                     `${nuevoAncho}px`
                 );
 
-            if (cy) {
 
+            if (cy) {
                 cy.resize();
             }
         }
     );
 
 
-    function terminarResize(
-        evento
-    ) {
+    function terminarResize(evento) {
 
         if (!activo) {
             return;
         }
 
+
         activo = false;
 
-        document.body.classList.remove(
-            "resizing-sidebar"
-        );
+
+        document.body
+            .classList
+            .remove(
+                "resizing-sidebar"
+            );
+
 
         try {
 
@@ -895,8 +1479,8 @@ function configurarSidebarRedimensionable() {
         } catch (_) {
         }
 
-        if (cy) {
 
+        if (cy) {
             cy.resize();
         }
     }
@@ -906,6 +1490,7 @@ function configurarSidebarRedimensionable() {
         "pointerup",
         terminarResize
     );
+
 
     resizer.addEventListener(
         "pointercancel",
@@ -925,16 +1510,9 @@ async function cargarGrafo() {
             "/files"
         );
 
+
     graphData =
         await respuesta.json();
-
-
-    document
-        .getElementById(
-            "graph-stats"
-        )
-        .textContent =
-            `${graphData.nodes.length} archivos · ${graphData.edges.length} relaciones`;
 
 
     const elementos = [];
@@ -1040,6 +1618,7 @@ async function cargarGrafo() {
         autoungrabify:
             false,
 
+
         style: [
 
             {
@@ -1137,6 +1716,28 @@ async function cargarGrafo() {
 
             {
                 selector:
+                    ".node-hidden",
+
+                style: {
+                    "display":
+                        "none"
+                }
+            },
+
+
+            {
+                selector:
+                    ".edge-hidden",
+
+                style: {
+                    "display":
+                        "none"
+                }
+            },
+
+
+            {
+                selector:
                     "node:selected",
 
                 style: {
@@ -1217,6 +1818,7 @@ async function cargarGrafo() {
 
         ],
 
+
         layout:
             crearLayout(
                 true,
@@ -1224,6 +1826,11 @@ async function cargarGrafo() {
             )
 
     });
+
+
+    actualizarEstadisticas();
+
+    reconstruirListaNodos();
 
 
     // -----------------------------------------------------
@@ -1254,28 +1861,39 @@ async function cargarGrafo() {
                 evt.target === cy
             ) {
 
+                selectedNodeId =
+                    null;
+
+
+                cy.elements()
+                    .unselect();
+
+
                 cy.elements()
                     .removeClass(
                         "related-node related-edge"
                     );
+
+
+                reconstruirListaNodos(
+                    document
+                        .getElementById(
+                            "search"
+                        )
+                        .value
+                );
             }
         }
     );
 
 
-    // -----------------------------------------------------
-    // ACTUALIZAR AL REDIMENSIONAR VENTANA
-    // -----------------------------------------------------
-
     window.addEventListener(
         "resize",
         function () {
 
-            if (!cy) {
-                return;
+            if (cy) {
+                cy.resize();
             }
-
-            cy.resize();
         }
     );
 }
@@ -1297,26 +1915,45 @@ document
                 return;
             }
 
+
             const texto =
                 this.value
                     .trim()
                     .toLowerCase();
+
+
+            reconstruirListaNodos(
+                texto
+            );
+
 
             cy.nodes()
                 .removeClass(
                     "search-match"
                 );
 
+
             if (
                 texto === ""
             ) {
+
                 return;
             }
+
 
             const encontrados =
                 cy.nodes()
                     .filter(
                         n => {
+
+                            if (
+                                hiddenNodeIds.has(
+                                    n.id()
+                                )
+                            ) {
+                                return false;
+                            }
+
 
                             const nombre =
                                 String(
@@ -1326,9 +1963,11 @@ document
                                 )
                                     .toLowerCase();
 
+
                             const ruta =
                                 n.id()
                                     .toLowerCase();
+
 
                             return (
                                 nombre.includes(
@@ -1341,9 +1980,11 @@ document
                         }
                     );
 
+
             encontrados.addClass(
                 "search-match"
             );
+
 
             if (
                 encontrados.length > 0
@@ -1369,6 +2010,30 @@ document
                 );
             }
         }
+    );
+
+
+// =========================================================
+// BOTONES OCULTAR / MOSTRAR
+// =========================================================
+
+document
+    .getElementById(
+        "hide-all"
+    )
+    .addEventListener(
+        "click",
+        ocultarTodos
+    );
+
+
+document
+    .getElementById(
+        "show-all"
+    )
+    .addEventListener(
+        "click",
+        mostrarTodos
     );
 
 
@@ -1418,13 +2083,31 @@ document
                 return;
             }
 
+
+            const visibles =
+                cy.nodes()
+                    .filter(
+                        nodo =>
+                            !hiddenNodeIds.has(
+                                nodo.id()
+                            )
+                    );
+
+
+            if (
+                visibles.length === 0
+            ) {
+                return;
+            }
+
+
             cy.animate(
                 {
 
                     fit: {
 
                         eles:
-                            cy.elements(),
+                            visibles,
 
                         padding:
                             90
@@ -1446,27 +2129,7 @@ document
     )
     .addEventListener(
         "click",
-        function () {
-
-            reordenarGrafo();
-        }
-    );
-
-
-// =========================================================
-// IMPRIMIR
-// =========================================================
-
-document
-    .getElementById(
-        "print-view"
-    )
-    .addEventListener(
-        "click",
-        function () {
-
-            window.print();
-        }
+        reordenarGrafo
     );
 
 
@@ -1478,6 +2141,7 @@ configurarTouchpad();
 
 configurarSidebarRedimensionable();
 
+
 cargarGrafo()
     .catch(
         error => {
@@ -1486,6 +2150,7 @@ cargarGrafo()
                 "Error cargando el grafo:",
                 error
             );
+
 
             document
                 .getElementById(

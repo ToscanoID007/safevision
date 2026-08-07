@@ -2,7 +2,6 @@
 <html lang="es">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -20,7 +19,6 @@
     <script
         src="https://unpkg.com/cytoscape/dist/cytoscape.min.js">
     </script>
-
 </head>
 
 <body>
@@ -52,24 +50,67 @@
                 📄 Resumen TXT
             </a>
 
-            <button
-                id="print-view"
-                class="top-button"
-                type="button"
-            >
-                🖨 Imprimir
-            </button>
-
         </div>
 
     </div>
 
 
     <!-- ==================================================
-         ÁREA PRINCIPAL
+         CONTENIDO PRINCIPAL
          ================================================== -->
 
     <div id="main">
+
+
+        <!-- ==============================================
+             LISTA IZQUIERDA DE NODOS
+             ============================================== -->
+
+        <aside id="nodes-panel">
+
+            <div id="nodes-panel-header">
+
+                <div class="nodes-title-row">
+
+                    <h2>Archivos</h2>
+
+                    <span id="nodes-counter">
+                        0
+                    </span>
+
+                </div>
+
+
+                <div class="visibility-buttons">
+
+                    <button
+                        id="show-all"
+                        type="button"
+                        title="Mostrar todos los nodos"
+                    >
+                        👁 Mostrar todo
+                    </button>
+
+                    <button
+                        id="hide-all"
+                        type="button"
+                        title="Ocultar todos los nodos"
+                    >
+                        🚫 Ocultar todo
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div id="nodes-list">
+
+                Cargando archivos...
+
+            </div>
+
+        </aside>
 
 
         <!-- ==============================================
@@ -81,7 +122,7 @@
             <div id="graph"></div>
 
 
-            <!-- CONTROLES DE VISTA -->
+            <!-- CONTROLES DEL GRAFO -->
 
             <div id="graph-controls">
 
@@ -102,7 +143,7 @@
                 <button
                     id="fit-graph"
                     class="wide-control"
-                    title="Mostrar todo el grafo"
+                    title="Mostrar todos los nodos visibles"
                 >
                     Ajustar
                 </button>
@@ -110,7 +151,7 @@
                 <button
                     id="relayout-graph"
                     class="wide-control"
-                    title="Volver a organizar automáticamente"
+                    title="Reorganizar nodos visibles"
                 >
                     Reordenar
                 </button>
@@ -118,19 +159,15 @@
             </div>
 
 
-            <!-- AYUDA TOUCHPAD -->
-
             <div id="graph-hint">
-
                 Dos dedos: mover · Pellizco/Ctrl+rueda: zoom
-
             </div>
 
         </div>
 
 
         <!-- ==============================================
-             SEPARADOR ARRASTRABLE
+             REDIMENSIONADOR DERECHO
              ============================================== -->
 
         <div
@@ -140,10 +177,10 @@
 
 
         <!-- ==============================================
-             PANEL LATERAL
+             PANEL DERECHO
              ============================================== -->
 
-        <div id="sidebar">
+        <aside id="sidebar">
 
             <h2>Información</h2>
 
@@ -151,14 +188,10 @@
                 Seleccione un nodo.
             </div>
 
-        </div>
+        </aside>
 
     </div>
 
-
-    <!-- ==================================================
-         JAVASCRIPT
-         ================================================== -->
 
     <script src="/static/app.js"></script>
 
