@@ -1,0 +1,1673 @@
+=== REPORTE DE CÓDIGO: ROBOT CUSTOM ===
+Fecha de escaneo: Fri Jul 31 06:48:20 CST 2026
+
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/gestor_nodos.py
+======================================================================
+# -*- coding: utf-8 -*-
+import os
+import time
+from utils import ejecutar, pausar
+
+def leer_entrada(mensaje):
+    try:
+        return raw_input(mensaje)
+    except NameError:
+        return input(mensaje)
+
+# TODO EL ARSENAL DE NODOS DISPONIBLES EN YAHBOOMCAR
+NODOS = [
+    # --- SENSORES Y BRINGUP ---
+    {"nombre": "Base + LiDAR", "pkg": "yahboomcar_nav", "launch": "laser_bringup.launch"},
+    {"nombre": "Base + AstraPro (3D)", "pkg": "yahboomcar_nav", "launch": "astrapro_bringup.launch"},
+    {"nombre": "Profundidad a Láser", "pkg": "yahboomcar_nav", "launch": "depthimage_to_laserscan.launch"},
+    {"nombre": "Visual (Láser a Img)", "pkg": "yahboomcar_visual", "launch": "laser_to_image.launch"},
+    
+    # --- ALGORITMOS SLAM (2D) ---
+    {"nombre": "Mapeo General 2D", "pkg": "yahboomcar_nav", "launch": "yahboomcar_map.launch"},
+    {"nombre": "Gmapping (Core)", "pkg": "yahboomcar_nav", "launch": "gmapping.launch"},
+    {"nombre": "Karto (Core)", "pkg": "yahboomcar_nav", "launch": "karto.launch"},
+    {"nombre": "Hector (Core)", "pkg": "yahboomcar_nav", "launch": "hector.launch"},
+    {"nombre": "Cartographer (Core)", "pkg": "yahboomcar_nav", "launch": "cartographer.launch"},
+    {"nombre": "Guardar Mapa", "pkg": "yahboomcar_nav", "launch": "map_saver.launch"},
+    
+    # --- ALGORITMOS SLAM Y NAV (3D) ---
+    {"nombre": "RTAB-Map (Mapeo 3D)", "pkg": "yahboomcar_nav", "launch": "yahboomcar_rtabmap.launch"},
+    {"nombre": "RTAB-Map (Nav 3D)", "pkg": "yahboomcar_nav", "launch": "yahboomcar_rtabmap_nav.launch"},
+    {"nombre": "RTAB-Map (Core)", "pkg": "yahboomcar_nav", "launch": "rtabmap.launch"},
+    {"nombre": "Navegación General", "pkg": "yahboomcar_nav", "launch": "yahboomcar_navigation.launch"},
+    {"nombre": "AMCL (Localización)", "pkg": "yahboomcar_nav", "launch": "amcl.launch"},
+    {"nombre": "Move_Base (Trayect.)", "pkg": "yahboomcar_nav", "launch": "move_base.launch"},
+    
+    # --- ENJAMBRE / MULTI-ROBOT ---
+    {"nombre": "Multi: Base", "pkg": "yahboomcar_multi", "launch": "bringup_multi.launch"},
+    {"nombre": "Multi: Base + LiDAR", "pkg": "yahboomcar_multi", "launch": "laser_bringup_multi.launch"},
+    {"nombre": "Multi: Base + USB", "pkg": "yahboomcar_multi", "launch": "laser_usb_bringup_multi.launch"},
+    {"nombre": "Multi: Base + Astra", "pkg": "yahboomcar_multi", "launch": "laser_astrapro_bringup_multi.launch"},
+    {"nombre": "Multi: Navegación", "pkg": "yahboomcar_multi", "launch": "yahboomcar_nav_multi.launch"},
+    {"nombre": "App Node", "pkg": "yahboomcar_nav", "launch": "app.launch"},
+    
+    # --- RVIZ (VISTAS REMOTAS) ---
+    {"nombre": "View: Map", "pkg": "yahboomcar_nav", "launch": "view_map.launch"},
+    {"nombre": "View: Navigate", "pkg": "yahboomcar_nav", "launch": "view_navigate.launch"},
+    {"nombre": "View: Cartographer", "pkg": "yahboomcar_nav", "launch": "view_cartographer.launch"},
+    {"nombre": "View: RTAB-Map", "pkg": "yahboomcar_nav", "launch": "view_rtabmap.launch"},
+    {"nombre": "View: RTAB-Nav", "pkg": "yahboomcar_nav", "launch": "view_rtabmap_nav.launch"},
+    {"nombre": "View: RRT Map", "pkg": "yahboomcar_nav", "launch": "view_rrt_map.launch"}
+]
+
+def estado_nodo(launch_file):
+    salida = ejecutar("pgrep -f '" + launch_file + "'")
+    return bool(salida.strip())
+
+def format_item(idx, nodo):
+    activo = estado_nodo(nodo['launch'])
+    # Uso de colores ANSI para la consola (Verde = ON, Rojo = OFF)
+    estado = "\033[92m[ON ]\033[0m" if activo else "\033[91m[OFF]\033[0m"
+    # Aseguramos que el nombre tenga exactamente 22 caracteres para que las columnas alineen
+    nombre_padded = nodo['nombre'][:22].ljust(22)
+    num = str(idx).rjust(2)
+    return " " + num + ". " + estado + " " + nombre_padded
+
+def alternar_nodo(nodo):
+    activo = estado_nodo(nodo['launch'])
+    os.system('clear')
+    
+    if activo:
+        print("\n🛑 Apagando " + nodo['nombre'] + " (" + nodo['launch'] + ")...")
+        ejecutar("pkill -INT -f '" + nodo['launch'] + "'")
+        time.sleep(2)
+        print("✅ Nodo detenido correctamente.")
+    else:
+        print("\n🚀 Iniciando " + nodo['nombre'] + " (" + nodo['launch'] + ")...")
+        comando = (
+            "bash -c 'source /opt/ros/melodic/setup.bash && "
+            "source ~/yahboomcar_ws/devel/setup.bash 2>/dev/null && "
+            "roslaunch " + nodo['pkg'] + " " + nodo['launch'] + " > /dev/null 2>&1 &' &"
+        )
+        os.system(comando)
+        print("⏳ Lanzando procesos (espera 3-5 seg)...")
+        time.sleep(4)
+        print("✅ Nodo corriendo en segundo plano.")
+    pausar()
+
+def menu_gestor_nodos():
+    while True:
+        os.system('clear')
+        print("===============================================================================")
+        print("                   🛠️  LABORATORIO DE PRUEBAS: GESTIÓN DE NODOS                ")
+        print("===============================================================================")
+        
+        # Imprimir en 2 columnas para aprovechar el espacio
+        for i in range(0, len(NODOS), 2):
+            columna_1 = format_item(i + 1, NODOS[i])
+            if i + 1 < len(NODOS):
+                columna_2 = format_item(i + 2, NODOS[i+1])
+            else:
+                columna_2 = ""
+            print(columna_1 + "   |   " + columna_2)
+        
+        print("===============================================================================")
+        print(" T. ☠️  Apagar TODOS los nodos ROS          R. Volver al menú")
+        print("===============================================================================")
+        
+        opcion = leer_entrada(" Selecciona el número del nodo a Enceder/Apagar: ").strip().lower()
+        
+        if opcion == 'r':
+            break
+        elif opcion == 't':
+            print("\n🛑 Apagando agresivamente todos los procesos de ROS...")
+            ejecutar("pkill -INT -f 'roslaunch'")
+            time.sleep(2)
+            ejecutar("pkill -9 -f 'roslaunch' 2>/dev/null")
+            print("✅ Todo el hardware ha sido detenido.")
+            pausar()
+        elif opcion.isdigit():
+            idx = int(opcion) - 1
+            if 0 <= idx < len(NODOS):
+                alternar_nodo(NODOS[idx])
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/main_menu.py
+======================================================================
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import os
+import sys
+
+from utils import detener_mando_seguridad
+from safevision import menu_safevision
+from navegacion import menu_navegacion_manual
+from wifi import menu_wifi
+from mapas import menu_nodos_mapas
+from sistema import menu_archivos
+from preparar_pc import diagnosticar_y_preparar_pc
+
+def menu_principal():
+    detener_mando_seguridad()
+    
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print("       🤖 YAHBOOM ROBOT - PANEL DE CONTROL CENTRAL       ")
+        print("=========================================================")
+        print(" 1. 🛡️  Iniciar Misión SafeVision (IA + Navegación)")
+        print(" 2. 🕹️  Navegación Manual (Teclado / Mando)")
+        print(" 3. 🗺️  Gestión de Nodos y Mapas (Crear, Ver, Usar)")
+        print(" 4. 📶 Gestión de Redes Wi-Fi")
+        print(" 5. 📁 Explorador de Archivos y Sistema")
+        print(" 6. 🖥️  Preparar y Sincronizar PC Remota")
+        print(" 7. 🚪 Salir al sistema")
+        print("=========================================================")
+        
+        try:
+            opcion = raw_input(" Selecciona una opción (1-7): ").strip()
+        except NameError:
+            opcion = input(" Selecciona una opción (1-7): ").strip()
+        
+        if opcion == '1':
+            menu_safevision()
+        elif opcion == '2':
+            menu_navegacion_manual()
+        elif opcion == '3':
+            menu_nodos_mapas()
+        elif opcion == '4':
+            menu_wifi()
+        elif opcion == '5':
+            menu_archivos()
+        elif opcion == '6':
+            diagnosticar_y_preparar_pc()
+        elif opcion == '7':
+            detener_mando_seguridad()
+            os.system('clear')
+            print("¡Hasta luego!\n")
+            break
+
+if __name__ == '__main__':
+    try:
+        menu_principal()
+    except KeyboardInterrupt:
+        detener_mando_seguridad()
+        os.system('clear')
+        print("\nPrograma terminado por el usuario (Ctrl+C).\n")
+        sys.exit(0)
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/mapas.py
+======================================================================
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import sys
+import subprocess
+
+MAPS_DIR = "/home/pi/robot_custom/mapping/maps"
+LAPTOP_USER = "toscano"
+LAPTOP_IP = "192.168.1.76"
+
+# ==============================================================================
+# Sincronización y Preparación del Editor Remote en Laptop
+# ==============================================================================
+def create_editor_script(path):
+    code = '''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys
+import os
+import tkinter as tk
+from tkinter import messagebox
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+class MapEditor:
+    def __init__(self, root, file_path):
+        self.root = root
+        self.file_path = file_path
+        self.root.title("ROS Map Editor Fast 2D - " + os.path.basename(file_path))
+        
+        if HAS_PIL:
+            self.pil_orig = Image.open(file_path).convert("L")
+            self.width, self.height = self.pil_orig.size
+            self.pil_edit = self.pil_orig.copy()
+        else:
+            messagebox.showerror("Error", "Se requiere PIL/Pillow en la laptop.")
+            sys.exit(1)
+
+        self.history = []
+        self._save_history_state()
+
+        self.zoom_level = 1.0
+        self.pan_x = 0
+        self.pan_y = 0
+        
+        self.current_tool = 'draw'
+        self.COLOR_FREE = 254
+        self.COLOR_OBSTACLE = 0
+        self.COLOR_UNKNOWN = 205
+        
+        self.current_color = self.COLOR_FREE
+        self.brush_size = 5
+        self.last_x = None
+        self.last_y = None
+
+        self._setup_ui()
+        self._bind_shortcuts()
+        self._redraw()
+
+    def _save_history_state(self):
+        if len(self.history) >= 20:
+            self.history.pop(0)
+        self.history.append(self.pil_edit.copy())
+
+    def undo(self, event=None):
+        if len(self.history) > 1:
+            self.history.pop()
+            self.pil_edit = self.history[-1].copy()
+            self._redraw()
+
+    def set_tool(self, tool):
+        self.current_tool = tool
+        if tool == 'draw':
+            self.btn_draw.config(bg="#0d6efd", fg="white")
+            self.btn_pan.config(bg="#343A40", fg="white")
+            self.canvas.config(cursor="cross")
+        else:
+            self.btn_draw.config(bg="#343A40", fg="white")
+            self.btn_pan.config(bg="#0d6efd", fg="white")
+            self.canvas.config(cursor="fleur")
+
+    def _setup_ui(self):
+        top_container = tk.Frame(self.root, bg="#212529")
+        top_container.pack(side=tk.TOP, fill=tk.X)
+
+        row1 = tk.Frame(top_container, bg="#212529")
+        row1.pack(side=tk.TOP, fill=tk.X, pady=2)
+
+        tk.Label(row1, text=" Modo: ", fg="#ADB5BD", bg="#212529", font=('Helvetica', 9, 'bold')).pack(side=tk.LEFT)
+        self.btn_draw = tk.Button(row1, text="Dibujar", bg="#0d6efd", fg="white", command=lambda: self.set_tool('draw'))
+        self.btn_draw.pack(side=tk.LEFT, padx=2)
+        self.btn_pan = tk.Button(row1, text="Mover Mapa (M)", bg="#343A40", fg="white", command=lambda: self.set_tool('pan'))
+        self.btn_pan.pack(side=tk.LEFT, padx=2)
+
+        tk.Label(row1, text=" | Pincel: ", fg="#ADB5BD", bg="#212529", font=('Helvetica', 9, 'bold')).pack(side=tk.LEFT)
+        tk.Button(row1, text="Libre (1)", bg="#FFFFFF", fg="black", command=lambda: [self.set_color(self.COLOR_FREE), self.set_tool('draw')]).pack(side=tk.LEFT, padx=2)
+        tk.Button(row1, text="Pared (2)", bg="#000000", fg="white", command=lambda: [self.set_color(self.COLOR_OBSTACLE), self.set_tool('draw')]).pack(side=tk.LEFT, padx=2)
+        tk.Button(row1, text="Borrador/Gris (E)", bg="#6C757D", fg="white", command=lambda: [self.set_color(self.COLOR_UNKNOWN), self.set_tool('draw')]).pack(side=tk.LEFT, padx=2)
+
+        tk.Label(row1, text=" | Grosor: ", fg="#ADB5BD", bg="#212529", font=('Helvetica', 9, 'bold')).pack(side=tk.LEFT)
+        self.brush_scale = tk.Scale(row1, from_=1, to=40, orient=tk.HORIZONTAL, bg="#212529", fg="white", highlightthickness=0, command=self._update_brush)
+        self.brush_scale.set(self.brush_size)
+        self.brush_scale.pack(side=tk.LEFT, padx=2)
+
+        tk.Label(row1, text=" | Zoom: ", fg="#ADB5BD", bg="#212529", font=('Helvetica', 9, 'bold')).pack(side=tk.LEFT)
+        tk.Button(row1, text="+", bg="#343A40", fg="white", width=2, command=lambda: self.zoom_step(1.2)).pack(side=tk.LEFT, padx=1)
+        tk.Button(row1, text="-", bg="#343A40", fg="white", width=2, command=lambda: self.zoom_step(0.8)).pack(side=tk.LEFT, padx=1)
+        tk.Button(row1, text="Reset", bg="#343A40", fg="white", command=self.zoom_reset).pack(side=tk.LEFT, padx=2)
+
+        row2 = tk.Frame(top_container, bg="#111827")
+        row2.pack(side=tk.TOP, fill=tk.X, pady=3)
+
+        tk.Button(row2, text="< Deshacer (Ctrl+Z)", bg="#495057", fg="white", font=('Helvetica', 9, 'bold'), command=self.undo).pack(side=tk.LEFT, padx=10, pady=2)
+        
+        btn_save = tk.Button(row2, text="[ GUARDAR Y CONCLUIR (Ctrl+S) ]", bg="#198754", fg="white", font=('Helvetica', 10, 'bold'), command=self.save_map)
+        btn_save.pack(side=tk.RIGHT, padx=15, pady=2)
+
+        self.canvas = tk.Canvas(self.root, bg="#000000", cursor="cross")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas.bind("<ButtonPress-1>", self.on_left_click_start)
+        self.canvas.bind("<B1-Motion>", self.on_left_click_motion)
+        self.canvas.bind("<ButtonRelease-1>", self.on_left_click_end)
+        
+        self.canvas.bind("<ButtonPress-3>", self.on_pan_start)
+        self.canvas.bind("<B3-Motion>", self.on_pan_motion)
+
+        self.root.bind("<MouseWheel>", self.on_zoom)
+        self.root.bind("<Button-4>", lambda e: self.zoom_step(1.1))
+        self.root.bind("<Button-5>", lambda e: self.zoom_step(0.9))
+
+    def _bind_shortcuts(self):
+        self.root.bind("<Control-z>", self.undo)
+        self.root.bind("<Control-s>", lambda e: self.save_map())
+        self.root.bind("1", lambda e: [self.set_color(self.COLOR_FREE), self.set_tool('draw')])
+        self.root.bind("2", lambda e: [self.set_color(self.COLOR_OBSTACLE), self.set_tool('draw')])
+        self.root.bind("e", lambda e: [self.set_color(self.COLOR_UNKNOWN), self.set_tool('draw')])
+        self.root.bind("E", lambda e: [self.set_color(self.COLOR_UNKNOWN), self.set_tool('draw')])
+        self.root.bind("m", lambda e: self.set_tool('pan' if self.current_tool == 'draw' else 'draw'))
+        self.root.bind("M", lambda e: self.set_tool('pan' if self.current_tool == 'draw' else 'draw'))
+        self.root.bind("<space>", lambda e: self.set_tool('pan' if self.current_tool == 'draw' else 'draw'))
+
+        self.root.bind("<Up>", lambda e: self.pan_by(0, 30))
+        self.root.bind("<Down>", lambda e: self.pan_by(0, -30))
+        self.root.bind("<Left>", lambda e: self.pan_by(30, 0))
+        self.root.bind("<Right>", lambda e: self.pan_by(-30, 0))
+
+    def pan_by(self, dx, dy):
+        self.pan_x += dx
+        self.pan_y += dy
+        self._redraw()
+
+    def set_color(self, val):
+        self.current_color = val
+
+    def _update_brush(self, val):
+        self.brush_size = int(val)
+
+    def _redraw(self):
+        new_w = max(1, int(self.width * self.zoom_level))
+        new_h = max(1, int(self.height * self.zoom_level))
+        
+        resized = self.pil_edit.resize((new_w, new_h), Image.NEAREST)
+        self.tk_img = ImageTk.PhotoImage(resized)
+
+        self.canvas.delete("all")
+        self.canvas.create_image(self.pan_x, self.pan_y, anchor=tk.NW, image=self.tk_img)
+
+    def _screen_to_image_coords(self, sx, sy):
+        ix = int((sx - self.pan_x) / self.zoom_level)
+        iy = int((sy - self.pan_y) / self.zoom_level)
+        return ix, iy
+
+    def on_left_click_start(self, event):
+        if self.current_tool == 'draw':
+            self.last_x, self.last_y = self._screen_to_image_coords(event.x, event.y)
+            self.paint_pixel(self.last_x, self.last_y)
+        else:
+            self.on_pan_start(event)
+
+    def on_left_click_motion(self, event):
+        if self.current_tool == 'draw':
+            cx, cy = self._screen_to_image_coords(event.x, event.y)
+            if self.last_x is not None and self.last_y is not None:
+                self.paint_line(self.last_x, self.last_y, cx, cy)
+            self.last_x, self.last_y = cx, cy
+        else:
+            self.on_pan_motion(event)
+
+    def on_left_click_end(self, event):
+        if self.current_tool == 'draw':
+            self.last_x, self.last_y = None, None
+            self._save_history_state()
+
+    def paint_pixel(self, x, y):
+        r = self.brush_size // 2
+        for dx in range(-r, r + 1):
+            for dy in range(-r, r + 1):
+                px, py = x + dx, y + dy
+                if 0 <= px < self.width and 0 <= py < self.height:
+                    self.pil_edit.putpixel((px, py), self.current_color)
+        self._redraw()
+
+    def paint_line(self, x0, y0, x1, y1):
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+        while True:
+            self.paint_pixel(x0, y0)
+            if x0 == x1 and y0 == y1:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
+
+    def on_pan_start(self, event):
+        self.pan_start_x = event.x - self.pan_x
+        self.pan_start_y = event.y - self.pan_y
+
+    def on_pan_motion(self, event):
+        self.pan_x = event.x - self.pan_start_x
+        self.pan_y = event.y - self.pan_start_y
+        self._redraw()
+
+    def zoom_step(self, factor):
+        self.zoom_level = max(0.2, min(20.0, self.zoom_level * factor))
+        self._redraw()
+
+    def zoom_reset(self):
+        self.zoom_level = 1.0
+        self.pan_x = 0
+        self.pan_y = 0
+        self._redraw()
+
+    def on_zoom(self, event):
+        factor = 1.1 if event.delta > 0 else 0.9
+        self.zoom_step(factor)
+
+    def save_map(self):
+        self.pil_edit.save(self.file_path)
+        messagebox.showinfo("Guardado", "El mapa se guardó correctamente.\\nPuedes cerrar esta ventana.")
+        self.root.destroy()
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        sys.exit(1)
+    
+    path = sys.argv[1]
+    if not os.path.exists(path):
+        sys.exit(1)
+
+    root = tk.Tk()
+    root.geometry("1100x800")
+    app = MapEditor(root, path)
+    root.mainloop()
+'''
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(code)
+
+def ensure_laptop_ready():
+    """Verifica e instala dependencias y scripts automáticamente en la laptop."""
+    print("🔍 Verificando estado del entorno en la laptop...")
+    check_cmd = f'ssh {LAPTOP_USER}@{LAPTOP_IP} "python3 -c \"import PIL, tkinter\""'
+    res = subprocess.run(check_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    if res.returncode != 0:
+        print("⚡ Faltan dependencias en la laptop. Instalando automáticamente...")
+        install_cmd = f'ssh -t {LAPTOP_USER}@{LAPTOP_IP} "sudo apt-get update && sudo apt-get install -y python3-pil python3-pil.imagetk python3-tk rsync"'
+        subprocess.run(install_cmd, shell=True)
+        print("✅ Dependencias instaladas.")
+
+    local_editor_path = "/tmp/robot_map_editor_local.py"
+    if not os.path.exists(local_editor_path):
+        create_editor_script(local_editor_path)
+
+    print("🔄 Sincronizando ejecutable del editor en la laptop...")
+    cmd_send_editor = f"rsync -az {local_editor_path} {LAPTOP_USER}@{LAPTOP_IP}:~/robot_map_editor.py"
+    subprocess.run(cmd_send_editor, shell=True)
+
+def edit_map_remote(map_filename):
+    ensure_laptop_ready()
+    local_pgm_path = os.path.join(MAPS_DIR, map_filename)
+    laptop_pgm_path = f"/home/{LAPTOP_USER}/{map_filename}"
+    
+    print(f"\n📤 Transfiriendo '{map_filename}' a la laptop...")
+    cmd_send = f"rsync -avzP {local_pgm_path} {LAPTOP_USER}@{LAPTOP_IP}:{laptop_pgm_path}"
+    subprocess.run(cmd_send, shell=True)
+
+    print("\n🖥️ Abriendo editor nativo ultra-fluido en la laptop...")
+    cmd_open = f'ssh -t {LAPTOP_USER}@{LAPTOP_IP} "export DISPLAY=:0; python3 ~/robot_map_editor.py {laptop_pgm_path}"'
+    subprocess.run(cmd_open, shell=True)
+
+    print("\n📥 Sincronizando mapa editado de vuelta a la Raspberry Pi...")
+    cmd_recv = f"rsync -avzP {LAPTOP_USER}@{LAPTOP_IP}:{laptop_pgm_path} {local_pgm_path}"
+    subprocess.run(cmd_recv, shell=True)
+    
+    print(f"\n✅ ¡Mapa '{map_filename}' actualizado y guardado!")
+
+# ==============================================================================
+# Funciones ROS: Lógica de mapeo, guardado y herramientas de mapas
+# ==============================================================================
+
+def list_maps():
+    if not os.path.exists(MAPS_DIR):
+        os.makedirs(MAPS_DIR, exist_ok=True)
+    files = [f for f in os.listdir(MAPS_DIR) if f.endswith('.pgm')]
+    return sorted(files)
+
+def create_new_map_menu():
+    print("\n" + "="*57)
+    print(" 🚀 NODO DE MAPEADO SLAM (CREACIÓN DE MAPAS)")
+    print("="*57)
+    print(" [1] Modo Estándar / Ligero (Recomendado)")
+    print(" [2] Modo Completo (Con RViz en Laptop si está activa)")
+    print(" [0] Volver")
+    print("="*57)
+    opt = input(" Selecciona una opción: ").strip()
+
+    if opt == "1":
+        start_slam(mode="light")
+    elif opt == "2":
+        start_slam(mode="full")
+
+def start_slam(mode="light"):
+    print("\n⚡ Iniciando nodos de ROS para Mapeado SLAM...")
+    # Abrir RViz en laptop si estamos en modo completo
+    if mode == "full":
+        print("🖥️ Intentando abrir RViz en la laptop remota...")
+        cmd_rviz = f'ssh {LAPTOP_USER}@{LAPTOP_IP} "export DISPLAY=:0; rosrun rviz rviz" &'
+        subprocess.Popen(cmd_rviz, shell=True)
+
+    # Lanzar SLAM / Gmapping / Yahboom mapping según tu workspace
+    print("\n🛰️ Mapeo activo. Conduce el robot con el control/teclado para construir el mapa.")
+    print("   Usa la opción [3] Guardar mapa actual para conservarlo.")
+    
+    # Iniciar el launch de mapeado de tu paquete
+    cmd_launch = "roslaunch yshbr_gmapping gmapping.launch" if os.path.exists("/opt/ros") else "echo 'Simulación de SLAM lanzada...'"
+    try:
+        subprocess.run(cmd_launch, shell=True)
+    except KeyboardInterrupt:
+        print("\n⏹️ Mapeado finalizado por el usuario.")
+
+def save_current_map():
+    print("\n" + "="*57)
+    print(" 💾 GUARDAR MAPA DESDE EL NODO ACTIVO")
+    print("="*57)
+    map_name = input(" Ingresa el nombre para el mapa (sin extensión): ").strip()
+    if not map_name:
+        print("❌ Nombre no válido.")
+        return
+
+    os.makedirs(MAPS_DIR, exist_ok=True)
+    full_path = os.path.join(MAPS_DIR, map_name)
+
+    print(f"💾 Guardando mapa en: {full_path}.pgm y {full_path}.yaml ...")
+    cmd_save = f"rosrun map_server map_saver -f {full_path}"
+    res = subprocess.run(cmd_save, shell=True)
+
+    if res.returncode == 0:
+        print(f"✅ ¡Mapa '{map_name}' guardado correctamente en la carpeta de mapas!")
+    else:
+        print("⚠️ Hubo un detalle al guardar. Revisa que el nodo map_server de ROS esté disponible.")
+
+def edit_maps_sub_menu():
+    while True:
+        print("\n" + "="*57)
+        print(" 🎨 SELECCIONA UN MAPA PARA EDITAR EN LA LAPTOP")
+        print("="*57)
+        maps = list_maps()
+        if not maps:
+            print(" No hay mapas disponibles en .pgm dentro de la carpeta mapping/maps.")
+            return
+        
+        for idx, m in enumerate(maps, 1):
+            size_kb = os.path.getsize(os.path.join(MAPS_DIR, m)) / 1024.0
+            print(f" [{idx}] 🗺️ {m} ({size_kb:.1f} KB)")
+        print(" [0] 🔙 Cancelar / Volver")
+        print("="*57)
+        
+        choice = input(f" Selecciona el mapa a editar (0-{len(maps)}): ").strip()
+        if choice == "0":
+            break
+        elif choice.isdigit() and 1 <= int(choice) <= len(maps):
+            selected_map = maps[int(choice) - 1]
+            edit_map_remote(selected_map)
+            input("\nPresiona ENTER para continuar...")
+        else:
+            print("❌ Opción inválida.")
+
+# ==============================================================================
+# Menú Principal de Gestión de Nodos y Mapas (Llamado por main_menu.py)
+# ==============================================================================
+def menu_nodos_mapas():
+    while True:
+        print("\n" + "="*57)
+        print(" 🗺️ GESTIÓN DE NODOS Y MAPAS DE NAVEGACIÓN")
+        print("="*57)
+        print(" [1] 🚀 Crear Nuevo Mapa (Lanzar SLAM / Gmapping)")
+        print(" [2] 💾 Guardar Mapa Actual desde ROS (map_saver)")
+        print(" [3] 🎨 Editar / Limpiar un Mapa Existente (.pgm en Laptop)")
+        print(" [4] 📂 Listar Mapas Guardados")
+        print(" [0] 🔙 Volver al Menú Principal")
+        print("="*57)
+        
+        choice = input(" Selecciona una opción (0-4): ").strip()
+        
+        if choice == "1":
+            create_new_map_menu()
+        elif choice == "2":
+            save_current_map()
+        elif choice == "3":
+            edit_maps_sub_menu()
+        elif choice == "4":
+            print("\n📋 Mapas disponibles en mapping/maps:")
+            maps = list_maps()
+            if not maps:
+                print("   (No hay mapas guardados aún)")
+            else:
+                for idx, m in enumerate(maps, 1):
+                    size_kb = os.path.getsize(os.path.join(MAPS_DIR, m)) / 1024.0
+                    print(f"   [{idx}] {m} ({size_kb:.1f} KB)")
+            input("\nPresiona ENTER para continuar...")
+        elif choice == "0":
+            break
+        else:
+            print("❌ Opción inválida.")
+
+# Alias para mantener compatibilidad
+menu = menu_nodos_mapas
+
+if __name__ == "__main__":
+    menu_nodos_mapas()
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/navegacion.py
+======================================================================
+# -*- coding: utf-8 -*-
+import os
+from utils import detener_mando_seguridad, asegurar_ros_master, mando_conectado, pausar
+
+def menu_navegacion_manual():
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print("            🕹️  NAVEGACIÓN MANUAL DEL ROBOT             ")
+        print("=========================================================")
+        print(" 1. ⌨️  Control por TECLADO (teleop_twist_keyboard)")
+        print(" 2. 🎮 Control por MANDO / JOYSTICK (USB / Bluetooth)")
+        print(" 3. Volver al menú principal")
+        print("=========================================================")
+        
+        try:
+            opcion = raw_input(" Selecciona una opción (1-3): ").strip()
+        except NameError:
+            opcion = input(" Selecciona una opción (1-3): ").strip()
+        
+        if opcion == '1':
+            detener_mando_seguridad()
+            os.system('clear')
+            print("=========================================================")
+            print("           ⌨️  CONTROL DE NAVEGACIÓN POR TECLADO          ")
+            print("=========================================================")
+            
+            if asegurar_ros_master():
+                print("\n INSTRUCCIONES DE USO:")
+                print("   • i : Avanzar  |  , : Retroceder  |  k : Detener")
+                print("   • j : Izquierda|  l : Derecha")
+                print("   • Ctrl + C : Salir del modo manual")
+                
+                try:
+                    raw_input("\n Presiona ENTER para tomar el control...")
+                except NameError:
+                    input("\n Presiona ENTER para tomar el control...")
+                
+                # Carga el entorno y ejecuta el teclado como funcionaba antes
+                cmd_teleop = (
+                    "bash -c 'source /opt/ros/melodic/setup.bash && "
+                    "source ~/yahboomcar_ws/devel/setup.bash 2>/dev/null; "
+                    "rosrun teleop_twist_keyboard teleop_twist_keyboard.py || "
+                    "roslaunch yahboomcar_teleop yahboomcar_teleop_key.launch'"
+                )
+                os.system(cmd_teleop)
+            
+            print("\n Control por teclado finalizado.")
+            pausar()
+
+        elif opcion == '2':
+            os.system('clear')
+            print("=========================================================")
+            print("         🎮 CONTROL DE NAVEGACIÓN POR MANDO             ")
+            print("=========================================================")
+            
+            if not mando_conectado():
+                print("❌ ERROR: No se detecta ningún mando en '/dev/input/js0'.")
+                pausar()
+                continue
+            
+            if asegurar_ros_master():
+                print("\n 🔒 MODO MANDO ACTIVADO:")
+                print("   • Ya puedes controlar el robot.")
+                print("   • Presiona Ctrl + C para BLOQUEAR el mando y salir.")
+                
+                try:
+                    raw_input("\n Presiona ENTER para ACTIVAR el mando...")
+                except NameError:
+                    input("\n Presiona ENTER para ACTIVAR el mando...")
+                
+                print("\n 🎮 Mando en uso... (Logs ocultos para mantener la pantalla limpia)")
+                
+                # Agregamos "> /dev/null 2>&1" al final para silenciar completamente los logs de ROS
+                cmd_joy = (
+                    "bash -c 'source /opt/ros/melodic/setup.bash && "
+                    "source ~/yahboomcar_ws/devel/setup.bash 2>/dev/null; "
+                    "roslaunch yahboomcar_ctrl yahboom_joy.launch > /dev/null 2>&1'"
+                )
+                
+                try:
+                    os.system(cmd_joy)
+                finally:
+                    detener_mando_seguridad()
+                    print("\n🛑 MANDO DESACTIVADO Y BLOQUEADO.")
+            
+            pausar()
+
+        elif opcion == '3':
+            detener_mando_seguridad()
+            break
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/preparar_pc.py
+======================================================================
+# -*- coding: utf-8 -*-
+import os
+import subprocess
+import time
+from utils import ejecutar, pausar
+
+def leer_entrada(mensaje):
+    try:
+        return raw_input(mensaje)
+    except NameError:
+        return input(mensaje)
+
+def obtener_ip_pc():
+    """Obtiene automáticamente la IP de la PC conectada por SSH."""
+    ssh_client = os.environ.get('SSH_CLIENT', '')
+    if ssh_client:
+        return ssh_client.split()[0]
+    salida = ejecutar("who am i | awk '{print $5}' | tr -d '()'").strip()
+    if salida and salida != "":
+        return salida
+    return "192.168.1.76"
+
+def probar_puerto_ssh(ip_pc):
+    """Verifica si el puerto 22 está abierto en la PC."""
+    res = ejecutar("nc -zv -w 2 " + ip_pc + " 22 2>&1")
+    return "succeeded" in res or "open" in res
+
+def verificar_llave_ssh(ip_pc, usuario_pc):
+    """Asegura que el robot pueda enviar comandos a la PC sin pedir contraseña."""
+    print(" 🔑 Verificando conexión SSH automática con la PC (" + usuario_pc + "@" + ip_pc + ")...")
+    
+    cmd_test = "ssh -o BatchMode=yes -o ConnectTimeout=3 " + usuario_pc + "@" + ip_pc + " 'echo OK' 2>/dev/null"
+    res = ejecutar(cmd_test).strip()
+    
+    if res == "OK":
+        print("   ✅ Conexión SSH autorizada y sin contraseñas.")
+        return True
+    else:
+        print("   ⚠️ Configurando llave SSH con tu PC...")
+        print("   👉 Introduce la contraseña de tu PC (" + usuario_pc + ") si te la solicita:")
+        
+        if not os.path.exists(os.path.expanduser("~/.ssh/id_rsa")):
+            os.system("ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa > /dev/null 2>&1")
+        
+        os.system("ssh-copy-id " + usuario_pc + "@" + ip_pc)
+        return True
+
+def diagnosticar_y_preparar_pc():
+    os.system('clear')
+    print("=========================================================")
+    print("       🖥️  DIAGNÓSTICO Y PREPARACIÓN DE PC REMOTA        ")
+    print("=========================================================")
+    
+    ip_pc = obtener_ip_pc()
+    usuario_pc = "toscano"
+    
+    print(" 📍 PC Detectada: " + usuario_pc + "@" + ip_pc)
+    print("---------------------------------------------------------")
+    
+    if not probar_puerto_ssh(ip_pc):
+        print(" ❌ ERROR: Tu PC está rechazando conexiones SSH (Puerto 22 cerrado).")
+        print(" 👉 Por favor ejecuta esto en la terminal de tu PC:\n")
+        print("    sudo apt install -y openssh-server && sudo systemctl enable --now ssh\n")
+        pausar()
+        return
+
+    verificar_llave_ssh(ip_pc, usuario_pc)
+    
+    print("\n 🔍 Auditando programas necesarios en la PC de control...")
+    
+    # 1. Verificar RViz
+    rviz_check = ejecutar("ssh " + usuario_pc + "@" + ip_pc + " 'which rviz' 2>/dev/null").strip()
+    if rviz_check:
+        print("   ✅ RViz detectado en la PC.")
+    else:
+        print("   ⚠️ RViz no detectado. Instalando...")
+        os.system("ssh -t " + usuario_pc + "@" + ip_pc + " 'sudo apt-get update && sudo apt-get install -y ros-melodic-rviz'")
+
+    # 2. Verificar rqt_image_view (Ventana de cámara)
+    rqt_check = ejecutar("ssh " + usuario_pc + "@" + ip_pc + " 'which rqt_image_view' 2>/dev/null").strip()
+    if rqt_check:
+        print("   ✅ Visualizador de cámara (rqt_image_view) detectado.")
+    else:
+        print("   ⚠️ rqt_image_view no detectado. Instalando...")
+        os.system("ssh -t " + usuario_pc + "@" + ip_pc + " 'sudo apt-get install -y ros-melodic-rqt-image-view'")
+
+    # 3. Sincronizar paquetes 3D
+    print("\n 📦 Verificando paquetes 3D y modelos URDF en la PC...")
+    path_pc = "/home/" + usuario_pc + "/yahboomcar_ws/src"
+    
+    ejecutar("ssh " + usuario_pc + "@" + ip_pc + " 'mkdir -p " + path_pc + "'")
+    
+    print("   🔄 Sincronizando modelos 3D hacia la PC...")
+    cmd_sync = (
+        "rsync -avz --quiet "
+        "~/yahboomcar_ws/src/yahboomcar_nav "
+        "~/yahboomcar_ws/src/yahboomcar_description "
+        + usuario_pc + "@" + ip_pc + ":" + path_pc + "/ 2>/dev/null"
+    )
+    os.system(cmd_sync)
+    print("   ✅ Modelos 3D y librerías de Yahboom sincronizados en la PC.")
+    
+    print("\n=========================================================")
+    print(" 🎉 ¡LA PC ESTÁ 100% LISTA PARA ABRIR RVIZ Y CÁMARA!")
+    print("=========================================================")
+    pausar()
+
+if __name__ == "__main__":
+    diagnosticar_y_preparar_pc()
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/safevision.py
+======================================================================
+import os
+import time
+from utils import detener_mando_seguridad, pausar, ejecutar
+
+def menu_safevision():
+    detener_mando_seguridad()
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print("         🛡️  SISTEMA AUTÓNOMO SAFEVISION (SFV)          ")
+        print("=========================================================")
+        print(" 1. 🚀 Lanzar Misión Completa (Asistente Paso a Paso)")
+        print(" 2. 🎯 Configurar Objetos a Detección (Red Neuronal)")
+        print(" 3. 📍 Definir Zonas de Muestreo / Patrullaje")
+        print(" 4. 👁️  Ver Estado de Procesamiento / Stream de Cámara")
+        print(" 5. 🛑 Detener Misión SafeVision Activa")
+        print(" 6. Volver al menú principal")
+        print("=========================================================")
+        
+        try:
+            opcion = raw_input(" Selecciona una opción (1-6): ").strip()
+        except NameError:
+            opcion = input(" Selecciona una opción (1-6): ").strip()
+        
+        if opcion == '1':
+            os.system('clear')
+            print("=========================================================")
+            print("         🚀 ASISTENTE DE MISIÓN SAFEVISION              ")
+            print("=========================================================")
+            
+            print("\n[Paso 1/3] SELECCIÓN DE MAPA")
+            mapas = ejecutar("ls -1 ~/robot_custom/mapping/maps/*.yaml 2>/dev/null | xargs -n1 basename 2>/dev/null")
+            if not mapas:
+                print("  No hay mapas guardados aún.")
+            else:
+                print(mapas)
+            
+            try:
+                mapa = raw_input("\n Escribe el nombre del mapa a usar (o ENTER para usar el predeterminado): ").strip()
+                if not mapa:
+                    mapa = "default_map"
+                    
+                print("\n[Paso 2/3] OBJETOS A IDENTIFICAR (RED NEURONAL)")
+                print(" 1. Personas / Intrusos")
+                print(" 2. Equipo de Protección (Casco/Chaleco)")
+                print(" 3. Todos los objetos soportados (General)")
+                obj_opc = raw_input(" Selecciona el objetivo (1-3): ").strip()
+                
+                print("\n[Paso 3/3] ZONAS DE MUESTREO")
+                print(" 1. Patrullaje completo por waypoints")
+                print(" 2. Inspección en punto fijo")
+                zona_opc = raw_input(" Selecciona el modo de patrullaje (1-2): ").strip()
+                
+                print("\n---------------------------------------------------------")
+                print(" Configuración lista:")
+                print("  • Mapa: " + mapa)
+                print("  • Modo IA: Opción " + obj_opc)
+                print("  • Patrullaje: Opción " + zona_opc)
+                print("---------------------------------------------------------")
+                confirmar = raw_input(" ¿Deseas iniciar la misión ahora? (s/n): ").strip().lower()
+            except NameError:
+                pass
+            
+            if confirmar == 's':
+                print("\n Encendiendo motores, LiDAR, cámara y Red Neuronal...")
+                time.sleep(2)
+                print(" SafeVision activo y patrullando.")
+            else:
+                print("\n Misión cancelada.")
+            pausar()
+            
+        elif opcion in ['2', '3', '4', '5']:
+            print("\n[!] Opción " + opcion + " en preparación.")
+            pausar()
+        elif opcion == '6':
+            break
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/sistema.py
+======================================================================
+# -*- coding: utf-8 -*-
+import os
+from utils import detener_mando_seguridad, pausar
+
+def leer_entrada(mensaje):
+    """Manejo seguro de inputs para Python 2 y 3"""
+    try:
+        return raw_input(mensaje)
+    except NameError:
+        return input(mensaje)
+
+def explorador_archivos():
+    # Empezamos en la carpeta principal del usuario (/home/ubuntu o similar)
+    ruta_actual = os.path.expanduser('~')
+    
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print(" 📁 EXPLORADOR DE ARCHIVOS")
+        print(" 📍 Ruta actual: " + ruta_actual)
+        print("=========================================================")
+        
+        elementos = []
+        try:
+            # Leer el contenido de la carpeta actual
+            elementos = os.listdir(ruta_actual)
+            # Ordenar: primero carpetas, luego archivos, alfabéticamente
+            elementos.sort(key=lambda x: (not os.path.isdir(os.path.join(ruta_actual, x)), x.lower()))
+            
+            if not elementos:
+                print(" (Carpeta vacía)")
+            else:
+                for i, el in enumerate(elementos):
+                    ruta_completa = os.path.join(ruta_actual, el)
+                    icono = "📁" if os.path.isdir(ruta_completa) else "📄"
+                    # Usamos .format para compatibilidad con Python 2
+                    print(" {0:2d}. {1} {2}".format(i+1, icono, el))
+        except OSError: # En Python 2 no existe PermissionError, se usa OSError
+            print(" ❌ No tienes permisos para leer esta carpeta.")
+        except Exception as e:
+            print(" ❌ Error al leer carpeta: " + str(e))
+
+        print("---------------------------------------------------------")
+        print(" C. Cambiar de ruta manualmente (ej. /etc)")
+        print(" A. Subir de nivel (ir a la carpeta anterior)")
+        print(" R. Regresar al menú de Sistema")
+        print("=========================================================")
+        
+        opcion = leer_entrada(" Elige un número para abrir/leer, 'A' para subir, 'R' para salir: ").strip().lower()
+        
+        if opcion == 'r':
+            break
+        elif opcion == 'a':
+            ruta_actual = os.path.dirname(ruta_actual)
+        elif opcion == 'c':
+            nueva_ruta = leer_entrada(" Ingresa la ruta absoluta: ").strip()
+            # Convertir a ruta absoluta y validar
+            ruta_eval = os.path.abspath(os.path.join(ruta_actual, nueva_ruta))
+            if os.path.isdir(ruta_eval):
+                ruta_actual = ruta_eval
+            else:
+                print(" ❌ Ruta inválida o no es una carpeta.")
+                pausar()
+        elif opcion.isdigit():
+            idx = int(opcion) - 1
+            if 0 <= idx < len(elementos):
+                seleccion = os.path.join(ruta_actual, elementos[idx])
+                
+                # Si es carpeta, entramos
+                if os.path.isdir(seleccion):
+                    ruta_actual = seleccion
+                # Si es archivo, lo leemos
+                else:
+                    os.system('clear')
+                    print("--- Leyendo: " + elementos[idx] + " ---\n")
+                    try:
+                        with open(seleccion, 'r') as f:
+                            contenido = f.read(2500) # Límite para no saturar terminal
+                            print(contenido)
+                            if len(contenido) == 2500:
+                                print("\n[... Archivo muy largo, se truncó para previsualización ...]")
+                    except Exception as e:
+                        print(" ❌ No se puede mostrar como texto o es un archivo binario.")
+                        print(" Detalle del error: " + str(e))
+                    pausar()
+
+def menu_archivos():
+    detener_mando_seguridad()
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print("          📁 EXPLORADOR DE SISTEMA Y HARDWARE           ")
+        print("=========================================================")
+        print(" 1. 🔍 Navegador de archivos interactivo")
+        print(" 2. 💾 Ver estado de Disco (Almacenamiento)")
+        print(" 3. 🧠 Ver estado de Memoria RAM")
+        print(" 4. Volver al menú principal")
+        print("=========================================================")
+        
+        opcion = leer_entrada(" Selecciona una opción (1-4): ").strip()
+        
+        if opcion == '1':
+            explorador_archivos()
+        elif opcion == '2':
+            os.system('clear')
+            print("--- Uso de Almacenamiento (Disco) ---\n")
+            os.system("df -h / | grep -v 'Filesystem'")
+            pausar()
+        elif opcion == '3':
+            os.system('clear')
+            print("--- Uso de Memoria RAM ---\n")
+            os.system("free -h")
+            pausar()
+        elif opcion == '4':
+            break
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/utils.py
+======================================================================
+import os
+import subprocess
+import time
+
+def ejecutar(comando):
+    """Ejecuta un comando en bash y devuelve el texto limpio."""
+    try:
+        salida = subprocess.check_output(comando, shell=True, stderr=subprocess.STDOUT)
+        return salida.decode('utf-8', errors='ignore').strip()
+    except subprocess.CalledProcessError as e:
+        return e.output.decode('utf-8', errors='ignore').strip()
+    except Exception as e:
+        return str(e)
+
+def pausar():
+    try:
+        raw_input("\nPresiona ENTER para continuar...")
+    except NameError:
+        input("\nPresiona ENTER para continuar...")
+
+def ros_master_activo():
+    """Comprueba si roscore / ros master está respondiendo."""
+    res = ejecutar("bash -c 'source /opt/ros/melodic/setup.bash && rostopic list 2>/dev/null'")
+    return "/rosout" in res
+
+def mando_conectado():
+    """Comprueba si existe algún joystick en /dev/input/js*"""
+    return os.path.exists("/dev/input/js0")
+
+def detener_mando_seguridad():
+    """Mata cualquier nodo de joystick/mando activo para evitar movimientos accidentales."""
+    ejecutar("pkill -f joy_node 2>/dev/null; pkill -f yahboomcar_joy 2>/dev/null; pkill -f teleop_twist_joy 2>/dev/null")
+
+def asegurar_ros_master():
+    """Verifica el master y ofrece encenderlo si está apagado."""
+    if not ros_master_activo():
+        print("\n⚠️  ATENCIÓN: ROS Master / Driver Base NO está iniciado.")
+        print("   Para mover los motores, se necesita iniciar el nodo base de Yahboom.")
+        
+        try:
+            iniciar = raw_input("\n ¿Deseas iniciar la base del robot ahora en segundo plano? (s/n): ").strip().lower()
+        except NameError:
+            iniciar = input("\n ¿Deseas iniciar la base del robot ahora en segundo plano? (s/n): ").strip().lower()
+        
+        if iniciar == 's':
+            print("\n🚀 Iniciando roscore y driver de Yahboom en segundo plano...")
+            os.system("bash -c 'source /opt/ros/melodic/setup.bash && source ~/yahboomcar_ws/devel/setup.bash 2>/dev/null; nohup roslaunch yahboomcar_bringup bringup.launch > /dev/null 2>&1 &' &")
+            print(" Esperando 5 segundos a que la base responda...")
+            time.sleep(5)
+            detener_mando_seguridad()
+            return True
+        else:
+            print("\n No se inició la base. Es posible que el robot no responda.")
+            return False
+    return True
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/api/wifi.py
+======================================================================
+# -*- coding: utf-8 -*-
+import os
+import time
+from utils import detener_mando_seguridad, ejecutar, pausar
+
+def leer_entrada(mensaje):
+    """Manejo seguro de inputs para Python 2 y 3"""
+    try:
+        return raw_input(mensaje)
+    except NameError:
+        return input(mensaje)
+
+def menu_wifi():
+    detener_mando_seguridad()
+    script_sh = "~/robot_custom/network/wifi_manager.sh"
+    
+    while True:
+        os.system('clear')
+        print("=========================================================")
+        print("                 📶 GESTOR DE RED WI-FI                  ")
+        print("=========================================================")
+        
+        # Leer estado desde tu script .sh
+        estado_raw = ejecutar(script_sh + " status")
+        estado = {}
+        for linea in estado_raw.split('\n'):
+            if "=" in linea:
+                partes = linea.split("=", 1)
+                estado[partes[0]] = partes[1]
+        
+        print(" Red Actual       : " + estado.get('SSID', 'Ninguna'))
+        print(" IP Inalámbrica   : " + estado.get('WLAN_IP', 'Desconectado'))
+        print(" IP Cable (ETH)   : " + estado.get('ETH_IP', 'Desconectado'))
+        print("---------------------------------------------------------")
+        print(" 1. Conectar a una red GUARDADA")
+        print(" 2. Escanear y conectar a una NUEVA red")
+        print(" 3. Borrar (olvidar) una red guardada")
+        print(" 4. Reiniciar el adaptador de red (Botón de pánico)")
+        print(" 5. Volver al menú principal")
+        print("=========================================================")
+        
+        opcion = leer_entrada(" Selecciona una opción (1-5): ").strip()
+
+        if opcion == '1':
+            print("\nBuscando perfiles guardados...")
+            redes_raw = ejecutar(script_sh + " saved")
+            redes = [r for r in redes_raw.split('\n') if r.strip()]
+            
+            if not redes:
+                print("No hay redes guardadas en el sistema.")
+                pausar()
+                continue
+            
+            print("\n--- Redes Guardadas ---")
+            for i, red in enumerate(redes):
+                print(" " + str(i + 1) + ". " + red)
+            
+            sel = leer_entrada("\n Elige el número de la red (o ENTER para cancelar): ").strip()
+            if sel.isdigit() and 1 <= int(sel) <= len(redes):
+                red_elegida = redes[int(sel) - 1]
+                print("\n🔌 Conectando a '" + red_elegida + "'...")
+                res = ejecutar(script_sh + ' connect_saved "' + red_elegida + '"')
+                if "SUCCESS" in res:
+                    print("✅ ¡Conectado con éxito!")
+                else:
+                    print("❌ Error al conectar. Intenta reiniciar el adaptador (Opción 4).")
+            pausar()
+
+        elif opcion == '2':
+            print("\n🔍 Escaneando redes cercanas (esperando al adaptador)...")
+            # Damos un tiempo de espera para que el adaptador capture el espectro completo
+            time.sleep(3)
+            redes_raw = ejecutar(script_sh + " scan")
+            redes = [r for r in redes_raw.split('\n') if r.strip()]
+            
+            if not redes:
+                print("No se encontraron redes Wi-Fi cercanas.")
+                pausar()
+                continue
+            
+            print("\n--- Redes Visibles ---")
+            for i, red in enumerate(redes):
+                print(" " + str(i + 1) + ". " + red)
+            
+            sel = leer_entrada("\n Elige el número de la red (o ENTER para cancelar): ").strip()
+            if sel.isdigit() and 1 <= int(sel) <= len(redes):
+                red_elegida = redes[int(sel) - 1]
+                password = leer_entrada(" Contraseña para '" + red_elegida + "': ").strip()
+                print("\n🔌 Guardando y conectando a '" + red_elegida + "'...")
+                res = ejecutar(script_sh + ' connect_new "' + red_elegida + '" "' + password + '"')
+                if "SUCCESS" in res:
+                    print("✅ ¡Conectado y guardado con éxito!")
+                else:
+                    print("❌ Error: Contraseña incorrecta o red fuera de alcance.")
+            pausar()
+
+        elif opcion == '3':
+            print("\nBuscando perfiles guardados...")
+            redes_raw = ejecutar(script_sh + " saved")
+            redes = [r for r in redes_raw.split('\n') if r.strip()]
+            
+            if not redes:
+                print("No hay redes para borrar.")
+                pausar()
+                continue
+            
+            print("\n--- Selecciona la red a BORRAR ---")
+            for i, red in enumerate(redes):
+                print(" " + str(i + 1) + ". " + red)
+            
+            sel = leer_entrada("\n Elige el número de la red (o ENTER para cancelar): ").strip()
+            if sel.isdigit() and 1 <= int(sel) <= len(redes):
+                red_elegida = redes[int(sel) - 1]
+                ejecutar(script_sh + ' forget "' + red_elegida + '"')
+                print("✅ La red '" + red_elegida + "' ha sido borrada del robot.")
+            pausar()
+
+        elif opcion == '4':
+            print("\n🔄 Reiniciando adaptador Wi-Fi... (espera 5 segundos)")
+            ejecutar(script_sh + " restart")
+            print("✅ Adaptador reiniciado.")
+            pausar()
+
+        elif opcion == '5':
+            break
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/auto_mapeo.sh
+======================================================================
+#!/bin/bash
+
+# 1. EL BLINDAJE: Esta función se ejecutará siempre al final, pase lo que pase.
+cleanup() {
+    echo -e "\n======================================================"
+    echo " [4/4] APAGANDO SISTEMA Y TRANSFIRIENDO ARCHIVO..."
+    echo "======================================================"
+    
+    # Apagar sensores suavemente
+    kill -INT $PID_BAG 2>/dev/null
+    sleep 3
+    kill -INT $PID_CAM 2>/dev/null
+    kill -INT $PID_BASE 2>/dev/null
+    sleep 2
+
+    echo "Enviando datos_3d.bag a tu Laptop (toscano)..."
+    echo "--> Por favor, ingresa tu contraseña si te la pide:"
+    scp /home/pi/datos_3d.bag toscano@192.168.1.76:/home/toscano/
+
+    echo "======================================================"
+    echo " ¡PROCESO COMPLETADO! Ya puedes usar 'ver_mapa' en tu PC."
+    echo "======================================================"
+    exit 0
+}
+
+# 2. Le decimos a Linux que atrape el Ctrl+C y ejecute el blindaje
+trap cleanup EXIT SIGINT
+
+echo "=========================================="
+echo " INICIANDO SISTEMA DE MAPEO OFFLINE"
+echo "=========================================="
+
+export ROS_MASTER_URI=http://192.168.1.75:11311
+export ROS_IP=192.168.1.75
+
+echo "[1/4] Encendiendo base y Lidar..."
+roslaunch yahboomcar_bringup bringup.launch &
+PID_BASE=$!
+sleep 5
+
+echo "[2/4] Encendiendo cámara Astra..."
+roslaunch astra_camera astra.launch color_width:=320 color_height:=240 depth_width:=320 depth_height:=240 color_fps:=15 depth_fps:=15 &
+PID_CAM=$!
+sleep 5
+
+echo "[3/4] Grabando datos (RAM extra activada para la SD)..."
+rosbag record -b 512 -O /home/pi/datos_3d.bag /odom /tf /tf_static /camera/depth_registered/image_raw /camera/color/image_raw /camera/rgb/image_raw /camera/color/camera_info /camera/rgb/camera_info /scan &
+PID_BAG=$!
+sleep 3
+
+echo "======================================================"
+echo " [CONTROL ACTIVADO] Usa las teclas (i, j, k, l) para moverte."
+echo " PRESIONA [Ctrl + C] CUANDO TERMINES DE MAPEAR."
+echo "======================================================"
+
+rosrun teleop_twist_keyboard teleop_twist_keyboard.py
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/emisor_sensores.sh
+======================================================================
+#!/bin/bash
+# =========================================================
+# 🤖 EMISOR LIGERO DE SENSORES EN RASPBERRY PI
+# =========================================================
+
+PI_IP=$(hostname -I | awk '{print $1}')
+[ -z "$PI_IP" ] && PI_IP="192.168.1.75"
+
+export ROS_MASTER_URI=http://${PI_IP}:11311
+export ROS_IP=${PI_IP}
+
+source /opt/ros/melodic/setup.bash
+source /home/pi/yahboomcar_ws/devel/setup.bash
+
+echo "🧹 Limpiando procesos antiguos..."
+killall -9 roslaunch rviz roscore 2>/dev/null || true
+sleep 2
+
+rosparam set use_sim_time false
+echo "📐 Cargando modelo URDF..."
+rosparam set robot_description -t /home/pi/yahboomcar_ws/src/yahboomcar_description/urdf/yahboomcar_X3.urdf 2>/dev/null || true
+
+echo "⚡ [1/2] Lanzando Chasis y LiDAR..."
+roslaunch yahboomcar_nav laser_bringup.launch > /dev/null 2>&1 &
+sleep 5
+
+echo "📷 [2/2] Encendiendo Cámara Astra 3D..."
+roslaunch astra_camera astrapro.launch > /dev/null 2>&1 &
+sleep 4
+
+echo "========================================================="
+echo " ✅ SENSORES LISTOS Y TRANSMITIENDO DESDE $PI_IP"
+echo " 💻 Ahora ejecuta en tu Laptop Victus: ./rtabmap_pc.sh"
+echo "========================================================="
+echo ""
+
+echo "🎮 Selecciona control de movimiento:"
+echo " 1) Control con Teclado"
+echo " 2) Control con Mando / Joystick"
+read -p "Opción [1 o 2]: " TELEOP_OPT </dev/tty
+
+if [ "$TELEOP_OPT" == "2" ]; then
+    roslaunch yahboomcar_ctrl yahboom_joy.launch
+else
+    roslaunch yahboomcar_ctrl yahboom_keyboard.launch
+fi
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/escanear_proyecto.sh
+======================================================================
+#!/bin/bash
+
+CARPETA_BASE="/home/pi/robot_custom"
+ARCHIVO_SALIDA="$CARPETA_BASE/codigo_completo.txt"
+
+echo "=== REPORTE DE CÓDIGO: ROBOT CUSTOM ===" > "$ARCHIVO_SALIDA"
+echo "Fecha de escaneo: $(date)" >> "$ARCHIVO_SALIDA"
+echo "" >> "$ARCHIVO_SALIDA"
+
+# Buscar archivos .py y .sh, ignorando pycache y compilados
+find "$CARPETA_BASE" -type f \( -name "*.py" -o -name "*.sh" \) | grep -v "__pycache__" | sort | while read -r archivo; do
+    echo -e "\n\n======================================================================" >> "$ARCHIVO_SALIDA"
+    echo "📁 ARCHIVO: $archivo" >> "$ARCHIVO_SALIDA"
+    echo "======================================================================" >> "$ARCHIVO_SALIDA"
+    cat "$archivo" >> "$ARCHIVO_SALIDA"
+done
+
+echo "✅ Escaneo completado. Archivo generado en: $ARCHIVO_SALIDA"
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/iniciar_mapeo.sh
+======================================================================
+#!/bin/bash
+
+# =========================================================
+# 🤖 LAUNCHER AUTOMÁTICO DE MAPEO (ROBOT + RVIZ REMOTO)
+# =========================================================
+
+# 1. AUTODETECCIÓN DE IPs
+PI_IP=$(hostname -I | awk '{print $1}')
+[ -z "$PI_IP" ] && PI_IP="192.168.1.75"
+
+# Detectar la IP de la laptop desde la sesión SSH
+PC_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+[ -z "$PC_IP" ] && PC_IP="192.168.1.76"
+
+echo "========================================================="
+echo " 🤖 IP Raspberry Pi : $PI_IP"
+echo " 💻 IP Laptop (PC)  : $PC_IP"
+echo "========================================================="
+
+# 2. ENTORNO ROS LOCAL
+export ROS_MASTER_URI=http://${PI_IP}:11311
+export ROS_IP=${PI_IP}
+
+source /opt/ros/melodic/setup.bash
+source /home/pi/yahboomcar_ws/devel/setup.bash
+
+# 3. CARGAR MODELO URDF EN ROS MASTER
+echo "📐 Cargando modelo URDF 3D en ROS Master..."
+rosparam set robot_description -t /home/pi/yahboomcar_ws/src/yahboomcar_description/urdf/yahboomcar_X3.urdf 2>/dev/null || true
+
+# 4. LANZAR CHASIS Y LIDAR
+echo "⚡ [1/3] Lanzando Chasis y LiDAR..."
+roslaunch yahboomcar_nav laser_bringup.launch > /dev/null 2>&1 &
+sleep 5
+
+# 5. LANZAR MAPEO SLAM (GMAPPING)
+echo "🧠 [2/3] Lanzando Algoritmo de Mapeo..."
+roslaunch yahboomcar_nav yahboomcar_map.launch > /dev/null 2>&1 &
+sleep 3
+
+# 6. LANZAR RVIZ EN LA PC REMOTA (Ingresa tu clave de la Laptop si te la solicita)
+echo "💻 [3/3] Abriendo RViz en tu laptop Victus (te pedirá tu contraseña de PC)..."
+ssh -t toscano@${PC_IP} "export DISPLAY=:0; export ROS_MASTER_URI=http://${PI_IP}:11311; export ROS_IP=${PC_IP}; source ~/yahboomcar_ws/devel/setup.bash; rviz -d ~/yahboomcar_ws/src/yahboomcar_description/rviz/mapeo_yahboom.rviz" &
+
+sleep 2
+
+# 7. SELECCIÓN DE CONTROL (MANDO VS TECLADO)
+echo ""
+echo "---------------------------------------------------------"
+echo "🎮 SELECCIONA EL MÓDULO DE CONTROL:"
+echo " 1) Control con Mando / Joystick (yahboom_joy.launch)"
+echo " 2) Control con Teclado (yahboom_keyboard.launch)"
+echo "---------------------------------------------------------"
+
+read -p "Elige una opción [1 o 2]: " TELEOP_OPT </dev/tty
+
+if [ "$TELEOP_OPT" == "2" ]; then
+    echo "⌨️ Iniciando Control por Teclado..."
+    roslaunch yahboomcar_ctrl yahboom_keyboard.launch
+else
+    echo "🎮 Iniciando Control por Mando / Joystick..."
+    roslaunch yahboomcar_ctrl yahboom_joy.launch
+fi
+
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/mapeo_denso.sh
+======================================================================
+#!/bin/bash
+
+# =========================================================
+# 🔴 MAPEO DENSO 3D (RTAB-MAP DIRECT DEPTH FIX)
+# =========================================================
+
+PI_IP=$(hostname -I | awk '{print $1}')
+[ -z "$PI_IP" ] && PI_IP="192.168.1.75"
+
+PC_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+[ -z "$PC_IP" ] && PC_IP="192.168.1.76"
+
+echo "========================================================="
+echo " 🛰️ MODO: MAPEO DENSO 3D (TIMESTAMP & NO-SYNC FIX)"
+echo " 🤖 IP Raspberry Pi : $PI_IP"
+echo " 💻 IP Laptop (PC)  : $PC_IP"
+echo "========================================================="
+
+# 1. LIMPIEZA DE PROCESOS PREVIOS
+killall -9 roslaunch rviz roscore 2>/dev/null || true
+sleep 2
+
+# 2. ENTORNO ROS LOCAL
+export ROS_MASTER_URI=http://${PI_IP}:11311
+export ROS_IP=${PI_IP}
+
+source /opt/ros/melodic/setup.bash
+source /home/pi/yahboomcar_ws/devel/setup.bash
+
+rosparam set use_sim_time false
+
+# 3. CARGAR MODELO URDF EN ROS MASTER
+echo "📐 Cargando modelo URDF en ROS Master..."
+rosparam set robot_description -t /home/pi/yahboomcar_ws/src/yahboomcar_description/urdf/yahboomcar_X3.urdf 2>/dev/null || true
+
+# 4. LANZAR CHASIS Y LIDAR
+echo "⚡ [1/3] Lanzando Chasis y LiDAR..."
+roslaunch yahboomcar_nav laser_bringup.launch > /dev/null 2>&1 &
+sleep 5
+
+# 5. LANZAR CÁMARA ASTRA
+echo "📷 [2/3] Encendiendo Cámara Astra 3D..."
+roslaunch astra_camera astrapro.launch > /dev/null 2>&1 &
+sleep 5
+
+# 6. LANZAR RTAB-MAP DIRECTO (BYPASS RGBD_SYNC)
+echo "🧠 [3/3] Lanzando RTAB-Map SLAM..."
+roslaunch rtabmap_ros rtabmap.launch \
+    rtabmap_args:="--delete_db_on_start" \
+    subscribe_rgbd:=false \
+    subscribe_depth:=true \
+    depth_topic:=/camera/depth_registered/image_raw \
+    rgb_topic:=/camera/rgb/image_raw \
+    camera_info_topic:=/camera/rgb/camera_info \
+    frame_id:=base_footprint \
+    approx_sync:=true \
+    approx_sync_max_interval:=0.1 \
+    queue_size:=100 \
+    rviz:=false \
+    rtabmapviz:=false \
+    > /dev/null 2>&1 &
+
+sleep 5
+
+# 7. ABRIR RVIZ EN LA PC REMOTA
+echo "💻 Abriendo RViz en Laptop PC..."
+ssh -t toscano@${PC_IP} "export DISPLAY=:0; export ROS_MASTER_URI=http://${PI_IP}:11311; export ROS_IP=${PC_IP}; source ~/yahboomcar_ws/devel/setup.bash; rviz -d ~/yahboomcar_ws/src/yahboomcar_description/rviz/mapeo_yahboom.rviz" &
+
+sleep 2
+
+# 8. SELECCIÓN DE CONTROL
+echo ""
+echo "---------------------------------------------------------"
+echo "🎮 SELECCIONA EL MÓDULO DE CONTROL:"
+echo " 1) Control con Mando / Joystick (yahboom_joy.launch)"
+echo " 2) Control con Teclado (yahboom_keyboard.launch)"
+echo "---------------------------------------------------------"
+
+read -p "Elige una opción [1 o 2]: " TELEOP_OPT </dev/tty
+
+if [ "$TELEOP_OPT" == "2" ]; then
+    echo "⌨️ Iniciando Control por Teclado..."
+    roslaunch yahboomcar_ctrl yahboom_keyboard.launch
+else
+    echo "🎮 Iniciando Control por Mando / Joystick..."
+    roslaunch yahboomcar_ctrl yahboom_joy.launch
+fi
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/mapeo_ligero.sh
+======================================================================
+#!/bin/bash
+
+# =========================================================
+# 🟢 MAPEO LIGERO 2D (Chasis + LiDAR + Gmapping 2D)
+# =========================================================
+
+PI_IP=$(hostname -I | awk '{print $1}')
+[ -z "$PI_IP" ] && PI_IP="192.168.1.75"
+
+PC_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+[ -z "$PC_IP" ] && PC_IP="192.168.1.76"
+
+echo "========================================================="
+echo " ⚡ MODO: MAPEO LIGERO 2D"
+echo " 🤖 IP Raspberry Pi : $PI_IP"
+echo " 💻 IP Laptop (PC)  : $PC_IP"
+echo "========================================================="
+
+export ROS_MASTER_URI=http://${PI_IP}:11311
+export ROS_IP=${PI_IP}
+
+source /opt/ros/melodic/setup.bash
+source /home/pi/yahboomcar_ws/devel/setup.bash
+
+# Cargar modelo 3D URDF
+echo "📐 Cargando modelo URDF en ROS Master..."
+rosparam set robot_description -t /home/pi/yahboomcar_ws/src/yahboomcar_description/urdf/yahboomcar_X3.urdf 2>/dev/null || true
+
+# 1. Chasis y LiDAR
+echo "⚡ [1/3] Lanzando Chasis y LiDAR..."
+roslaunch yahboomcar_nav laser_bringup.launch > /dev/null 2>&1 &
+sleep 5
+
+# 2. SLAM 2D (Gmapping)
+echo "🧠 [2/3] Lanzando Algoritmo SLAM 2D (Gmapping)..."
+roslaunch yahboomcar_nav yahboomcar_map.launch > /dev/null 2>&1 &
+sleep 3
+
+# 3. RViz en Laptop Victus
+echo "💻 [3/3] Abriendo RViz en Laptop PC..."
+ssh -f toscano@${PC_IP} "export DISPLAY=:0; export ROS_MASTER_URI=http://${PI_IP}:11311; export ROS_IP=${PC_IP}; source ~/yahboomcar_ws/devel/setup.bash; rviz -d ~/yahboomcar_ws/src/yahboomcar_description/rviz/mapeo_yahboom.rviz" > /dev/null 2>&1 &
+
+sleep 2
+
+# 4. Seleccionar Mando o Teclado
+echo ""
+echo "---------------------------------------------------------"
+echo "🎮 SELECCIONA EL MÓDULO DE CONTROL:"
+echo " 1) Control con Mando / Joystick (yahboom_joy.launch)"
+echo " 2) Control con Teclado (yahboom_keyboard.launch)"
+echo "---------------------------------------------------------"
+
+read -p "Elige una opción [1 o 2]: " TELEOP_OPT </dev/tty
+
+if [ "$TELEOP_OPT" == "2" ]; then
+    echo "⌨️ Iniciando Control por Teclado..."
+    roslaunch yahboomcar_ctrl yahboom_keyboard.launch &
+else
+    echo "🎮 Iniciando Control por Mando / Joystick..."
+    roslaunch yahboomcar_ctrl yahboom_joy.launch > /dev/null 2>&1 &
+fi
+
+echo "✅ Mapeo y controles iniciados correctamente en segundo plano."
+sleep 2
+
+
+======================================================================
+📁 ARCHIVO: /home/pi/robot_custom/network/wifi_manager.sh
+======================================================================
+#!/bin/bash
+COMMAND="$1"
+SSID="$2"
+PASS="$3"
+
+case "$COMMAND" in
+    scan)
+        # Truco del doble escaneo (para despertar la antena y ver a los vecinos)
+        sudo nmcli dev wifi rescan > /dev/null 2>&1
+        sleep 3
+        sudo nmcli dev wifi rescan > /dev/null 2>&1
+        sleep 2
+        sudo nmcli -t -f SSID dev wifi list | grep -v '^$' | sort -u
+        ;;
+        
+    saved)
+        sudo nmcli -t -f NAME,TYPE connection show | grep "802-11-wireless" | cut -d: -f1 | sort -u
+        ;;
+
+    connect_new)
+        sudo nmcli connection delete "$SSID" > /dev/null 2>&1
+        OUTPUT=$(sudo nmcli dev wifi connect "$SSID" password "$PASS" 2>&1)
+        if echo "$OUTPUT" | grep -q "successfully activated"; then
+            echo "SUCCESS"
+        else
+            sudo nmcli connection delete "$SSID" > /dev/null 2>&1
+            echo "ERROR"
+        fi
+        ;;
+
+    connect_saved)
+        OUTPUT=$(sudo nmcli connection up "$SSID" 2>&1)
+        if echo "$OUTPUT" | grep -q "successfully activated"; then
+            echo "SUCCESS"
+        else
+            echo "ERROR"
+        fi
+        ;;
+
+    forget)
+        sudo nmcli connection delete "$SSID" > /dev/null 2>&1
+        echo "SUCCESS"
+        ;;
+
+    restart)
+        sudo systemctl restart NetworkManager
+        sleep 3
+        echo "SUCCESS"
+        ;;
+
+    status)
+        WLAN_IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+        ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+        CURR_SSID=$(iwgetid -r 2>/dev/null)
+        
+        echo "WLAN_IP=${WLAN_IP:-Desconectado}"
+        echo "ETH_IP=${ETH_IP:-Desconectado}"
+        echo "SSID=${CURR_SSID:-Ninguna}"
+        ;;
+esac

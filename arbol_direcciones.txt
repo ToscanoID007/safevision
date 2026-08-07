@@ -1,0 +1,92 @@
+ESTRUCTURA DE DIRECCIONES: /home/pi/robot_custom
+==================================================
+├── api
+│   ├── dashboard_pc_src
+│   │   ├── sf_app_dashboard.py
+│   │   ├── sf_conexion_ssh.py
+│   │   ├── sf_motor_inferencia.py
+│   │   ├── static
+│   │   │   ├── app.js
+│   │   │   └── style.css
+│   │   └── templates
+│   │       └── index.html
+│   ├── editar_metadatos.py
+│   ├── editar_nombre.py
+│   ├── eliminar_modelo.py
+│   ├── exportar_codigo.sh
+│   ├── exportar_modelo.py
+│   ├── gestionar_mapas.py
+│   ├── gestor_nodos.py
+│   ├── importar_modelo.py
+│   ├── lanzador_streaming.py
+│   ├── main_menu.py
+│   ├── mapas.py
+│   ├── mapas_2d_editar.py
+│   ├── mapas_2d_guardar.py
+│   ├── mapas_2d_iniciar.py
+│   ├── mapas_2d_ver.py
+│   ├── menu_operacion.py
+│   ├── menu_red_ccn.py
+│   ├── navegacion.py
+│   ├── navegacion_2d.py
+│   ├── nodo_yolo_pi.py
+│   ├── orquestador_ccn_pc.py
+│   ├── orquestador_ccn_pi.py
+│   ├── payload
+│   │   └── SafeVision_Dashboard.zip
+│   ├── probar_red.py
+│   ├── redes.py
+│   ├── robot_map_editor.py
+│   ├── safevision.py
+│   ├── servidor_web_pi.py
+│   ├── sf_empaquetador.py
+│   ├── sf_mision_pilotada.py
+│   ├── sf_modo_espera.py
+│   ├── sf_servidor_descarga.py
+│   ├── sf_teleop_mando.py
+│   ├── sf_teleop_teclado.py
+│   ├── sistema.py
+│   ├── transmisor_camara_pi.py
+│   ├── utils.py
+│   ├── ver_modelos.py
+│   ├── ver_parametros.py
+│   ├── visor_mapa.py
+│   └── wifi.py
+├── arbol_direcciones.txt
+├── auto_mapeo.sh
+├── backups
+│   ├── 02-wifi.yaml.bak
+│   └── start_hybrid_mapping.sh.old
+├── codigo_completo.txt
+├── emisor_sensores.sh
+├── escanear_proyecto.sh
+├── generar_arbol.py
+├── iniciar_mapeo.sh
+├── mapeo_denso.sh
+├── mapeo_ligero.sh
+├── mapping
+│   └── maps
+│       ├── HAB2.pgm
+│       ├── HAB2.yaml
+│       ├── Hab2Tos.pgm
+│       ├── Hab2Tos.yaml
+│       ├── Habitacion_toscano.pgm
+│       ├── Habitacion_toscano.yaml
+│       ├── habitacion_toscano.pgm
+│       ├── habitacion_toscano.yaml
+│       ├── habitacion_toscano2.pgm
+│       ├── habitacion_toscano2.yaml
+│       ├── nombre_de_tu_mapa.pgm
+│       └── nombre_de_tu_mapa.yaml
+├── modelos
+│   ├── yolov8n.json
+│   ├── yolov8n.pt
+│   └── yolov8n.torchscript
+├── navigation
+├── network
+│   ├── wifi_manager.sh
+│   └── wifi_manager.sh.save
+├── payload
+│   └── SafeVision_Dashboard_Prueba.txt
+├── probar_red.py
+└── system

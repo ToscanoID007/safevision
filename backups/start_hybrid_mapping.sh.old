@@ -1,0 +1,60 @@
+#!/bin/bash
+# =====================================================================
+# SCRIPT DE ARRANQUE AUTOMÁTICO PARA MAPEO HÍBRIDO - ROSMASTER X3
+# =====================================================================
+
+LOG_DIR="/home/pi/.ros/log/hybrid_startup"
+mkdir -p "$LOG_DIR"
+
+echo "========================================="
+echo "🤖 Iniciando Sistema Híbrido Yahboom X3..."
+echo "========================================="
+
+# 1. Limpieza preventiva de procesos previos
+echo "🧹 Limpiando procesos antiguos de ROS..."
+killall -9 rosmaster roslaunch python python3 ORB_SLAM2 > /dev/null 2>&1
+sleep 2
+
+# 2. Configurar Variables de Entorno del Robot
+export ROS_MASTER_URI=[http://192.168.1.69:11311](http://192.168.1.69:11311)
+export ROS_IP=192.168.1.69
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/home/pi/software/ORB_SLAM2/Examples/ROS
+
+# Cargar Workspaces
+source /home/pi/software/library_ws/devel/setup.bash
+source /home/pi/yahboomcar_ws/devel/setup.bash
+
+# 3. Lanzar Chasis, Odometría y ORB_SLAM2 (Fondo)
+echo "📸 Iniciando Cámara, Motores y ORB_SLAM2..."
+nohup roslaunch yahboomcar_slam robot_orb_slam.launch > "$LOG_DIR/slam.log" 2>&1 &
+SLAM_PID=$!
+
+# Esperar a que el Master y la Cámara se sincronicen (15 segundos)
+echo "⏳ Esperando estabilización de hardware (15 segundos)..."
+sleep 15
+
+# 4. Lanzar Puente de Calibración (Fondo)
+echo "🔌 Conectando puente de calibración (/camera_info)..."
+nohup rosrun topic_tools relay /camera/rgb/camera_info /ORB_SLAM2/RGB/camera_info > "$LOG_DIR/relay.log" 2>&1 &
+RELAY_PID=$!
+sleep 2
+
+# 5. Lanzar LiDAR A1 de forma aislada (Fondo)
+echo "📡 Encendiendo sensor LiDAR A1..."
+nohup roslaunch rplidar_ros rplidar.launch > "$LOG_DIR/lidar.log" 2>&1 &
+LIDAR_PID=$!
+
+echo "========================================="
+echo "✅ ¡Arranque Completado con Éxito!"
+echo "PIDs Activos:"
+echo "  - SLAM/Chasis: $SLAM_PID"
+echo "  - Puente:      $RELAY_PID"
+echo "  - LiDAR A1:    $LIDAR_PID"
+echo "========================================="
+echo "Puedes monitorear el SLAM con: tail -f $LOG_DIR/slam.log"
+echo "Para apagar todo ejecuta: killall -9 rosmaster roslaunch ORB_SLAM2"
+echo "========================================="
+
+# Mantener el script vivo para monitorear procesos
+wait
+
