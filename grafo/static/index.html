@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Grafo del Proyecto</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+    <script
+        src="https://unpkg.com/cytoscape/dist/cytoscape.min.js">
+    </script>
+
+</head>
+
+<body>
+
+    <!-- ==================================================
+         BARRA SUPERIOR
+         ================================================== -->
+
+    <div id="topbar">
+
+        <input
+            id="search"
+            type="text"
+            placeholder="Buscar archivo..."
+            autocomplete="off"
+        >
+
+        <div id="graph-stats">
+            Cargando proyecto...
+        </div>
+
+        <div id="top-actions">
+
+            <a
+                id="export-summary"
+                class="top-button"
+                href="/summary.txt"
+            >
+                📄 Resumen TXT
+            </a>
+
+            <button
+                id="print-view"
+                class="top-button"
+                type="button"
+            >
+                🖨 Imprimir
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         ÁREA PRINCIPAL
+         ================================================== -->
+
+    <div id="main">
+
+
+        <!-- ==============================================
+             ÁREA DEL GRAFO
+             ============================================== -->
+
+        <div id="graph-wrapper">
+
+            <div id="graph"></div>
+
+
+            <!-- CONTROLES DE VISTA -->
+
+            <div id="graph-controls">
+
+                <button
+                    id="zoom-in"
+                    title="Acercar"
+                >
+                    +
+                </button>
+
+                <button
+                    id="zoom-out"
+                    title="Alejar"
+                >
+                    −
+                </button>
+
+                <button
+                    id="fit-graph"
+                    class="wide-control"
+                    title="Mostrar todo el grafo"
+                >
+                    Ajustar
+                </button>
+
+                <button
+                    id="relayout-graph"
+                    class="wide-control"
+                    title="Volver a organizar automáticamente"
+                >
+                    Reordenar
+                </button>
+
+            </div>
+
+
+            <!-- AYUDA TOUCHPAD -->
+
+            <div id="graph-hint">
+
+                Dos dedos: mover · Pellizco/Ctrl+rueda: zoom
+
+            </div>
+
+        </div>
+
+
+        <!-- ==============================================
+             SEPARADOR ARRASTRABLE
+             ============================================== -->
+
+        <div
+            id="sidebar-resizer"
+            title="Arrastra para cambiar el ancho del panel"
+        ></div>
+
+
+        <!-- ==============================================
+             PANEL LATERAL
+             ============================================== -->
+
+        <div id="sidebar">
+
+            <h2>Información</h2>
+
+            <div id="info">
+                Seleccione un nodo.
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         JAVASCRIPT
+         ================================================== -->
+
+    <script src="/static/app.js"></script>
+
+</body>
+
+</html>
