@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+logs/*.log
+payload/SafeVision_Dashboard_dev.tar.gz
+
+# Paquetes generados del Dashboard
+payload/*.tar.gz
+payload/*.zip
