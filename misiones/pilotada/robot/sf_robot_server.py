@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import io
 import os
 import socket
 import subprocess
 import time
+from pathlib import Path
 
 import cv2
 from flask import Flask, Response, jsonify
@@ -22,6 +24,11 @@ CAMERA_FPS = 30
 JPEG_QUALITY = 70
 
 PORT = 8080
+
+MAPS_DIR = Path(
+    "/home/pi/robot_custom/mapping/maps"
+)
+
 
 
 def obtener_ip():
@@ -241,6 +248,94 @@ def video_feed():
             "multipart/x-mixed-replace; "
             "boundary=frame"
         )
+    )
+
+
+
+# =========================================================
+# NIVEL 2 - MAPAS GUARDADOS
+# =========================================================
+
+@app.route("/maps")
+def maps():
+    mapas = []
+
+    if not MAPS_DIR.exists():
+        return jsonify({
+            "maps": []
+        })
+
+    for yaml_path in sorted(
+        MAPS_DIR.glob("*.yaml")
+    ):
+        nombre = yaml_path.stem
+        pgm_path = MAPS_DIR / (
+            nombre + ".pgm"
+        )
+
+        if not pgm_path.exists():
+            continue
+
+        mapas.append({
+            "name": nombre,
+            "image": (
+                "/maps/{}/image".format(
+                    nombre
+                )
+            )
+        })
+
+    return jsonify({
+        "maps": mapas
+    })
+
+
+@app.route("/maps/<nombre>/image")
+def map_image(nombre):
+    # Solo permitir nombres simples.
+    if (
+        "/" in nombre
+        or "\\" in nombre
+        or ".." in nombre
+    ):
+        return jsonify({
+            "error": "Mapa inválido"
+        }), 400
+
+    pgm_path = (
+        MAPS_DIR
+        /
+        (nombre + ".pgm")
+    )
+
+    if not pgm_path.exists():
+        return jsonify({
+            "error": "Mapa no encontrado"
+        }), 404
+
+    imagen = cv2.imread(
+        str(pgm_path),
+        cv2.IMREAD_GRAYSCALE
+    )
+
+    if imagen is None:
+        return jsonify({
+            "error": "No se pudo leer el mapa"
+        }), 500
+
+    ok, buffer = cv2.imencode(
+        ".png",
+        imagen
+    )
+
+    if not ok:
+        return jsonify({
+            "error": "No se pudo convertir el mapa"
+        }), 500
+
+    return Response(
+        buffer.tobytes(),
+        mimetype="image/png"
     )
 
 

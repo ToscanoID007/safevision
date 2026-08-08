@@ -236,13 +236,96 @@
                 </div>
 
 
-                <div class="viewer map">
+                <div class="map-toolbar">
 
-                    <div class="placeholder">
+                    <select id="mapSelect">
+                        <option value="">
+                            Seleccionar mapa...
+                        </option>
+                    </select>
 
-                        Mapa / localización
-                        <br>
-                        disponible en Nivel 2
+                    <button
+                        id="loadMapButton"
+                        type="button"
+                    >
+                        Mostrar
+                    </button>
+
+                    <button
+                        id="mapZoomOut"
+                        type="button"
+                        title="Alejar"
+                    >
+                        −
+                    </button>
+
+                    <button
+                        id="mapZoomIn"
+                        type="button"
+                        title="Acercar"
+                    >
+                        +
+                    </button>
+
+                    <button
+                        id="mapReset"
+                        type="button"
+                        title="Encuadrar mapa"
+                    >
+                        Ajustar
+                    </button>
+
+                    <button
+                        id="mapAreaZoom"
+                        type="button"
+                        title="Seleccionar una zona para ampliar"
+                    >
+                        Zoom área
+                    </button>
+
+                    <button
+                        id="mapLock"
+                        type="button"
+                        title="Bloquear el encuadre actual"
+                    >
+                        Bloquear
+                    </button>
+
+
+                </div>
+
+                <div
+                    id="mapViewport"
+                    class="viewer map"
+                >
+
+                    <div
+                        id="mapPlaceholder"
+                        class="placeholder"
+                    >
+                        Conecta el robot para consultar mapas.
+                    </div>
+
+                    <div
+                        id="mapScene"
+                        class="map-scene"
+                        hidden
+                    >
+
+                        <img
+                            id="mapImage"
+                            alt="Mapa SafeVision"
+                            draggable="false"
+                        >
+
+                        <div
+                            id="robotMarker"
+                            class="robot-marker"
+                            title="Posición del robot"
+                            hidden
+                        >
+                            ▲
+                        </div>
 
                     </div>
 

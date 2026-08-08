@@ -429,6 +429,74 @@ def video_feed():
     )
 
 
+
+# =========================================================
+# MAPAS - NIVEL 2
+# =========================================================
+
+@app.route("/maps")
+def maps():
+    if not robot_ip:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8080/maps".format(
+                robot_ip
+            ),
+            timeout=3
+        )
+
+        respuesta.raise_for_status()
+
+        return jsonify(
+            respuesta.json()
+        )
+
+    except Exception as exc:
+        return error(
+            "No se pudieron obtener los mapas: {}".format(
+                exc
+            ),
+            502
+        )
+
+
+@app.route("/map_image/<nombre>")
+def map_image(nombre):
+    if not robot_ip:
+        return Response(
+            "Robot no conectado.",
+            status=409
+        )
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8080/maps/{}/image".format(
+                robot_ip,
+                nombre
+            ),
+            timeout=5
+        )
+
+        respuesta.raise_for_status()
+
+        return Response(
+            respuesta.content,
+            mimetype="image/png"
+        )
+
+    except Exception as exc:
+        return Response(
+            str(exc),
+            status=502,
+            mimetype="text/plain"
+        )
+
+
 # =========================================================
 # ESTADO LOCAL
 # =========================================================

@@ -153,6 +153,8 @@ async function connectRobot() {
 
         startVideo();
 
+        await loadMaps();
+
 
         log(
             `Robot conectado: ${ip}`
@@ -481,3 +483,997 @@ setInterval(
     pollRobot,
     3000
 );
+
+
+// =========================================================
+// MAPAS - NIVEL 2A
+// =========================================================
+
+async function loadMaps() {
+    const select =
+        $("mapSelect");
+
+    if (!select) {
+        return;
+    }
+
+    select.innerHTML =
+        '<option value="">Seleccionar mapa...</option>';
+
+
+    try {
+        const response =
+            await fetch(
+                "/maps"
+            );
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+            throw new Error(
+                data.message
+                ||
+                "No se pudieron consultar mapas."
+            );
+        }
+
+
+        for (const mapa of data.maps || []) {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+            option.value =
+                mapa.name;
+
+            option.textContent =
+                mapa.name;
+
+            select.appendChild(
+                option
+            );
+        }
+
+
+        log(
+            `${(data.maps || []).length} mapa(s) disponible(s).`
+        );
+
+
+    } catch (error) {
+
+        log(
+            `Mapas: ${error.message}`
+        );
+    }
+}
+
+
+function showSelectedMap() {
+    const select =
+        $("mapSelect");
+
+    const image =
+        $("mapImage");
+
+    const scene =
+        $("mapScene");
+
+    const placeholder =
+        $("mapPlaceholder");
+
+
+    if (
+        !select
+        ||
+        !image
+        ||
+        !scene
+        ||
+        !placeholder
+    ) {
+        return;
+    }
+
+
+    const nombre =
+        select.value;
+
+
+    if (!nombre) {
+        log(
+            "Selecciona un mapa."
+        );
+
+        return;
+    }
+
+
+    image.onload = () => {
+        scene.hidden = false;
+        placeholder.hidden = true;
+
+        focusMapView();
+    };
+
+
+    image.src =
+        `/map_image/${encodeURIComponent(nombre)}?t=${Date.now()}`;
+
+
+    log(
+        `Mapa mostrado: ${nombre}`
+    );
+}
+
+
+const mapButton =
+    $("loadMapButton");
+
+if (mapButton) {
+    mapButton.addEventListener(
+        "click",
+        showSelectedMap
+    );
+}
+
+
+
+// =========================================================
+// MAP VIEWPORT INTERACTIVO
+// =========================================================
+// MAP VIEWPORT INTERACTIVO
+
+const mapView = {
+    scale: 1,
+    x: 0,
+    y: 0,
+    dragging: false,
+    startX: 0,
+    startY: 0
+};
+
+
+function applyMapView() {
+    const scene =
+        $("mapScene");
+
+    if (!scene) {
+        return;
+    }
+
+    scene.style.transform =
+        `translate(${mapView.x}px, ${mapView.y}px) scale(${mapView.scale})`;
+}
+
+
+function focusMapView() {
+    /*
+     * Los mapas actuales tienen bastante área vacía alrededor.
+     * Arrancamos un poco acercados para que sean cómodos.
+     */
+    mapView.scale = 2.5;
+    mapView.x = 0;
+    mapView.y = 0;
+
+    applyMapView();
+}
+
+
+function resetMapView() {
+    if (mapView.locked) {
+        return;
+    }
+
+    mapView.scale = 1;
+    mapView.x = 0;
+    mapView.y = 0;
+
+    applyMapView();
+}
+
+
+function zoomMap(factor) {
+    if (mapView.locked) {
+        return;
+    }
+
+    mapView.scale *= factor;
+
+    mapView.scale =
+        Math.max(
+            0.5,
+            Math.min(
+                10,
+                mapView.scale
+            )
+        );
+
+    applyMapView();
+}
+
+
+const mapViewport =
+    $("mapViewport");
+
+const mapScene =
+    $("mapScene");
+
+const mapZoomIn =
+    $("mapZoomIn");
+
+const mapZoomOut =
+    $("mapZoomOut");
+
+const mapReset =
+    $("mapReset");
+
+
+if (mapZoomIn) {
+    mapZoomIn.addEventListener(
+        "click",
+        () => zoomMap(1.25)
+    );
+}
+
+
+if (mapZoomOut) {
+    mapZoomOut.addEventListener(
+        "click",
+        () => zoomMap(0.8)
+    );
+}
+
+
+if (mapReset) {
+    mapReset.addEventListener(
+        "click",
+        resetMapView
+    );
+}
+
+
+if (mapViewport) {
+
+    mapViewport.addEventListener(
+        "wheel",
+        (event) => {
+            if (
+                !$("mapScene")
+                ||
+                $("mapScene").hidden
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+
+            zoomMap(
+                event.deltaY < 0
+                    ? 1.15
+                    : 0.87
+            );
+        },
+        {
+            passive: false
+        }
+    );
+
+
+    mapViewport.addEventListener(
+        "mousedown",
+        (event) => {
+
+            if (
+                !mapScene
+                ||
+                mapScene.hidden
+            ) {
+                return;
+            }
+
+            mapView.dragging = true;
+
+            mapView.startX =
+                event.clientX - mapView.x;
+
+            mapView.startY =
+                event.clientY - mapView.y;
+
+            mapViewport.classList.add(
+                "dragging"
+            );
+        }
+    );
+
+
+    window.addEventListener(
+        "mousemove",
+        (event) => {
+
+            if (!mapView.dragging) {
+                return;
+            }
+
+            mapView.x =
+                event.clientX
+                - mapView.startX;
+
+            mapView.y =
+                event.clientY
+                - mapView.startY;
+
+            applyMapView();
+        }
+    );
+
+
+    window.addEventListener(
+        "mouseup",
+        () => {
+
+            mapView.dragging = false;
+
+            if (mapViewport) {
+                mapViewport.classList.remove(
+                    "dragging"
+                );
+            }
+        }
+    );
+}
+
+
+
+// =========================================================
+// SAFEVISION MAP AREA ZOOM + LOCK
+// =========================================================
+// SAFEVISION MAP AREA ZOOM + LOCK
+
+mapView.locked = false;
+mapView.areaSelecting = false;
+mapView.selectionDragging = false;
+
+mapView.selectionStartX = 0;
+mapView.selectionStartY = 0;
+
+
+const mapAreaZoomButton =
+    $("mapAreaZoom");
+
+const mapLockButton =
+    $("mapLock");
+
+
+let mapSelectionBox = null;
+
+
+function ensureMapSelectionBox() {
+
+    if (
+        mapSelectionBox
+        ||
+        !mapViewport
+    ) {
+        return;
+    }
+
+
+    mapSelectionBox =
+        document.createElement(
+            "div"
+        );
+
+
+    mapSelectionBox.className =
+        "map-selection-box";
+
+
+    mapSelectionBox.hidden =
+        true;
+
+
+    mapViewport.appendChild(
+        mapSelectionBox
+    );
+}
+
+
+function updateMapLockUI() {
+
+    if (mapLockButton) {
+
+        mapLockButton.textContent =
+            mapView.locked
+                ? "Desbloquear"
+                : "Bloquear";
+
+
+        mapLockButton.classList.toggle(
+            "active",
+            mapView.locked
+        );
+    }
+
+
+    if (mapViewport) {
+
+        mapViewport.classList.toggle(
+            "map-locked",
+            mapView.locked
+        );
+    }
+}
+
+
+function setAreaZoomMode(active) {
+
+    if (
+        mapView.locked
+        &&
+        active
+    ) {
+        return;
+    }
+
+
+    mapView.areaSelecting =
+        Boolean(active);
+
+
+    if (mapAreaZoomButton) {
+
+        mapAreaZoomButton.classList.toggle(
+            "active",
+            mapView.areaSelecting
+        );
+    }
+
+
+    if (mapViewport) {
+
+        mapViewport.classList.toggle(
+            "map-area-selecting",
+            mapView.areaSelecting
+        );
+    }
+
+
+    if (
+        !mapView.areaSelecting
+        &&
+        mapSelectionBox
+    ) {
+
+        mapSelectionBox.hidden =
+            true;
+    }
+}
+
+
+function clampMapCoordinate(
+    value,
+    min,
+    max
+) {
+
+    return Math.max(
+        min,
+        Math.min(
+            max,
+            value
+        )
+    );
+}
+
+
+function finishAreaZoom(
+    event
+) {
+
+    if (
+        !mapView.selectionDragging
+        ||
+        !mapViewport
+        ||
+        !mapSelectionBox
+    ) {
+        return;
+    }
+
+
+    mapView.selectionDragging =
+        false;
+
+
+    const bounds =
+        mapViewport.getBoundingClientRect();
+
+
+    const endX =
+        clampMapCoordinate(
+            event.clientX - bounds.left,
+            0,
+            bounds.width
+        );
+
+
+    const endY =
+        clampMapCoordinate(
+            event.clientY - bounds.top,
+            0,
+            bounds.height
+        );
+
+
+    const left =
+        Math.min(
+            mapView.selectionStartX,
+            endX
+        );
+
+
+    const top =
+        Math.min(
+            mapView.selectionStartY,
+            endY
+        );
+
+
+    const width =
+        Math.abs(
+            endX
+            -
+            mapView.selectionStartX
+        );
+
+
+    const height =
+        Math.abs(
+            endY
+            -
+            mapView.selectionStartY
+        );
+
+
+    mapSelectionBox.hidden =
+        true;
+
+
+    if (
+        width < 20
+        ||
+        height < 20
+    ) {
+
+        setAreaZoomMode(
+            false
+        );
+
+        return;
+    }
+
+
+    const factor =
+        Math.min(
+            bounds.width / width,
+            bounds.height / height
+        )
+        * 0.90;
+
+
+    const escalaAnterior =
+        mapView.scale;
+
+
+    const escalaNueva =
+        Math.max(
+            0.5,
+            Math.min(
+                10,
+                escalaAnterior * factor
+            )
+        );
+
+
+    const factorReal =
+        escalaNueva
+        /
+        escalaAnterior;
+
+
+    const centroSeleccionX =
+        left
+        +
+        width / 2;
+
+
+    const centroSeleccionY =
+        top
+        +
+        height / 2;
+
+
+    const centroViewportX =
+        bounds.width / 2;
+
+
+    const centroViewportY =
+        bounds.height / 2;
+
+
+    mapView.x =
+        (
+            centroViewportX
+            +
+            mapView.x
+            -
+            centroSeleccionX
+        )
+        *
+        factorReal;
+
+
+    mapView.y =
+        (
+            centroViewportY
+            +
+            mapView.y
+            -
+            centroSeleccionY
+        )
+        *
+        factorReal;
+
+
+    mapView.scale =
+        escalaNueva;
+
+
+    applyMapView();
+
+
+    setAreaZoomMode(
+        false
+    );
+
+
+    log(
+        "Zoom de área aplicado."
+    );
+}
+
+
+ensureMapSelectionBox();
+
+
+if (mapAreaZoomButton) {
+
+    mapAreaZoomButton.addEventListener(
+        "click",
+        () => {
+
+            if (mapView.locked) {
+
+                log(
+                    "Desbloquea el mapa para cambiar el encuadre."
+                );
+
+                return;
+            }
+
+
+            setAreaZoomMode(
+                !mapView.areaSelecting
+            );
+
+
+            if (mapView.areaSelecting) {
+
+                log(
+                    "Dibuja un rectángulo sobre el área que quieres ampliar."
+                );
+            }
+        }
+    );
+}
+
+
+if (mapLockButton) {
+
+    mapLockButton.addEventListener(
+        "click",
+        () => {
+
+            mapView.locked =
+                !mapView.locked;
+
+
+            mapView.dragging =
+                false;
+
+
+            mapView.selectionDragging =
+                false;
+
+
+            setAreaZoomMode(
+                false
+            );
+
+
+            updateMapLockUI();
+
+
+            log(
+                mapView.locked
+                    ? "Encuadre del mapa bloqueado."
+                    : "Encuadre del mapa desbloqueado."
+            );
+        }
+    );
+}
+
+
+/*
+ * Capturamos el evento antes del manejador normal
+ * de arrastre del mapa.
+ */
+
+if (mapViewport) {
+
+    mapViewport.addEventListener(
+        "mousedown",
+        (event) => {
+
+            if (mapView.locked) {
+
+                event.preventDefault();
+
+                event.stopImmediatePropagation();
+
+                return;
+            }
+
+
+            if (!mapView.areaSelecting) {
+                return;
+            }
+
+
+            event.preventDefault();
+
+            event.stopImmediatePropagation();
+
+
+            ensureMapSelectionBox();
+
+
+            const bounds =
+                mapViewport.getBoundingClientRect();
+
+
+            mapView.selectionStartX =
+                clampMapCoordinate(
+                    event.clientX - bounds.left,
+                    0,
+                    bounds.width
+                );
+
+
+            mapView.selectionStartY =
+                clampMapCoordinate(
+                    event.clientY - bounds.top,
+                    0,
+                    bounds.height
+                );
+
+
+            mapView.selectionDragging =
+                true;
+
+
+            mapSelectionBox.style.left =
+                `${mapView.selectionStartX}px`;
+
+
+            mapSelectionBox.style.top =
+                `${mapView.selectionStartY}px`;
+
+
+            mapSelectionBox.style.width =
+                "0px";
+
+
+            mapSelectionBox.style.height =
+                "0px";
+
+
+            mapSelectionBox.hidden =
+                false;
+        },
+        true
+    );
+
+
+    mapViewport.addEventListener(
+        "wheel",
+        (event) => {
+
+            if (
+                mapView.locked
+                ||
+                mapView.areaSelecting
+            ) {
+
+                event.preventDefault();
+
+                event.stopImmediatePropagation();
+            }
+        },
+        true
+    );
+}
+
+
+window.addEventListener(
+    "mousemove",
+    (event) => {
+
+        if (
+            !mapView.selectionDragging
+            ||
+            !mapViewport
+            ||
+            !mapSelectionBox
+        ) {
+            return;
+        }
+
+
+        event.preventDefault();
+
+        event.stopImmediatePropagation();
+
+
+        const bounds =
+            mapViewport.getBoundingClientRect();
+
+
+        const currentX =
+            clampMapCoordinate(
+                event.clientX - bounds.left,
+                0,
+                bounds.width
+            );
+
+
+        const currentY =
+            clampMapCoordinate(
+                event.clientY - bounds.top,
+                0,
+                bounds.height
+            );
+
+
+        const left =
+            Math.min(
+                mapView.selectionStartX,
+                currentX
+            );
+
+
+        const top =
+            Math.min(
+                mapView.selectionStartY,
+                currentY
+            );
+
+
+        const width =
+            Math.abs(
+                currentX
+                -
+                mapView.selectionStartX
+            );
+
+
+        const height =
+            Math.abs(
+                currentY
+                -
+                mapView.selectionStartY
+            );
+
+
+        mapSelectionBox.style.left =
+            `${left}px`;
+
+
+        mapSelectionBox.style.top =
+            `${top}px`;
+
+
+        mapSelectionBox.style.width =
+            `${width}px`;
+
+
+        mapSelectionBox.style.height =
+            `${height}px`;
+    },
+    true
+);
+
+
+window.addEventListener(
+    "mouseup",
+    (event) => {
+
+        if (
+            !mapView.selectionDragging
+        ) {
+            return;
+        }
+
+
+        event.preventDefault();
+
+        event.stopImmediatePropagation();
+
+
+        finishAreaZoom(
+            event
+        );
+    },
+    true
+);
+
+
+/*
+ * Cuando está bloqueado también evitamos
+ * los botones normales de cambio de vista.
+ */
+
+[
+    mapZoomIn,
+    mapZoomOut,
+    mapReset
+
+].forEach(
+    (button) => {
+
+        if (!button) {
+            return;
+        }
+
+
+        button.addEventListener(
+            "click",
+            (event) => {
+
+                if (!mapView.locked) {
+                    return;
+                }
+
+
+                event.preventDefault();
+
+                event.stopImmediatePropagation();
+
+
+                log(
+                    "Desbloquea el mapa para cambiar el encuadre."
+                );
+            },
+            true
+        );
+    }
+);
+
+
+updateMapLockUI();
+
