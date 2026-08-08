@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import ast
+import json
+import math
 import io
 import os
 import socket
@@ -10,7 +13,7 @@ import time
 from pathlib import Path
 
 import cv2
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 
 
 app = Flask(__name__)
@@ -28,6 +31,18 @@ PORT = 8080
 MAPS_DIR = Path(
     "/home/pi/robot_custom/mapping/maps"
 )
+
+
+
+
+SAFEVISION_POSE_FILE = Path(
+    "/tmp/safevision_map_pose.json"
+)
+
+SAFEVISION_INITIALPOSE_FILE = Path(
+    "/tmp/safevision_initialpose_request.json"
+)
+
 
 
 
@@ -337,6 +352,274 @@ def map_image(nombre):
         buffer.tobytes(),
         mimetype="image/png"
     )
+
+
+
+# =========================================================
+# NIVEL 2B - LOCALIZACION
+# =========================================================
+
+def nombre_mapa_seguro(nombre):
+    return not (
+        "/" in nombre
+        or "\\" in nombre
+        or ".." in nombre
+    )
+
+
+@app.route("/maps/<nombre>/meta")
+def map_meta(nombre):
+
+    if not nombre_mapa_seguro(nombre):
+        return jsonify({
+            "ok": False,
+            "error": "Mapa invalido"
+        }), 400
+
+    yaml_path = (
+        MAPS_DIR
+        /
+        (nombre + ".yaml")
+    )
+
+    pgm_path = (
+        MAPS_DIR
+        /
+        (nombre + ".pgm")
+    )
+
+    if (
+        not yaml_path.exists()
+        or not pgm_path.exists()
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Mapa no encontrado"
+        }), 404
+
+    resolution = None
+    origin = [
+        0.0,
+        0.0,
+        0.0
+    ]
+
+    try:
+        for linea in yaml_path.read_text().splitlines():
+
+            linea = linea.strip()
+
+            if linea.startswith("resolution:"):
+                resolution = float(
+                    linea.split(
+                        ":",
+                        1
+                    )[1].strip()
+                )
+
+            elif linea.startswith("origin:"):
+                valor = linea.split(
+                    ":",
+                    1
+                )[1].strip()
+
+                origin = list(
+                    ast.literal_eval(
+                        valor
+                    )
+                )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo leer YAML: {}"
+                .format(exc)
+            )
+        }), 500
+
+    if (
+        resolution is None
+        or resolution <= 0
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Resolucion invalida"
+        }), 500
+
+    while len(origin) < 3:
+        origin.append(0.0)
+
+    imagen = cv2.imread(
+        str(pgm_path),
+        cv2.IMREAD_GRAYSCALE
+    )
+
+    if imagen is None:
+        return jsonify({
+            "ok": False,
+            "error": "No se pudo leer PGM"
+        }), 500
+
+    height, width = imagen.shape[:2]
+
+    return jsonify({
+        "ok": True,
+        "name": nombre,
+
+        "resolution": float(
+            resolution
+        ),
+
+        "origin": {
+            "x": float(origin[0]),
+            "y": float(origin[1]),
+            "yaw": float(origin[2])
+        },
+
+        "width": int(width),
+        "height": int(height)
+    })
+
+
+@app.route("/map_pose")
+def map_pose():
+
+    if not SAFEVISION_POSE_FILE.exists():
+        return jsonify({
+            "ok": False,
+            "localized": False,
+            "error": (
+                "Pose AMCL no disponible"
+            )
+        }), 503
+
+    try:
+        datos = json.loads(
+            SAFEVISION_POSE_FILE.read_text()
+        )
+
+        datos["localized"] = bool(
+            datos.get(
+                "ok",
+                False
+            )
+        )
+
+        datos["age_seconds"] = max(
+            0.0,
+            time.time()
+            -
+            SAFEVISION_POSE_FILE.stat().st_mtime
+        )
+
+        return jsonify(
+            datos
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "localized": False,
+            "error": (
+                "Pose invalida: {}"
+                .format(exc)
+            )
+        }), 500
+
+
+
+@app.route("/initialpose", methods=["POST"])
+def safevision_initialpose():
+
+    datos = request.get_json(
+        silent=True
+    ) or {}
+
+    try:
+        x = float(
+            datos["x"]
+        )
+
+        y = float(
+            datos["y"]
+        )
+
+        yaw = float(
+            datos["yaw"]
+        )
+
+    except (
+        KeyError,
+        TypeError,
+        ValueError
+    ):
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Se requieren x, y y yaw numericos"
+            )
+        }), 400
+
+
+    if not (
+        math.isfinite(x)
+        and math.isfinite(y)
+        and math.isfinite(yaw)
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Pose invalida"
+        }), 400
+
+
+    request_id = "{:.6f}".format(
+        time.time()
+    )
+
+
+    solicitud = {
+        "request_id": request_id,
+        "x": x,
+        "y": y,
+        "yaw": yaw,
+        "created_at": time.time()
+    }
+
+
+    temporal = Path(
+        str(
+            SAFEVISION_INITIALPOSE_FILE
+        )
+        +
+        ".tmp"
+    )
+
+
+    temporal.write_text(
+        json.dumps(
+            solicitud,
+            sort_keys=True
+        )
+    )
+
+
+    os.replace(
+        str(temporal),
+        str(
+            SAFEVISION_INITIALPOSE_FILE
+        )
+    )
+
+
+    return jsonify({
+        "ok": True,
+        "accepted": True,
+        "request_id": request_id,
+        "x": x,
+        "y": y,
+        "yaw": yaw
+    }), 202
 
 
 def main():
