@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 CONTROL_MODE = "desconocido"
 
-CAMERA_DEVICE = 0
+CAMERA_DEVICE = 1
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FPS = 30
