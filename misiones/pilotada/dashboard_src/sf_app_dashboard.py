@@ -497,6 +497,89 @@ def map_image(nombre):
         )
 
 
+
+# =========================================================
+# SAFEVISION NIVEL 2B - POSE PROXY
+# =========================================================
+
+@app.route("/map_pose")
+def dashboard_map_pose():
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "localized": False,
+            "message": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8080/map_pose".format(
+                robot_ip
+            ),
+            timeout=2
+        )
+
+        try:
+            datos = respuesta.json()
+        except Exception:
+            datos = {
+                "ok": False,
+                "localized": False,
+                "message": "Respuesta de pose invalida."
+            }
+
+        return jsonify(
+            datos
+        ), respuesta.status_code
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "localized": False,
+            "message": "No se pudo obtener pose: {}".format(
+                exc
+            )
+        }), 502
+
+
+@app.route("/map_meta/<nombre>")
+def dashboard_map_meta(nombre):
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "message": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8080/maps/{}/meta".format(
+                robot_ip,
+                nombre
+            ),
+            timeout=3
+        )
+
+        try:
+            datos = respuesta.json()
+        except Exception:
+            datos = {
+                "ok": False,
+                "message": "Metadatos de mapa invalidos."
+            }
+
+        return jsonify(
+            datos
+        ), respuesta.status_code
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "message": "No se pudieron obtener metadatos: {}".format(
+                exc
+            )
+        }), 502
+
+
 # =========================================================
 # ESTADO LOCAL
 # =========================================================

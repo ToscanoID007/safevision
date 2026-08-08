@@ -683,3 +683,96 @@ button:disabled {
     pointer-events: none;
 }
 
+
+
+/* SAFEVISION NIVEL 2B - ROBOT MARKER */
+
+#mapScene {
+    position: relative;
+}
+
+#robotMarker {
+    position: absolute;
+
+    z-index: 30;
+
+    width: 28px;
+    height: 28px;
+
+    line-height: 28px;
+
+    text-align: center;
+
+    font-size: 25px;
+    font-weight: 800;
+
+    color: #ff3b30;
+
+    text-shadow:
+        0 0 3px #ffffff,
+        0 0 8px rgba(0, 0, 0, 0.95);
+
+    pointer-events: none;
+
+    user-select: none;
+
+    transform-origin:
+        50% 50%;
+}
+
+#robotMarker[hidden] {
+    display: none !important;
+}
+
+
+
+/* ====================================================== */
+/* ROSMASTER X3 - HUELLA A ESCALA                         */
+/* ====================================================== */
+
+#robotMarker {
+    position: absolute;
+
+    z-index: 30;
+
+    box-sizing: border-box;
+
+    /* El ancho y alto los calcula JS a partir de metros. */
+    width: auto;
+    height: auto;
+
+    padding: 0;
+    margin: 0;
+
+    line-height: normal;
+
+    /* Oculta el antiguo carácter ▲. */
+    font-size: 0;
+
+    background:
+        rgba(255, 59, 48, 0.48);
+
+    border:
+        1px solid rgba(255, 59, 48, 0.95);
+
+    /*
+       El borde claro marca el FRENTE del X3.
+       Frente ROS = +X.
+    */
+    border-right:
+        1px solid rgba(255, 255, 255, 0.95);
+
+    border-radius: 1px;
+
+    box-shadow:
+        0 0 2px rgba(0, 0, 0, 0.85);
+
+    pointer-events: none;
+    user-select: none;
+
+    transform-origin:
+        50% 50%;
+}
+
+
+/* ====================================================== */

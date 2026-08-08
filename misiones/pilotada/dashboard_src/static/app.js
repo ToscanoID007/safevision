@@ -1477,3 +1477,388 @@ window.addEventListener(
 
 updateMapLockUI();
 
+
+
+// =========================================================
+// SAFEVISION NIVEL 2B - ROBOT EN MAPA
+// =========================================================
+
+const safeVisionMapPose = {
+    mapName: null,
+    meta: null,
+    timer: null,
+    busy: false
+};
+
+
+// Huella aproximada ROSMASTER X3 vista desde arriba.
+// Yahboom: aproximadamente 24 cm x 20 cm.
+const ROSMASTER_X3_LENGTH_M = 0.24;
+const ROSMASTER_X3_WIDTH_M = 0.20;
+
+
+async function prepareRobotTracking() {
+
+    const select =
+        $("mapSelect");
+
+    const marker =
+        $("robotMarker");
+
+
+    if (
+        !select
+        ||
+        !marker
+    ) {
+        return;
+    }
+
+
+    const nombre =
+        select.value;
+
+
+    if (!nombre) {
+        marker.hidden = true;
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/map_meta/${encodeURIComponent(nombre)}`
+            );
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok
+            ||
+            !data.ok
+        ) {
+            throw new Error(
+                data.message
+                ||
+                "Metadatos no disponibles."
+            );
+        }
+
+
+        safeVisionMapPose.mapName =
+            nombre;
+
+        safeVisionMapPose.meta =
+            data;
+
+
+        if (safeVisionMapPose.timer) {
+            clearInterval(
+                safeVisionMapPose.timer
+            );
+        }
+
+
+        await updateRobotMarker();
+
+
+        safeVisionMapPose.timer =
+            setInterval(
+                updateRobotMarker,
+                150
+            );
+
+
+        log(
+            `Localizacion activa sobre mapa: ${nombre}`,
+            "success"
+        );
+
+
+    } catch (error) {
+
+        marker.hidden = true;
+
+        log(
+            `Localizacion: ${error.message}`,
+            "error"
+        );
+    }
+}
+
+
+async function updateRobotMarker() {
+
+    if (
+        safeVisionMapPose.busy
+        ||
+        !safeVisionMapPose.meta
+    ) {
+        return;
+    }
+
+
+    safeVisionMapPose.busy = true;
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/map_pose",
+                {
+                    cache: "no-store"
+                }
+            );
+
+        const pose =
+            await response.json();
+
+
+        const marker =
+            $("robotMarker");
+
+
+        if (!marker) {
+            return;
+        }
+
+
+        if (
+            !response.ok
+            ||
+            !pose.ok
+            ||
+            !pose.localized
+        ) {
+            marker.hidden = true;
+            return;
+        }
+
+
+        const meta =
+            safeVisionMapPose.meta;
+
+
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
+        const originX =
+            Number(
+                meta.origin.x
+            );
+
+        const originY =
+            Number(
+                meta.origin.y
+            );
+
+        const originYaw =
+            Number(
+                meta.origin.yaw || 0
+            );
+
+
+        if (
+            !resolution
+            ||
+            !width
+            ||
+            !height
+        ) {
+            marker.hidden = true;
+            return;
+        }
+
+
+        const dx =
+            Number(pose.x) - originX;
+
+        const dy =
+            Number(pose.y) - originY;
+
+
+        const cosO =
+            Math.cos(originYaw);
+
+        const sinO =
+            Math.sin(originYaw);
+
+
+        const localX =
+            cosO * dx
+            +
+            sinO * dy;
+
+        const localY =
+            -sinO * dx
+            +
+            cosO * dy;
+
+
+        const pixelX =
+            localX / resolution;
+
+        const pixelY =
+            height
+            -
+            (
+                localY / resolution
+            );
+
+
+        const leftPct =
+            (
+                pixelX
+                /
+                width
+            )
+            *
+            100;
+
+        const topPct =
+            (
+                pixelY
+                /
+                height
+            )
+            *
+            100;
+
+
+        if (
+            leftPct < 0
+            ||
+            leftPct > 100
+            ||
+            topPct < 0
+            ||
+            topPct > 100
+        ) {
+            marker.hidden = true;
+            return;
+        }
+
+
+        const yawRel =
+            Number(pose.yaw)
+            -
+            originYaw;
+
+        const yawDeg =
+            yawRel
+            *
+            180
+            /
+            Math.PI;
+
+
+        // Dimensiones físicas completas del mapa.
+        const mapWidthMeters =
+            width * resolution;
+
+        const mapHeightMeters =
+            height * resolution;
+
+
+        // Huella física aproximada del ROSMASTER X3.
+        //
+        // HAB2:
+        // 0.24 / 40 m = 0.6% del ancho
+        // 0.20 / 40 m = 0.5% del alto
+        //
+        // Equivale aproximadamente a 4.8 x 4 píxeles
+        // en un mapa 800x800 a 0.05 m/pixel.
+        const robotLengthPct =
+            (
+                ROSMASTER_X3_LENGTH_M
+                /
+                mapWidthMeters
+            )
+            *
+            100;
+
+        const robotWidthPct =
+            (
+                ROSMASTER_X3_WIDTH_M
+                /
+                mapHeightMeters
+            )
+            *
+            100;
+
+
+        marker.style.left =
+            `${leftPct}%`;
+
+        marker.style.top =
+            `${topPct}%`;
+
+        marker.style.width =
+            `${robotLengthPct}%`;
+
+        marker.style.height =
+            `${robotWidthPct}%`;
+
+        // El frente del robot es +X.
+        // Como Y de la imagen crece hacia abajo,
+        // el giro visual usa signo negativo.
+        marker.style.transform =
+            `translate(-50%, -50%) rotate(${-yawDeg}deg)`;
+
+        marker.title =
+            `Robot | X ${Number(pose.x).toFixed(2)} m | Y ${Number(pose.y).toFixed(2)} m | ${Number(pose.yaw_deg).toFixed(1)}°`;
+
+        marker.hidden = false;
+
+
+    } catch (_) {
+
+        const marker =
+            $("robotMarker");
+
+        if (marker) {
+            marker.hidden = true;
+        }
+
+
+    } finally {
+
+        safeVisionMapPose.busy = false;
+    }
+}
+
+
+const safeVisionMapButton =
+    $("loadMapButton");
+
+
+if (safeVisionMapButton) {
+
+    safeVisionMapButton.addEventListener(
+        "click",
+        () => {
+
+            setTimeout(
+                prepareRobotTracking,
+                50
+            );
+        }
+    );
+}
