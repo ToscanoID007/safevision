@@ -5,30 +5,12 @@ import json
 import os
 import select
 import socket
-import subprocess
 import sys
 import time
 import urllib.request
 
 
 PORT = 8080
-
-
-def ejecutar(comando):
-    try:
-        resultado = subprocess.run(
-            comando,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            universal_newlines=True,
-            timeout=2
-        )
-
-        return resultado.stdout.strip()
-
-    except Exception:
-        return ""
 
 
 def obtener_ip():
@@ -52,26 +34,24 @@ def obtener_ip():
         return "127.0.0.1"
 
 
-def servidor_activo(ip):
+def obtener_health(ip):
     try:
         with urllib.request.urlopen(
-            "http://{}:{}/".format(
+            "http://{}:{}/health".format(
                 ip,
                 PORT
             ),
-            timeout=1
+            timeout=2
         ) as respuesta:
 
-            json.loads(
+            return json.loads(
                 respuesta.read().decode(
                     "utf-8"
                 )
             )
 
-            return True
-
     except Exception:
-        return False
+        return None
 
 
 def marca(valor):
@@ -84,54 +64,82 @@ def marca(valor):
 def obtener_estado(control):
     ip = obtener_ip()
 
-    topics = ejecutar(
-        "rostopic list"
-    )
-
-    nodes = ejecutar(
-        "rosnode list"
-    )
-
-    ros = "/rosout" in topics
-
-    driver = "/driver_node" in nodes
-
-    camera = (
-        os.path.exists("/dev/video0")
-        or
-        os.path.exists("/dev/video1")
-    )
-
-    server = servidor_activo(
+    health = obtener_health(
         ip
     )
 
-    joystick = None
-    control_ok = False
+    if health is None:
+        return {
+            "ip": ip,
+            "ros": False,
+            "driver": False,
+            "lidar": False,
+            "map": False,
+            "camera": False,
+            "server": False,
+            "joystick": None,
+            "control": False,
+            "ready": False
+        }
 
-    if control == "mando":
+    mapa = health.get(
+        "map",
+        {}
+    )
 
-        joystick = os.path.exists(
-            "/dev/input/js0"
+    ros = bool(
+        health.get(
+            "ros_master",
+            False
         )
+    )
 
-        control_ok = (
-            "/joy_node" in nodes
-            and
-            "/yahboom_joy" in nodes
+    driver = bool(
+        health.get(
+            "driver",
+            False
         )
+    )
 
-    elif control == "teclado":
-
-        control_ok = (
-            "/yahboom_keyboard" in nodes
-            or
-            "/keyboard_ctrl" in nodes
+    lidar = bool(
+        health.get(
+            "lidar",
+            False
         )
+    )
+
+    map_ok = bool(
+        mapa.get(
+            "enabled",
+            False
+        )
+    )
+
+    camera = bool(
+        health.get(
+            "camera",
+            False
+        )
+    )
+
+    control_ok = bool(
+        health.get(
+            "control",
+            False
+        )
+    )
+
+    joystick = health.get(
+        "joystick"
+    )
+
+    server = True
 
     infraestructura = bool(
         ros
         and driver
+        and lidar
+        and map_ok
         and camera
         and server
     )
@@ -144,8 +152,8 @@ def obtener_estado(control):
         )
     else:
         #
-        # En modo teclado el nodo todavía NO se lanza.
-        # Se inicia después de ENTER.
+        # En teclado, sf_modo_espera corre ANTES
+        # de lanzar yahboom_keyboard.
         #
         listo = infraestructura
 
@@ -153,6 +161,8 @@ def obtener_estado(control):
         "ip": ip,
         "ros": ros,
         "driver": driver,
+        "lidar": lidar,
+        "map": map_ok,
         "camera": camera,
         "server": server,
         "joystick": joystick,
@@ -174,7 +184,7 @@ def mostrar(control):
         "========================================================="
     )
     print(
-        "       SAFEVISION - MISIÓN PILOTADA / NIVEL 1"
+        "       SAFEVISION - MISIÓN PILOTADA / NIVEL 2"
     )
     print(
         "========================================================="
@@ -209,7 +219,19 @@ def mostrar(control):
     )
 
     print(
-        "[ -- ] LiDAR / mapa (Nivel 2)"
+        "{} LiDAR".format(
+            marca(
+                estado["lidar"]
+            )
+        )
+    )
+
+    print(
+        "{} Mapa HAB2 / AMCL".format(
+            marca(
+                estado["map"]
+            )
+        )
     )
 
     print(
@@ -303,7 +325,7 @@ def mostrar(control):
 
     print("")
     print(
-        " Mapa: desactivado - Nivel 2"
+        " Mapa: HAB2 - Localización AMCL activa"
     )
     print("")
 
@@ -355,15 +377,6 @@ def modo_teclado():
 
 
 def modo_mando():
-    #
-    # IMPORTANTE:
-    #
-    # No usamos select() sobre stdin.
-    #
-    # El mando funciona independientemente de esta
-    # terminal y el diagnóstico debe permanecer vivo
-    # hasta que el operador pulse Ctrl+C.
-    #
     while True:
 
         mostrar(
