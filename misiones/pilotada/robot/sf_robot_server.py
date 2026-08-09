@@ -196,7 +196,7 @@ def generar_frames():
 def index():
     return jsonify({
         "service": "SafeVision Robot Server",
-        "level": 1,
+        "level": 2,
         "ip": obtener_ip(),
         "video": "/video_feed",
         "health": "/health"
@@ -326,7 +326,7 @@ def health():
 
     return jsonify({
         "ok": ready,
-        "level": 1,
+        "level": 2,
         "ip": obtener_ip(),
         "control_mode": CONTROL_MODE,
         "ros_master": ros,

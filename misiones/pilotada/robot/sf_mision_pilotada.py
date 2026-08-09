@@ -144,7 +144,7 @@ def menu():
             " Nivel 1: Pilotaje + Red Neuronal"
         )
         print(
-            " Nivel 2: Pilotaje + Mapa       [PRÓXIMO]"
+            " Nivel 2: Pilotaje + Mapa       [ACTIVO]"
         )
         print(
             " Nivel 3: Navegación asistida   [FUTURO]"
