@@ -10,6 +10,7 @@ import os
 import socket
 import subprocess
 import time
+import xmlrpc.client
 from pathlib import Path
 
 import cv2
@@ -202,12 +203,107 @@ def index():
     })
 
 
+
+
+class SafeVisionXmlRpcTransport(
+    xmlrpc.client.Transport
+):
+    def __init__(
+        self,
+        timeout=1.5
+    ):
+        super().__init__()
+        self.timeout = timeout
+
+    def make_connection(
+        self,
+        host
+    ):
+        connection = super().make_connection(
+            host
+        )
+
+        connection.timeout = self.timeout
+
+        return connection
+
+
+def estado_ros_runtime():
+    uri = os.environ.get(
+        "ROS_MASTER_URI",
+        "http://127.0.0.1:11311"
+    )
+
+    try:
+        master = xmlrpc.client.ServerProxy(
+            uri,
+            transport=SafeVisionXmlRpcTransport(
+                timeout=1.5
+            ),
+            allow_none=True
+        )
+
+        code, message, state = (
+            master.getSystemState(
+                "/safevision_robot_server"
+            )
+        )
+
+        if code != 1:
+            return False, set(), set()
+
+        publishers, subscribers, services = (
+            state
+        )
+
+        nodes = set()
+        topics = set()
+
+        for topic, owners in (
+            publishers + subscribers
+        ):
+            topics.add(topic)
+            nodes.update(owners)
+
+        for service, owners in services:
+            nodes.update(owners)
+
+        return True, nodes, topics
+
+    except Exception:
+        return False, set(), set()
+
 @app.route("/health")
 def health():
-    ros = ros_master_activo()
-    driver = driver_activo()
-    lidar = lidar_activo()
-    control = control_activo()
+    ros, nodes, topics = (
+        estado_ros_runtime()
+    )
+
+    driver = (
+        "/driver_node" in nodes
+    )
+
+    lidar = (
+        "/scan" in topics
+    )
+
+    map_active = (
+        "/map" in topics
+        and
+        "/amcl" in nodes
+    )
+
+    if CONTROL_MODE == "mando":
+        control = (
+            "/yahboom_joy" in nodes
+        )
+    elif CONTROL_MODE == "teclado":
+        control = (
+            "/yahboom_keyboard" in nodes
+        )
+    else:
+        control = False
+
     camera = camara_detectada()
 
     joystick = None
@@ -223,37 +319,27 @@ def health():
     )
 
     if CONTROL_MODE == "mando":
-        ready = ready and bool(
-            joystick
+        ready = (
+            ready
+            and bool(joystick)
         )
 
     return jsonify({
         "ok": ready,
-
         "level": 1,
-
         "ip": obtener_ip(),
-
         "control_mode": CONTROL_MODE,
-
         "ros_master": ros,
-
         "driver": driver,
-
         "lidar": lidar,
-
         "camera": camera,
-
         "control": control,
-
         "joystick": joystick,
-
         "map": {
-            "enabled": False,
+            "enabled": map_active,
             "level": 2
         }
     })
-
 
 @app.route("/video_feed")
 def video_feed():
