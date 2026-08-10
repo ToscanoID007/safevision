@@ -1500,14 +1500,1780 @@ const safeVisionMapPose = {
     mapName: null,
     meta: null,
     timer: null,
-    busy: false
+    busy: false,
+    lastPose: null
 };
 
 
 // Huella aproximada ROSMASTER X3 vista desde arriba.
 // Yahboom: aproximadamente 24 cm x 20 cm.
+
 const ROSMASTER_X3_LENGTH_M = 0.24;
 const ROSMASTER_X3_WIDTH_M = 0.20;
+
+
+// =========================================================
+// SAFEVISION - GUIA DE ALINEACION DEL ROBOT
+// =========================================================
+
+const safeVisionAlignmentGuide = {
+    rasterMapName: null,
+    rasterWidth: 0,
+    rasterHeight: 0,
+    raster: null,
+    visible: true
+};
+
+
+function updateRobotAlignmentGuideToggleUI() {
+
+    const button =
+        document.getElementById(
+            "mapAlignmentGuideToggle"
+        );
+
+    if (!button) {
+        return;
+    }
+
+    button.textContent =
+        safeVisionAlignmentGuide.visible
+            ? "Ocultar guía"
+            : "Mostrar guía";
+
+    button.classList.toggle(
+        "active",
+        safeVisionAlignmentGuide.visible
+    );
+}
+
+
+function ensureRobotAlignmentGuideToggle() {
+
+    const toolbar =
+        document.querySelector(
+            ".map-toolbar"
+        );
+
+    if (!toolbar) {
+        return;
+    }
+
+
+    let button =
+        document.getElementById(
+            "mapAlignmentGuideToggle"
+        );
+
+
+    if (!button) {
+
+        button =
+            document.createElement(
+                "button"
+            );
+
+        button.id =
+            "mapAlignmentGuideToggle";
+
+        button.type =
+            "button";
+
+        button.title =
+            "Mostrar u ocultar la guía de alineación";
+
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                safeVisionAlignmentGuide.visible =
+                    !safeVisionAlignmentGuide.visible;
+
+                updateRobotAlignmentGuideToggleUI();
+
+
+                if (
+                    !safeVisionAlignmentGuide.visible
+                ) {
+
+                    hideRobotAlignmentGuide();
+                    return;
+                }
+
+
+                updateRobotMarker();
+            }
+        );
+
+
+        toolbar.appendChild(
+            button
+        );
+    }
+
+
+    updateRobotAlignmentGuideToggleUI();
+}
+
+
+ensureRobotAlignmentGuideToggle();
+
+
+// =========================================================
+// SAFEVISION - CALIBRACION POR MEDIDAS FISICAS
+// =========================================================
+
+function physicalMeasurePrompt(
+    label
+) {
+
+    const value =
+        window.prompt(
+            `${label} en metros.\n`
+            +
+            `Déjalo vacío si no tienes esa medida:`,
+            ""
+        );
+
+
+    if (value === null) {
+        return {
+            cancelled: true,
+            value: null
+        };
+    }
+
+
+    const text =
+        value
+        .trim()
+        .replace(
+            ",",
+            "."
+        );
+
+
+    if (!text) {
+        return {
+            cancelled: false,
+            value: null
+        };
+    }
+
+
+    const number =
+        Number(
+            text
+        );
+
+
+    if (
+        !Number.isFinite(number)
+        ||
+        number <= 0
+        ||
+        number > 4
+    ) {
+
+        throw new Error(
+            `${label}: medida inválida.`
+        );
+    }
+
+
+    return {
+        cancelled: false,
+        value: number
+    };
+}
+
+
+function worldPoseToAlignment(
+    x,
+    y,
+    yaw,
+    meta
+) {
+
+    const resolution =
+        Number(
+            meta.resolution
+        );
+
+    const width =
+        Number(
+            meta.width
+        );
+
+    const height =
+        Number(
+            meta.height
+        );
+
+    const originX =
+        Number(
+            meta.origin.x
+        );
+
+    const originY =
+        Number(
+            meta.origin.y
+        );
+
+    const originYaw =
+        Number(
+            meta.origin.yaw
+            ||
+            0
+        );
+
+
+    const dx =
+        x
+        -
+        originX;
+
+    const dy =
+        y
+        -
+        originY;
+
+
+    const cosO =
+        Math.cos(
+            originYaw
+        );
+
+    const sinO =
+        Math.sin(
+            originYaw
+        );
+
+
+    const localX =
+        cosO * dx
+        +
+        sinO * dy;
+
+    const localY =
+        -sinO * dx
+        +
+        cosO * dy;
+
+
+    return {
+        pixelX:
+            localX
+            /
+            resolution,
+
+        pixelY:
+            height
+            -
+            (
+                localY
+                /
+                resolution
+            ),
+
+        yawRel:
+            yaw
+            -
+            originYaw,
+
+        resolution,
+        width,
+        height
+    };
+}
+
+
+function evaluatePhysicalPose(
+    x,
+    y,
+    yaw,
+    measurements,
+    raster,
+    meta
+) {
+
+    const p =
+        worldPoseToAlignment(
+            x,
+            y,
+            yaw,
+            meta
+        );
+
+
+    if (
+        p.pixelX < 0
+        ||
+        p.pixelY < 0
+        ||
+        p.pixelX >= p.width
+        ||
+        p.pixelY >= p.height
+    ) {
+        return null;
+    }
+
+
+    const definitions = {
+        F: {
+            angle:
+                p.yawRel,
+            offset:
+                ROSMASTER_X3_LENGTH_M / 2
+        },
+
+        I: {
+            angle:
+                p.yawRel
+                +
+                Math.PI / 2,
+            offset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+
+        D: {
+            angle:
+                p.yawRel
+                -
+                Math.PI / 2,
+            offset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+
+        A: {
+            angle:
+                p.yawRel
+                +
+                Math.PI,
+            offset:
+                ROSMASTER_X3_LENGTH_M / 2
+        }
+    };
+
+
+    let squaredError =
+        0;
+
+    let absoluteError =
+        0;
+
+    let count =
+        0;
+
+    const predicted =
+        {};
+
+
+    for (
+        const key
+        of Object.keys(
+            measurements
+        )
+    ) {
+
+        const physical =
+            measurements[key];
+
+
+        if (physical === null) {
+            continue;
+        }
+
+
+        const def =
+            definitions[key];
+
+
+        const result =
+            measureAlignmentClearance(
+                raster,
+                p.width,
+                p.height,
+                p.resolution,
+                p.pixelX,
+                p.pixelY,
+                def.angle,
+                def.offset
+            );
+
+
+        if (
+            !result
+            ||
+            result.type !== "wall"
+        ) {
+            return null;
+        }
+
+
+        const difference =
+            result.distance
+            -
+            physical;
+
+
+        squaredError +=
+            difference
+            *
+            difference;
+
+        absoluteError +=
+            Math.abs(
+                difference
+            );
+
+        count += 1;
+
+        predicted[key] =
+            result.distance;
+    }
+
+
+    if (!count) {
+        return null;
+    }
+
+
+    return {
+        x,
+        y,
+        yaw,
+        score:
+            squaredError
+            /
+            count,
+        meanError:
+            absoluteError
+            /
+            count,
+        predicted
+    };
+}
+
+
+function searchPhysicalPose(
+    current,
+    measurements,
+    raster,
+    meta
+) {
+
+    let best =
+        null;
+
+
+    function tryCandidate(
+        x,
+        y,
+        yaw
+    ) {
+
+        const candidate =
+            evaluatePhysicalPose(
+                x,
+                y,
+                yaw,
+                measurements,
+                raster,
+                meta
+            );
+
+
+        if (
+            candidate
+            &&
+            (
+                !best
+                ||
+                candidate.score
+                <
+                best.score
+            )
+        ) {
+            best =
+                candidate;
+        }
+    }
+
+
+    const coarseXY =
+        0.025;
+
+    const coarseYaw =
+        2
+        *
+        Math.PI
+        /
+        180;
+
+
+    for (
+        let ix = -10;
+        ix <= 10;
+        ix += 1
+    ) {
+
+        for (
+            let iy = -10;
+            iy <= 10;
+            iy += 1
+        ) {
+
+            for (
+                let ia = -6;
+                ia <= 6;
+                ia += 1
+            ) {
+
+                tryCandidate(
+                    Number(current.x)
+                    +
+                    ix * coarseXY,
+
+                    Number(current.y)
+                    +
+                    iy * coarseXY,
+
+                    Number(current.yaw)
+                    +
+                    ia * coarseYaw
+                );
+            }
+        }
+    }
+
+
+    if (!best) {
+        return null;
+    }
+
+
+    const coarseBest =
+        best;
+
+    best =
+        null;
+
+
+    const fineXY =
+        0.01;
+
+    const fineYaw =
+        Math.PI
+        /
+        180;
+
+
+    for (
+        let ix = -4;
+        ix <= 4;
+        ix += 1
+    ) {
+
+        for (
+            let iy = -4;
+            iy <= 4;
+            iy += 1
+        ) {
+
+            for (
+                let ia = -3;
+                ia <= 3;
+                ia += 1
+            ) {
+
+                tryCandidate(
+                    coarseBest.x
+                    +
+                    ix * fineXY,
+
+                    coarseBest.y
+                    +
+                    iy * fineXY,
+
+                    coarseBest.yaw
+                    +
+                    ia * fineYaw
+                );
+            }
+        }
+    }
+
+
+    return (
+        best
+        ||
+        coarseBest
+    );
+}
+
+
+async function runPhysicalCalibration() {
+
+    try {
+
+        if (
+            !safeVisionMapPose.meta
+            ||
+            !safeVisionMapPose.lastPose
+        ) {
+            throw new Error(
+                "Primero muestra el mapa y espera a que aparezca el robot."
+            );
+        }
+
+
+        window.alert(
+            "Calibración aproximada por medidas físicas.\n\n"
+            +
+            "Mide desde el borde del robot hasta las paredes.\n"
+            +
+            "No es necesario que sean medidas milimétricas.\n"
+            +
+            "Puedes dejar campos vacíos.\n\n"
+            +
+            "Se requieren al menos 3 medidas.\n"
+            +
+            "AMCL e IMU terminarán de estabilizar la estimación al mover el robot."
+        );
+
+
+        const measurements =
+            {};
+
+
+        for (
+            const item
+            of [
+                ["F", "Frente"],
+                ["I", "Izquierda"],
+                ["D", "Derecha"],
+                ["A", "Atrás"]
+            ]
+        ) {
+
+            const result =
+                physicalMeasurePrompt(
+                    item[1]
+                );
+
+
+            if (result.cancelled) {
+                return;
+            }
+
+
+            measurements[
+                item[0]
+            ] =
+                result.value;
+        }
+
+
+        const available =
+            Object.values(
+                measurements
+            )
+            .filter(
+                value =>
+                    value !== null
+            )
+            .length;
+
+
+        if (available < 3) {
+            throw new Error(
+                "Se requieren al menos 3 medidas físicas."
+            );
+        }
+
+
+        const meta =
+            safeVisionMapPose.meta;
+
+
+        const raster =
+            getAlignmentRaster(
+                Number(meta.width),
+                Number(meta.height)
+            );
+
+
+        if (!raster) {
+            throw new Error(
+                "No pude leer el mapa para calcular el ajuste."
+            );
+        }
+
+
+        const current =
+            safeVisionMapPose.lastPose;
+
+
+        const best =
+            searchPhysicalPose(
+                current,
+                measurements,
+                raster,
+                meta
+            );
+
+
+        if (!best) {
+            throw new Error(
+                "No encontré una pose compatible con esas medidas."
+            );
+        }
+
+
+        const yawDeg =
+            best.yaw
+            *
+            180
+            /
+            Math.PI;
+
+
+        const names = {
+            F: "Frente",
+            I: "Izquierda",
+            D: "Derecha",
+            A: "Atrás"
+        };
+
+
+        const lines =
+            [];
+
+
+        for (
+            const key
+            of ["F", "I", "D", "A"]
+        ) {
+
+            if (
+                measurements[key]
+                === null
+            ) {
+                continue;
+            }
+
+
+            lines.push(
+                `${names[key]}: `
+                +
+                `físico ${measurements[key].toFixed(2)} m`
+                +
+                ` | mapa ${best.predicted[key].toFixed(2)} m`
+            );
+        }
+
+
+        const accepted =
+            window.confirm(
+                "Pose sugerida\n\n"
+                +
+                `X: ${best.x.toFixed(3)} m\n`
+                +
+                `Y: ${best.y.toFixed(3)} m\n`
+                +
+                `Yaw: ${yawDeg.toFixed(1)}°\n\n`
+                +
+                `Desajuste medio estimado: ${best.meanError.toFixed(3)} m\n\n`
+                +
+                lines.join("\n")
+                +
+                "\n\n"
+                +
+                "Las medidas son aproximadas.\n"
+                +
+                "Aceptar para aplicar esta pose."
+            );
+
+
+        if (!accepted) {
+            return;
+        }
+
+
+        const response =
+            await fetch(
+                "/initialpose",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            x: best.x,
+                            y: best.y,
+                            yaw: best.yaw
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok
+            ||
+            !data.ok
+        ) {
+            throw new Error(
+                data.message
+                ||
+                data.error
+                ||
+                "No se pudo aplicar la pose."
+            );
+        }
+
+
+        log(
+            (
+                "Calibración por medidas aplicada: "
+                +
+                `X ${best.x.toFixed(2)} m, `
+                +
+                `Y ${best.y.toFixed(2)} m, `
+                +
+                `${yawDeg.toFixed(1)}°, `
+                +
+                `error aprox. ${best.meanError.toFixed(2)} m`
+            ),
+            "success"
+        );
+
+
+        window.alert(
+            "Pose aplicada.\n\n"
+            +
+            `Desajuste estimado: ${best.meanError.toFixed(3)} m\n\n`
+            +
+            "Mueve un poco el robot para que AMCL/IMU terminen de estabilizar la estimación."
+        );
+
+
+    } catch (error) {
+
+        log(
+            `Calibración por medidas: ${error.message}`,
+            "error"
+        );
+
+        window.alert(
+            error.message
+        );
+    }
+}
+
+
+function ensurePhysicalCalibrationButton() {
+
+    const toolbar =
+        document.querySelector(
+            ".map-toolbar"
+        );
+
+
+    if (
+        !toolbar
+        ||
+        document.getElementById(
+            "mapPhysicalCalibration"
+        )
+    ) {
+        return;
+    }
+
+
+    const button =
+        document.createElement(
+            "button"
+        );
+
+
+    button.id =
+        "mapPhysicalCalibration";
+
+    button.type =
+        "button";
+
+    button.textContent =
+        "Calibrar medidas";
+
+    button.title =
+        "Ajustar pose usando distancias físicas aproximadas";
+
+
+    button.addEventListener(
+        "click",
+        runPhysicalCalibration
+    );
+
+
+    toolbar.appendChild(
+        button
+    );
+}
+
+
+ensurePhysicalCalibrationButton();
+
+
+function hideRobotAlignmentGuide() {
+
+    const canvas =
+        document.getElementById(
+            "robotAlignmentGuide"
+        );
+
+    if (canvas) {
+        canvas.hidden = true;
+    }
+}
+
+
+function getRobotAlignmentCanvas(
+    width,
+    height,
+    renderScale
+) {
+
+    const scene =
+        document.getElementById(
+            "mapScene"
+        );
+
+    if (!scene) {
+        return null;
+    }
+
+
+    let canvas =
+        document.getElementById(
+            "robotAlignmentGuide"
+        );
+
+
+    if (!canvas) {
+
+        canvas =
+            document.createElement(
+                "canvas"
+            );
+
+        canvas.id =
+            "robotAlignmentGuide";
+
+        canvas.hidden =
+            true;
+
+        scene.appendChild(
+            canvas
+        );
+    }
+
+
+    const targetWidth =
+        Math.max(
+            1,
+            Math.round(
+                width
+                *
+                renderScale
+            )
+        );
+
+    const targetHeight =
+        Math.max(
+            1,
+            Math.round(
+                height
+                *
+                renderScale
+            )
+        );
+
+
+    if (
+        canvas.width
+        !==
+        targetWidth
+    ) {
+        canvas.width =
+            targetWidth;
+    }
+
+    if (
+        canvas.height
+        !==
+        targetHeight
+    ) {
+        canvas.height =
+            targetHeight;
+    }
+
+
+    return canvas;
+}
+
+
+function getAlignmentRaster(
+    width,
+    height
+) {
+
+    const image =
+        document.getElementById(
+            "mapImage"
+        );
+
+
+    if (
+        !image
+        ||
+        !image.complete
+        ||
+        !image.naturalWidth
+        ||
+        !image.naturalHeight
+    ) {
+        return null;
+    }
+
+
+    if (
+        safeVisionAlignmentGuide.raster
+        &&
+        safeVisionAlignmentGuide.rasterMapName
+            === safeVisionMapPose.mapName
+        &&
+        safeVisionAlignmentGuide.rasterWidth
+            === width
+        &&
+        safeVisionAlignmentGuide.rasterHeight
+            === height
+    ) {
+        return safeVisionAlignmentGuide.raster;
+    }
+
+
+    try {
+
+        const rasterCanvas =
+            document.createElement(
+                "canvas"
+            );
+
+        rasterCanvas.width =
+            width;
+
+        rasterCanvas.height =
+            height;
+
+
+        const ctx =
+            rasterCanvas.getContext(
+                "2d",
+                {
+                    willReadFrequently: true
+                }
+            );
+
+
+        ctx.drawImage(
+            image,
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        const raster =
+            ctx.getImageData(
+                0,
+                0,
+                width,
+                height
+            ).data;
+
+
+        safeVisionAlignmentGuide.rasterMapName =
+            safeVisionMapPose.mapName;
+
+        safeVisionAlignmentGuide.rasterWidth =
+            width;
+
+        safeVisionAlignmentGuide.rasterHeight =
+            height;
+
+        safeVisionAlignmentGuide.raster =
+            raster;
+
+
+        return raster;
+
+
+    } catch (_) {
+
+        return null;
+    }
+}
+
+
+function classifyAlignmentPixel(
+    raster,
+    width,
+    height,
+    x,
+    y
+) {
+
+    const px =
+        Math.round(x);
+
+    const py =
+        Math.round(y);
+
+
+    if (
+        px < 0
+        ||
+        py < 0
+        ||
+        px >= width
+        ||
+        py >= height
+    ) {
+        return "outside";
+    }
+
+
+    const index =
+        (
+            py * width
+            +
+            px
+        )
+        *
+        4;
+
+
+    const luminance =
+        (
+            raster[index]
+            +
+            raster[index + 1]
+            +
+            raster[index + 2]
+        )
+        /
+        3;
+
+
+    if (luminance <= 80) {
+        return "occupied";
+    }
+
+
+    if (
+        luminance >= 150
+        &&
+        luminance <= 230
+    ) {
+        return "unknown";
+    }
+
+
+    return "free";
+}
+
+
+function measureAlignmentClearance(
+    raster,
+    width,
+    height,
+    resolution,
+    pixelX,
+    pixelY,
+    angle,
+    robotOffset
+) {
+
+    const maxDistance =
+        4.0;
+
+    const maxPixels =
+        Math.floor(
+            maxDistance
+            /
+            resolution
+        );
+
+
+    const dx =
+        Math.cos(
+            angle
+        );
+
+    const dy =
+        -Math.sin(
+            angle
+        );
+
+
+    for (
+        let step = 1;
+        step <= maxPixels;
+        step += 1
+    ) {
+
+        const state =
+            classifyAlignmentPixel(
+                raster,
+                width,
+                height,
+                pixelX + dx * step,
+                pixelY + dy * step
+            );
+
+
+        if (state === "occupied") {
+
+            return {
+                type: "wall",
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+
+
+        if (
+            state === "unknown"
+            ||
+            state === "outside"
+        ) {
+
+            return {
+                type: state,
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+    }
+
+
+    return {
+        type: "far",
+        distance: maxDistance
+    };
+}
+
+
+function formatAlignmentClearance(
+    result
+) {
+
+    if (
+        result.type === "wall"
+    ) {
+
+        return (
+            result.distance.toFixed(2)
+            +
+            " m"
+        );
+    }
+
+
+    if (
+        result.type === "far"
+    ) {
+
+        return (
+            ">"
+            +
+            result.distance.toFixed(1)
+            +
+            " m"
+        );
+    }
+
+
+    return "?";
+}
+
+
+function updateRobotAlignmentGuide(
+    pixelX,
+    pixelY,
+    yawRel,
+    resolution,
+    width,
+    height
+) {
+
+    if (
+        !safeVisionAlignmentGuide.visible
+    ) {
+
+        hideRobotAlignmentGuide();
+        return;
+    }
+
+
+    const zoomScale =
+        Math.max(
+            1,
+            Number(
+                mapView.scale
+            )
+            ||
+            1
+        );
+
+
+    const deviceScale =
+        Math.max(
+            1,
+            Number(
+                window.devicePixelRatio
+            )
+            ||
+            1
+        );
+
+
+    const renderScale =
+        Math.min(
+            5,
+            zoomScale
+            *
+            deviceScale
+        );
+
+
+    const raster =
+        getAlignmentRaster(
+            width,
+            height
+        );
+
+
+    const canvas =
+        getRobotAlignmentCanvas(
+            width,
+            height,
+            renderScale
+        );
+
+
+    if (
+        !raster
+        ||
+        !canvas
+        ||
+        !resolution
+    ) {
+
+        hideRobotAlignmentGuide();
+        return;
+    }
+
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+
+    const scaleX =
+        rect.width
+        /
+        width;
+
+
+    const scaleY =
+        rect.height
+        /
+        height;
+
+
+    const displayScale =
+        Math.max(
+            0.05,
+            (
+                scaleX
+                +
+                scaleY
+            )
+            /
+            2
+        );
+
+
+    const screenCompensation =
+        1.0
+        /
+        displayScale;
+
+
+    const ctx =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    ctx.setTransform(
+        renderScale,
+        0,
+        0,
+        renderScale,
+        0,
+        0
+    );
+
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    const directions = [
+        {
+            label: "F",
+            angle: yawRel,
+            robotOffset:
+                ROSMASTER_X3_LENGTH_M / 2
+        },
+        {
+            label: "I",
+            angle:
+                yawRel
+                +
+                Math.PI / 2,
+            robotOffset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+        {
+            label: "D",
+            angle:
+                yawRel
+                -
+                Math.PI / 2,
+            robotOffset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+        {
+            label: "A",
+            angle:
+                yawRel
+                +
+                Math.PI,
+            robotOffset:
+                ROSMASTER_X3_LENGTH_M / 2
+        }
+    ];
+
+
+    const guideMeters =
+        1.0;
+
+    const guidePixels =
+        guideMeters
+        /
+        resolution;
+
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        "#ff2d2d";
+
+    ctx.fillStyle =
+        "#ff2d2d";
+
+    ctx.lineWidth =
+        0.65
+        *
+        screenCompensation;
+
+    ctx.lineCap =
+        "round";
+
+    ctx.font =
+        `700 ${
+            13
+            *
+            screenCompensation
+        }px sans-serif`;
+
+    ctx.textAlign =
+        "center";
+
+    ctx.textBaseline =
+        "middle";
+
+    ctx.shadowColor =
+        "rgba(255, 255, 255, 0.95)";
+
+    ctx.shadowBlur =
+        1.5
+        *
+        screenCompensation;
+
+
+    for (
+        const direction
+        of directions
+    ) {
+
+        const dx =
+            Math.cos(
+                direction.angle
+            );
+
+        const dy =
+            -Math.sin(
+                direction.angle
+            );
+
+
+        const endX =
+            pixelX
+            +
+            dx * guidePixels;
+
+        const endY =
+            pixelY
+            +
+            dy * guidePixels;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            pixelX,
+            pixelY
+        );
+
+        ctx.lineTo(
+            endX,
+            endY
+        );
+
+        ctx.stroke();
+
+
+        const perpendicularX =
+            -dy;
+
+        const perpendicularY =
+            dx;
+
+
+        for (
+            let tick = 0.25;
+            tick <= 1.001;
+            tick += 0.25
+        ) {
+
+            const tickPixels =
+                tick
+                /
+                resolution;
+
+
+            const tx =
+                pixelX
+                +
+                dx * tickPixels;
+
+            const ty =
+                pixelY
+                +
+                dy * tickPixels;
+
+
+            const halfTick =
+                2.5
+                *
+                screenCompensation;
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                tx
+                -
+                perpendicularX
+                *
+                halfTick,
+                ty
+                -
+                perpendicularY
+                *
+                halfTick
+            );
+
+            ctx.lineTo(
+                tx
+                +
+                perpendicularX
+                *
+                halfTick,
+                ty
+                +
+                perpendicularY
+                *
+                halfTick
+            );
+
+            ctx.stroke();
+        }
+
+
+        const clearance =
+            measureAlignmentClearance(
+                raster,
+                width,
+                height,
+                resolution,
+                pixelX,
+                pixelY,
+                direction.angle,
+                direction.robotOffset
+            );
+
+
+        const text =
+            (
+                direction.label
+                +
+                " "
+                +
+                formatAlignmentClearance(
+                    clearance
+                )
+            );
+
+
+        const textOffset =
+            11
+            *
+            screenCompensation;
+
+
+        let textX =
+            endX
+            +
+            dx
+            *
+            textOffset;
+
+        let textY =
+            endY
+            +
+            dy
+            *
+            textOffset;
+
+
+        textX =
+            Math.max(
+                35,
+                Math.min(
+                    width - 35,
+                    textX
+                )
+            );
+
+        textY =
+            Math.max(
+                10,
+                Math.min(
+                    height - 10,
+                    textY
+                )
+            );
+
+
+        ctx.save();
+
+        ctx.lineWidth =
+            3
+            *
+            screenCompensation;
+
+        ctx.strokeStyle =
+            "rgba(255, 255, 255, 0.92)";
+
+        ctx.shadowBlur =
+            0;
+
+        ctx.strokeText(
+            text,
+            textX,
+            textY
+        );
+
+        ctx.fillText(
+            text,
+            textX,
+            textY
+        );
+
+        ctx.restore();
+    }
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        pixelX,
+        pixelY,
+        2.5
+        *
+        screenCompensation,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+
+    canvas.hidden =
+        false;
+}
 
 
 async function prepareRobotTracking() {
@@ -1534,6 +3300,7 @@ async function prepareRobotTracking() {
 
     if (!nombre) {
         marker.hidden = true;
+        hideRobotAlignmentGuide();
         return;
     }
 
@@ -1596,6 +3363,7 @@ async function prepareRobotTracking() {
 
         marker.hidden = true;
 
+        hideRobotAlignmentGuide();
         log(
             `Localizacion: ${error.message}`,
             "error"
@@ -1649,8 +3417,13 @@ async function updateRobotMarker() {
             !pose.localized
         ) {
             marker.hidden = true;
+            hideRobotAlignmentGuide();
             return;
         }
+
+
+        safeVisionMapPose.lastPose =
+            pose;
 
 
         const meta =
@@ -1696,6 +3469,7 @@ async function updateRobotMarker() {
             !height
         ) {
             marker.hidden = true;
+            hideRobotAlignmentGuide();
             return;
         }
 
@@ -1765,6 +3539,7 @@ async function updateRobotMarker() {
             topPct > 100
         ) {
             marker.hidden = true;
+            hideRobotAlignmentGuide();
             return;
         }
 
@@ -1838,6 +3613,15 @@ async function updateRobotMarker() {
         marker.title =
             `Robot | X ${Number(pose.x).toFixed(2)} m | Y ${Number(pose.y).toFixed(2)} m | ${Number(pose.yaw_deg).toFixed(1)}°`;
 
+        updateRobotAlignmentGuide(
+            pixelX,
+            pixelY,
+            yawRel,
+            resolution,
+            width,
+            height
+        );
+
         marker.hidden = false;
 
 
@@ -1848,6 +3632,7 @@ async function updateRobotMarker() {
 
         if (marker) {
             marker.hidden = true;
+            hideRobotAlignmentGuide();
         }
 
 

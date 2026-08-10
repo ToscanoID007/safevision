@@ -42,6 +42,7 @@ EXPORTER_PID=""
 SERVER_PID=""
 SELECTOR_PID=""
 NAV_PID=""
+QUEUE_PID=""
 CONTROL_PID=""
 CERRANDO=0
 
@@ -99,6 +100,7 @@ cerrar() {
     echo "========================================================="
 
     cerrar_pid "$CONTROL_PID"
+    cerrar_pid "$QUEUE_PID"
     cerrar_pid "$NAV_PID"
     cerrar_pid "$SELECTOR_PID"
     cerrar_pid "$SERVER_PID"
@@ -109,6 +111,7 @@ cerrar() {
     sleep 3
 
     terminar_pid "$CONTROL_PID"
+    terminar_pid "$QUEUE_PID"
     terminar_pid "$NAV_PID"
     terminar_pid "$SELECTOR_PID"
     terminar_pid "$SERVER_PID"
@@ -190,7 +193,7 @@ temporal.replace(
 PYMAP
 
 echo ""
-echo "[1/8] Preparando ROS Master..."
+echo "[1/9] Preparando ROS Master..."
 
 if rosnode list >/dev/null 2>&1; then
     echo "[OK] ROS Master ya está activo."
@@ -220,7 +223,7 @@ else
 fi
 
 echo ""
-echo "[2/8] Iniciando driver Yahboom..."
+echo "[2/9] Iniciando driver Yahboom..."
 
 if rosnode list 2>/dev/null \
     | grep -Fx "/driver_node" >/dev/null; then
@@ -261,7 +264,7 @@ fi
 echo "[OK] Driver Yahboom."
 
 echo ""
-echo "[3/8] Iniciando localización $MAP_NAME..."
+echo "[3/9] Iniciando localización $MAP_NAME..."
 echo ""
 echo "NO MUEVAS EL ROBOT."
 echo "Esperando calibración de IMU y arranque de AMCL..."
@@ -339,7 +342,7 @@ echo "[OK] LiDAR publicando."
 echo "[OK] IMU + EKF + LiDAR + $MAP_NAME + AMCL."
 
 echo ""
-echo "[4/8] Iniciando exportador de pose..."
+echo "[4/9] Iniciando exportador de pose..."
 
 rm -f /tmp/safevision_map_pose.json
 
@@ -372,7 +375,7 @@ fi
 echo "[OK] Pose Exporter."
 
 echo ""
-echo "[5/8] Iniciando cámara y Robot Server..."
+echo "[5/9] Iniciando cámara y Robot Server..."
 
 python3 \
 "$ROBOT_DIR/sf_robot_server.py" \
@@ -422,7 +425,7 @@ echo " http://${PI_IP}:8080"
 echo ""
 
 echo ""
-echo "[6/8] Iniciando selector de movimiento..."
+echo "[6/9] Iniciando selector de movimiento..."
 
 python3 "$ROBOT_DIR/sf_cmd_vel_selector.py" > "$LOG_DIR/cmd_vel_selector.log" 2>&1 &
 
@@ -448,7 +451,7 @@ fi
 echo "[OK] Selector en modo MANUAL."
 
 echo ""
-echo "[7/8] Iniciando navegación Nivel 3..."
+echo "[7/9] Iniciando navegación Nivel 3..."
 
 roslaunch "$ROBOT_DIR/sf_navegacion.launch" > "$LOG_DIR/navegacion.log" 2>&1 &
 
@@ -473,8 +476,35 @@ fi
 
 echo "[OK] move_base activo sin objetivo."
 
+echo ""
+echo "[8/9] Iniciando ejecutor de cola..."
+
+python3 "$ROBOT_DIR/sf_nav_queue.py" > "$LOG_DIR/nav_queue.log" 2>&1 &
+
+QUEUE_PID=$!
+
+QUEUE_OK=0
+
+for I in $(seq 1 20); do
+    if rosnode list 2>/dev/null \
+        | grep -Fx "/sf_nav_queue" >/dev/null; then
+        QUEUE_OK=1
+        break
+    fi
+
+    sleep 0.25
+done
+
+if [ "$QUEUE_OK" -ne 1 ]; then
+    echo "ERROR: sf_nav_queue no inició."
+    tail -n 40 "$LOG_DIR/nav_queue.log" 2>/dev/null || true
+    exit 1
+fi
+
+echo "[OK] Ejecutor de cola activo."
+
 if [ "$CONTROL" = "mando" ]; then
-    echo "[8/8] Preparando control por mando..."
+    echo "[9/9] Preparando control por mando..."
 
     if [ ! -e /dev/input/js0 ]; then
         echo "ERROR: no se detectó /dev/input/js0"
@@ -502,7 +532,7 @@ if [ "$CONTROL" = "mando" ]; then
     wait "$CONTROL_PID"
 
 else
-    echo "[8/8] Sistema preparado para teclado."
+    echo "[9/9] Sistema preparado para teclado."
 
     python3 \
     "$ROBOT_DIR/sf_modo_espera.py" \
