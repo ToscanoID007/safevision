@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -25,13 +26,28 @@ def limpiar():
 
 
 def ejecutar(comando):
+    handler_original = signal.getsignal(
+        signal.SIGINT
+    )
+
+    def mantener_padre(_signum, _frame):
+        return None
+
+    signal.signal(
+        signal.SIGINT,
+        mantener_padre
+    )
+
     try:
         return subprocess.run(
             comando
         ).returncode
 
-    except KeyboardInterrupt:
-        return 130
+    finally:
+        signal.signal(
+            signal.SIGINT,
+            handler_original
+        )
 
 
 def descargar_dashboard():

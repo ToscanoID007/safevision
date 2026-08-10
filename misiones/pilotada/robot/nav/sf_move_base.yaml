@@ -12,6 +12,9 @@ clearing_rotation_allowed: false
 
 shutdown_costmaps: false
 
+make_plan_clear_costmap: false
+make_plan_add_unreachable_goal: false
+
 oscillation_timeout: 10.0
 oscillation_distance: 0.15
 
