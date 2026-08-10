@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+
+<body>
+
+<header class="topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+        <span>Misión Pilotada · Nivel 2</span>
+    </div>
+
+    <div
+        id="connectionBadge"
+        class="badge badge-off"
+    >
+        DESCONECTADO
+    </div>
+
+</header>
+
+
+<main class="layout">
+
+    <!-- ============================================== -->
+    <!-- CONFIGURACIÓN                                  -->
+    <!-- ============================================== -->
+
+    <aside class="sidebar">
+
+        <section class="panel">
+
+            <h2>Robot</h2>
+
+            <label>
+                IP Raspberry Pi
+            </label>
+
+            <div class="row">
+
+                <input
+                    id="robotIp"
+                    type="text"
+                    placeholder="192.168.1.75"
+                    autocomplete="off"
+                >
+
+                <button
+                    id="connectButton"
+                >
+                    Conectar
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Modelo</h2>
+
+            <form id="modelForm">
+
+                <label>
+                    Red neuronal (.pt)
+                </label>
+
+                <input
+                    id="modelPt"
+                    name="model_pt"
+                    type="file"
+                    accept=".pt"
+                    required
+                >
+
+
+                <label>
+                    Metadatos (.json) · opcional
+                </label>
+
+                <input
+                    id="modelJson"
+                    name="model_json"
+                    type="file"
+                    accept=".json"
+                >
+
+
+                <button
+                    type="submit"
+                    class="full"
+                >
+                    Cargar modelo
+                </button>
+
+            </form>
+
+
+            <div class="info-line">
+                <span>Activo</span>
+
+                <strong id="modelName">
+                    Ninguno
+                </strong>
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Confianza</h2>
+
+            <div class="confidence-row">
+
+                <input
+                    id="confidence"
+                    type="range"
+                    min="5"
+                    max="95"
+                    value="50"
+                >
+
+                <strong id="confidenceValue">
+                    50%
+                </strong>
+
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Estado</h2>
+
+            <div class="status">
+                <span>ROS</span>
+                <strong id="rosStatus">—</strong>
+            </div>
+
+            <div class="status">
+                <span>Driver</span>
+                <strong id="driverStatus">—</strong>
+            </div>
+
+            <div class="status">
+                <span>LiDAR</span>
+                <strong id="lidarStatus">—</strong>
+            </div>
+
+            <div class="status">
+                <span>Mapa</span>
+                <strong id="mapStatus">—</strong>
+            </div>
+
+            <div class="status">
+                <span>Cámara</span>
+                <strong id="cameraStatus">—</strong>
+            </div>
+
+            <div class="status">
+                <span>Control</span>
+                <strong id="controlStatus">—</strong>
+            </div>
+
+        </section>
+
+    </aside>
+
+
+    <!-- ============================================== -->
+    <!-- VISUALIZACIÓN                                  -->
+    <!-- ============================================== -->
+
+    <section class="workspace">
+
+        <div class="view-grid">
+
+            <section class="panel viewer-panel">
+
+                <div class="viewer-title">
+
+                    <div>
+                        <h2>Cámara + IA</h2>
+
+                        <span>
+                            Procesamiento en PC
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="viewer">
+
+                    <div
+                        id="videoPlaceholder"
+                        class="placeholder"
+                    >
+                        Conecta el robot para mostrar video.
+                    </div>
+
+
+                    <img
+                        id="videoFeed"
+                        alt="SafeVision Video"
+                        hidden
+                    >
+
+                </div>
+
+            </section>
+
+
+            <section class="panel viewer-panel">
+
+                <div class="viewer-title">
+
+                    <div>
+                        <h2>Mapa</h2>
+
+                        <span>
+                            Nivel 2
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="map-toolbar">
+
+                    <select id="mapSelect">
+                        <option value="">
+                            Seleccionar mapa...
+                        </option>
+                    </select>
+
+                    <button
+                        id="loadMapButton"
+                        type="button"
+                    >
+                        Mostrar
+                    </button>
+
+                    <button
+                        id="mapZoomOut"
+                        type="button"
+                        title="Alejar"
+                    >
+                        −
+                    </button>
+
+                    <button
+                        id="mapZoomIn"
+                        type="button"
+                        title="Acercar"
+                    >
+                        +
+                    </button>
+
+                    <button
+                        id="mapReset"
+                        type="button"
+                        title="Encuadrar mapa"
+                    >
+                        Ajustar
+                    </button>
+
+                    <button
+                        id="mapAreaZoom"
+                        type="button"
+                        title="Seleccionar una zona para ampliar"
+                    >
+                        Zoom área
+                    </button>
+
+                    <button
+                        id="mapLock"
+                        type="button"
+                        title="Bloquear el encuadre actual"
+                    >
+                        Bloquear
+                    </button>
+
+
+                </div>
+
+                <div
+                    id="mapViewport"
+                    class="viewer map"
+                >
+
+                    <div
+                        id="mapPlaceholder"
+                        class="placeholder"
+                    >
+                        Conecta el robot para consultar mapas.
+                    </div>
+
+                    <div
+                        id="mapScene"
+                        class="map-scene"
+                        hidden
+                    >
+
+                        <img
+                            id="mapImage"
+                            alt="Mapa SafeVision"
+                            draggable="false"
+                        >
+
+                        <div
+                            id="robotMarker"
+                            class="robot-marker"
+                            title="Posición del robot"
+                            hidden
+                        >
+                            ▲
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+
+        <section class="panel">
+
+            <h2>Modelo cargado</h2>
+
+            <div id="modelMetadata">
+                Sin modelo.
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Clases</h2>
+
+            <div
+                id="classes"
+                class="classes"
+            >
+                <span class="muted">
+                    Sin clases disponibles.
+                </span>
+            </div>
+
+        </section>
+
+
+        <section class="panel">
+
+            <h2>Actividad</h2>
+
+            <div
+                id="log"
+                class="log"
+            >
+                SafeVision Dashboard preparado.
+            </div>
+
+        </section>
+
+    </section>
+
+</main>
+
+
+<script
+    src="{{ url_for('static', filename='app.js') }}"
+></script>
+
+</body>
+</html>

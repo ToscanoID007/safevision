@@ -35,7 +35,10 @@ def menu_operacion():
         opcion = input("\nSelecciona una opción (1-3): ").strip()
 
         if opcion == '1':
-            ejecutar_script("sf_mision_pilotada.py")
+            subprocess.run([
+                sys.executable,
+                "/home/pi/robot_custom/misiones/pilotada/robot/sf_mision_pilotada.py"
+            ])
         elif opcion == '2':
             ejecutar_script("sf_mision_automatica.py")
         elif opcion == '3':
