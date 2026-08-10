@@ -388,7 +388,7 @@ SERVER_OK=0
 
 for I in $(seq 1 40); do
     if curl -sS --max-time 1 \
-        "http://127.0.0.1:8080/" \
+        "http://127.0.0.1:8091/" \
         >/dev/null 2>&1; then
 
         SERVER_OK=1
@@ -399,7 +399,7 @@ for I in $(seq 1 40); do
 done
 
 if [ "$SERVER_OK" -ne 1 ]; then
-    echo "ERROR: Robot Server no respondió en puerto 8080."
+    echo "ERROR: Robot Server no respondió en puerto 8091."
     echo "Revisa:"
     echo "$LOG_DIR/robot_server.log"
     exit 1
@@ -421,7 +421,7 @@ echo " Robot Server : OK"
 echo "========================================================="
 echo ""
 echo " Robot Server:"
-echo " http://${PI_IP}:8080"
+echo " http://${PI_IP}:8091"
 echo ""
 
 echo ""
@@ -544,7 +544,7 @@ else
     echo " SAFEVISION - CONTROL POR TECLADO"
     echo "========================================================="
     echo ""
-    echo " Robot Server : http://${PI_IP}:8080"
+    echo " Robot Server : http://${PI_IP}:8091"
     echo " Mapa         : $MAP_NAME"
     echo " Localización : AMCL"
     echo ""

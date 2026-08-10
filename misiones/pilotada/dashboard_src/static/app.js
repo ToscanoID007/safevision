@@ -661,6 +661,16 @@ function applyMapView() {
 
     scene.style.transform =
         `translate(${mapView.x}px, ${mapView.y}px) scale(${mapView.scale})`;
+
+    if (
+        typeof window.safeVisionNavRenderMarkers
+        ===
+        "function"
+    ) {
+        window.requestAnimationFrame(
+            window.safeVisionNavRenderMarkers
+        );
+    }
 }
 
 
@@ -4435,6 +4445,1579 @@ if (safeVisionMapButton) {
     } else {
 
         installCalibrationUI();
+    }
+
+})();
+
+
+// =========================================================
+// SAFEVISION NIVEL 3C - PUNTOS DE NAVEGACION
+// =========================================================
+
+(() => {
+
+    if (
+        window.safeVisionNavPlannerInstalled
+    ) {
+        return;
+    }
+
+    window.safeVisionNavPlannerInstalled =
+        true;
+
+
+    const navPlanner = {
+        points: [],
+        map: null,
+        placing: false,
+        lastStatus: null,
+        timer: null
+    };
+
+
+    function navPointId(index) {
+
+        let value =
+            index + 1;
+
+        let text =
+            "";
+
+        while (value > 0) {
+
+            value -= 1;
+
+            text =
+                String.fromCharCode(
+                    65
+                    +
+                    (
+                        value
+                        %
+                        26
+                    )
+                )
+                +
+                text;
+
+            value =
+                Math.floor(
+                    value / 26
+                );
+        }
+
+        return text;
+    }
+
+
+    function getSelectedNavMap() {
+
+        const select =
+            document.getElementById(
+                "mapSelect"
+            );
+
+        return select
+            ? select.value
+            : "";
+    }
+
+
+    function navScreenToMap(
+        clientX,
+        clientY
+    ) {
+
+        const image =
+            document.getElementById(
+                "mapImage"
+            );
+
+        const meta =
+            safeVisionMapPose
+            &&
+            safeVisionMapPose.meta;
+
+        if (
+            !image
+            ||
+            !meta
+        ) {
+            return null;
+        }
+
+
+        const rect =
+            image.getBoundingClientRect();
+
+
+        if (
+            clientX < rect.left
+            ||
+            clientX > rect.right
+            ||
+            clientY < rect.top
+            ||
+            clientY > rect.bottom
+        ) {
+            return null;
+        }
+
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+        const originX =
+            Number(
+                meta.origin.x
+            );
+
+        const originY =
+            Number(
+                meta.origin.y
+            );
+
+        const originYaw =
+            Number(
+                meta.origin.yaw
+                ||
+                0
+            );
+
+
+        if (
+            !width
+            ||
+            !height
+            ||
+            !resolution
+        ) {
+            return null;
+        }
+
+
+        const u =
+            (
+                clientX
+                -
+                rect.left
+            )
+            /
+            rect.width;
+
+        const v =
+            (
+                clientY
+                -
+                rect.top
+            )
+            /
+            rect.height;
+
+
+        const localX =
+            (
+                u
+                *
+                width
+            )
+            *
+            resolution;
+
+        const localY =
+            (
+                height
+                -
+                (
+                    v
+                    *
+                    height
+                )
+            )
+            *
+            resolution;
+
+
+        const cosO =
+            Math.cos(
+                originYaw
+            );
+
+        const sinO =
+            Math.sin(
+                originYaw
+            );
+
+
+        return {
+            x:
+                originX
+                +
+                cosO * localX
+                -
+                sinO * localY,
+
+            y:
+                originY
+                +
+                sinO * localX
+                +
+                cosO * localY,
+
+            u,
+            v
+        };
+    }
+
+
+    function ensureNavOverlay() {
+
+        const viewport =
+            document.getElementById(
+                "mapViewport"
+            );
+
+        if (!viewport) {
+            return null;
+        }
+
+
+        let overlay =
+            document.getElementById(
+                "mapNavOverlay"
+            );
+
+
+        if (!overlay) {
+
+            overlay =
+                document.createElement(
+                    "div"
+                );
+
+            overlay.id =
+                "mapNavOverlay";
+
+            viewport.appendChild(
+                overlay
+            );
+        }
+
+
+        return overlay;
+    }
+
+
+    function renderNavMarkers() {
+
+        const overlay =
+            ensureNavOverlay();
+
+        const viewport =
+            document.getElementById(
+                "mapViewport"
+            );
+
+        const image =
+            document.getElementById(
+                "mapImage"
+            );
+
+
+        if (
+            !overlay
+            ||
+            !viewport
+            ||
+            !image
+            ||
+            image.offsetParent === null
+        ) {
+            return;
+        }
+
+
+        overlay.replaceChildren();
+
+
+        const viewportRect =
+            viewport.getBoundingClientRect();
+
+        const imageRect =
+            image.getBoundingClientRect();
+
+
+        const completed =
+            new Set(
+                (
+                    navPlanner.lastStatus
+                    &&
+                    Array.isArray(
+                        navPlanner.lastStatus.completed
+                    )
+                )
+                    ?
+                    navPlanner.lastStatus.completed.map(
+                        point => point.id
+                    )
+                    :
+                    []
+            );
+
+
+        const currentId =
+            (
+                navPlanner.lastStatus
+                &&
+                navPlanner.lastStatus.current
+            )
+                ?
+                navPlanner.lastStatus.current.id
+                :
+                null;
+
+
+        for (
+            const point
+            of navPlanner.points
+        ) {
+
+            const marker =
+                document.createElement(
+                    "div"
+                );
+
+            marker.className =
+                "map-nav-marker";
+
+            marker.textContent =
+                point.id;
+
+            marker.title =
+                (
+                    `${point.id} | `
+                    +
+                    `X ${point.x.toFixed(2)} m | `
+                    +
+                    `Y ${point.y.toFixed(2)} m`
+                );
+
+
+            if (
+                completed.has(
+                    point.id
+                )
+            ) {
+                marker.classList.add(
+                    "completed"
+                );
+            }
+
+
+            if (
+                currentId
+                ===
+                point.id
+            ) {
+                marker.classList.add(
+                    "current"
+                );
+            }
+
+
+            marker.style.left =
+                (
+                    imageRect.left
+                    -
+                    viewportRect.left
+                    +
+                    point.u
+                    *
+                    imageRect.width
+                )
+                +
+                "px";
+
+            marker.style.top =
+                (
+                    imageRect.top
+                    -
+                    viewportRect.top
+                    +
+                    point.v
+                    *
+                    imageRect.height
+                )
+                +
+                "px";
+
+
+            overlay.appendChild(
+                marker
+            );
+        }
+    }
+
+
+    window.safeVisionNavRenderMarkers =
+        renderNavMarkers;
+
+
+    function setNavStatus(
+        text,
+        state = ""
+    ) {
+
+        const element =
+            document.getElementById(
+                "mapNavStatus"
+            );
+
+        if (!element) {
+            return;
+        }
+
+        element.textContent =
+            text;
+
+        element.dataset.state =
+            state;
+    }
+
+
+    function updateNavButtons() {
+
+        const status =
+            navPlanner.lastStatus
+            ||
+            {};
+
+        const running =
+            status.running
+            ===
+            true;
+
+
+        const pointButton =
+            document.getElementById(
+                "mapNavPointsButton"
+            );
+
+        const startButton =
+            document.getElementById(
+                "mapNavStartButton"
+            );
+
+        const cancelButton =
+            document.getElementById(
+                "mapNavCancelButton"
+            );
+
+        const clearButton =
+            document.getElementById(
+                "mapNavClearButton"
+            );
+
+
+        if (pointButton) {
+            pointButton.disabled =
+                running;
+        }
+
+        if (startButton) {
+            startButton.disabled =
+                (
+                    running
+                    ||
+                    navPlanner.points.length
+                    ===
+                    0
+                );
+        }
+
+        if (cancelButton) {
+            cancelButton.disabled =
+                !running;
+        }
+
+        if (clearButton) {
+            clearButton.disabled =
+                running;
+        }
+    }
+
+
+    function setNavPlacementMode(
+        active
+    ) {
+
+        const status =
+            navPlanner.lastStatus
+            ||
+            {};
+
+        if (
+            active
+            &&
+            status.running
+        ) {
+            return;
+        }
+
+
+        if (
+            active
+            &&
+            typeof setAreaZoomMode
+            ===
+            "function"
+        ) {
+            setAreaZoomMode(
+                false
+            );
+        }
+
+
+        navPlanner.placing =
+            Boolean(
+                active
+            );
+
+
+        const button =
+            document.getElementById(
+                "mapNavPointsButton"
+            );
+
+        const viewport =
+            document.getElementById(
+                "mapViewport"
+            );
+
+
+        if (button) {
+
+            button.textContent =
+                navPlanner.placing
+                    ?
+                    "Finalizar puntos"
+                    :
+                    "Agregar puntos";
+
+            button.classList.toggle(
+                "active",
+                navPlanner.placing
+            );
+        }
+
+
+        if (viewport) {
+            viewport.classList.toggle(
+                "map-nav-placing",
+                navPlanner.placing
+            );
+        }
+
+
+        if (navPlanner.placing) {
+
+            setNavStatus(
+                (
+                    "Modo puntos activo · "
+                    +
+                    "clic en el mapa para A, B, C..."
+                ),
+                "active"
+            );
+
+        } else if (
+            navPlanner.points.length
+            >
+            0
+        ) {
+
+            setNavStatus(
+                (
+                    navPlanner.points.length
+                    +
+                    " punto(s) marcados"
+                ),
+                "ready"
+            );
+        }
+    }
+
+
+    async function navRequest(
+        url,
+        options = {}
+    ) {
+
+        const response =
+            await fetch(
+                url,
+                {
+                    cache:
+                        "no-store",
+                    ...options
+                }
+            );
+
+
+        let data =
+            {};
+
+        try {
+            data =
+                await response.json();
+
+        } catch (_) {
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+        }
+
+
+        if (
+            !response.ok
+            ||
+            data.ok
+            ===
+            false
+        ) {
+
+            throw new Error(
+                data.error
+                ||
+                data.message
+                ||
+                "Error de navegación."
+            );
+        }
+
+
+        return data;
+    }
+
+
+    function applyNavStatus(
+        status
+    ) {
+
+        navPlanner.lastStatus =
+            status;
+
+
+        const state =
+            status.state
+            ||
+            "unknown";
+
+
+        if (
+            status.running
+            ===
+            true
+        ) {
+
+            const current =
+                status.current
+                &&
+                status.current.id
+                    ?
+                    status.current.id
+                    :
+                    "...";
+
+            setNavStatus(
+                (
+                    `Navegando a ${current}`
+                    +
+                    ` · ${status.remaining_count || 0} pendiente(s)`
+                ),
+                "running"
+            );
+
+        } else if (
+            state ===
+            "completed"
+        ) {
+
+            setNavStatus(
+                (
+                    `Cola completada`
+                    +
+                    ` · ${status.completed_count || 0} punto(s)`
+                ),
+                "success"
+            );
+
+        } else if (
+            state ===
+            "error"
+        ) {
+
+            setNavStatus(
+                (
+                    "Error: "
+                    +
+                    (
+                        status.message
+                        ||
+                        "navegación"
+                    )
+                ),
+                "error"
+            );
+
+        } else if (
+            state ===
+            "cancelled"
+        ) {
+
+            setNavStatus(
+                (
+                    "Cancelada"
+                    +
+                    ` · ${status.remaining_count || 0} pendiente(s)`
+                ),
+                "warning"
+            );
+
+        } else if (
+            state ===
+            "ready"
+        ) {
+
+            setNavStatus(
+                (
+                    "Cola lista"
+                    +
+                    ` · ${status.remaining_count || 0} punto(s)`
+                ),
+                "ready"
+            );
+
+        } else if (
+            navPlanner.points.length
+            >
+            0
+        ) {
+
+            setNavStatus(
+                (
+                    navPlanner.points.length
+                    +
+                    " punto(s) marcados"
+                ),
+                "ready"
+            );
+
+        } else {
+
+            setNavStatus(
+                "Cola vacía"
+            );
+        }
+
+
+        if (
+            status.running
+            ===
+            true
+        ) {
+            setNavPlacementMode(
+                false
+            );
+        }
+
+
+        updateNavButtons();
+        renderNavMarkers();
+    }
+
+
+    async function refreshNavStatus() {
+
+        try {
+
+            const status =
+                await navRequest(
+                    "/nav/status"
+                );
+
+            applyNavStatus(
+                status
+            );
+
+            return status;
+
+        } catch (error) {
+
+            setNavStatus(
+                (
+                    "Navegación no disponible: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+
+            updateNavButtons();
+
+            return null;
+        }
+    }
+
+
+    async function waitNavReady(
+        expectedCount
+    ) {
+
+        const end =
+            Date.now()
+            +
+            4000;
+
+
+        while (
+            Date.now()
+            <
+            end
+        ) {
+
+            const status =
+                await refreshNavStatus();
+
+
+            if (
+                status
+                &&
+                status.state
+                ===
+                "ready"
+                &&
+                status.remaining_count
+                ===
+                expectedCount
+            ) {
+                return;
+            }
+
+
+            if (
+                status
+                &&
+                status.state
+                ===
+                "error"
+            ) {
+                throw new Error(
+                    status.message
+                    ||
+                    "La cola rechazó los puntos."
+                );
+            }
+
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        120
+                    )
+            );
+        }
+
+
+        throw new Error(
+            "La cola no confirmó la carga."
+        );
+    }
+
+
+    async function startNavQueue() {
+
+        try {
+
+            if (
+                navPlanner.points.length
+                ===
+                0
+            ) {
+                throw new Error(
+                    "Marca al menos un punto."
+                );
+            }
+
+
+            const mapName =
+                navPlanner.map
+                ||
+                getSelectedNavMap();
+
+
+            if (!mapName) {
+                throw new Error(
+                    "Selecciona un mapa."
+                );
+            }
+
+
+            const status =
+                await refreshNavStatus();
+
+
+            if (
+                !status
+                ||
+                status.available
+                !==
+                true
+            ) {
+                throw new Error(
+                    "La navegación no está disponible."
+                );
+            }
+
+
+            if (
+                status.active_map
+                !==
+                mapName
+            ) {
+                throw new Error(
+                    (
+                        `El mapa activo es ${status.active_map || "ninguno"}`
+                        +
+                        ` y los puntos pertenecen a ${mapName}.`
+                    )
+                );
+            }
+
+
+            setNavPlacementMode(
+                false
+            );
+
+            setNavStatus(
+                "Cargando cola...",
+                "active"
+            );
+
+
+            await navRequest(
+                "/nav/queue",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            map:
+                                mapName,
+
+                            points:
+                                navPlanner.points.map(
+                                    point => ({
+                                        id:
+                                            point.id,
+                                        x:
+                                            point.x,
+                                        y:
+                                            point.y,
+                                        yaw:
+                                            null
+                                    })
+                                )
+                        })
+                }
+            );
+
+
+            await waitNavReady(
+                navPlanner.points.length
+            );
+
+
+            await navRequest(
+                "/nav/start",
+                {
+                    method:
+                        "POST"
+                }
+            );
+
+
+            setNavStatus(
+                "Iniciando navegación...",
+                "running"
+            );
+
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        300
+                    )
+            );
+
+
+            await refreshNavStatus();
+
+        } catch (error) {
+
+            setNavStatus(
+                (
+                    "Error: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+
+            log(
+                (
+                    "Navegación A/B/C: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function cancelNavQueue() {
+
+        try {
+
+            await navRequest(
+                "/nav/cancel",
+                {
+                    method:
+                        "POST"
+                }
+            );
+
+
+            setNavStatus(
+                "Cancelando...",
+                "warning"
+            );
+
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        300
+                    )
+            );
+
+
+            await refreshNavStatus();
+
+        } catch (error) {
+
+            setNavStatus(
+                (
+                    "Error: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function clearNavQueue() {
+
+        try {
+
+            const status =
+                navPlanner.lastStatus
+                ||
+                {};
+
+
+            if (
+                status.running
+                ===
+                true
+            ) {
+                throw new Error(
+                    "Cancela la navegación antes de limpiar."
+                );
+            }
+
+
+            await navRequest(
+                "/nav/clear",
+                {
+                    method:
+                        "POST"
+                }
+            );
+
+
+            navPlanner.points =
+                [];
+
+            navPlanner.map =
+                null;
+
+            setNavPlacementMode(
+                false
+            );
+
+            renderNavMarkers();
+
+            await refreshNavStatus();
+
+        } catch (error) {
+
+            setNavStatus(
+                (
+                    "Error: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    function handleNavPointClick(
+        event
+    ) {
+
+        if (
+            !navPlanner.placing
+            ||
+            event.button
+            !==
+            0
+        ) {
+            return;
+        }
+
+
+        const scene =
+            document.getElementById(
+                "mapScene"
+            );
+
+
+        if (
+            scene
+            &&
+            scene.classList.contains(
+                "map-calibrating"
+            )
+        ) {
+            return;
+        }
+
+
+        if (
+            mapView.areaSelecting
+        ) {
+            return;
+        }
+
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+
+        if (
+            navPlanner.points.length
+            >=
+            50
+        ) {
+
+            setNavStatus(
+                "Máximo 50 puntos.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const mapName =
+            getSelectedNavMap();
+
+
+        if (!mapName) {
+
+            setNavStatus(
+                "Selecciona y muestra un mapa.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        const point =
+            navScreenToMap(
+                event.clientX,
+                event.clientY
+            );
+
+
+        if (!point) {
+
+            setNavStatus(
+                "Haz clic dentro de la imagen del mapa.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (
+            navPlanner.map
+            &&
+            navPlanner.map
+            !==
+            mapName
+        ) {
+
+            setNavStatus(
+                "Limpia los puntos antes de cambiar de mapa.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        navPlanner.map =
+            mapName;
+
+
+        navPlanner.points.push({
+            id:
+                navPointId(
+                    navPlanner.points.length
+                ),
+
+            x:
+                point.x,
+
+            y:
+                point.y,
+
+            yaw:
+                null,
+
+            u:
+                point.u,
+
+            v:
+                point.v
+        });
+
+
+        renderNavMarkers();
+
+        updateNavButtons();
+
+        setNavStatus(
+            (
+                `${navPlanner.points.length} punto(s) marcados`
+                +
+                " · clic para continuar"
+            ),
+            "active"
+        );
+    }
+
+
+    function installNavPlannerUI() {
+
+        const toolbar =
+            document.querySelector(
+                ".map-toolbar"
+            );
+
+        const scene =
+            document.getElementById(
+                "mapScene"
+            );
+
+        const viewport =
+            document.getElementById(
+                "mapViewport"
+            );
+
+
+        if (
+            !toolbar
+            ||
+            !scene
+            ||
+            !viewport
+        ) {
+            return;
+        }
+
+
+        if (
+            document.getElementById(
+                "mapNavPointsButton"
+            )
+        ) {
+            return;
+        }
+
+
+        const pointsButton =
+            document.createElement(
+                "button"
+            );
+
+        pointsButton.id =
+            "mapNavPointsButton";
+
+        pointsButton.type =
+            "button";
+
+        pointsButton.textContent =
+            "Agregar puntos";
+
+
+        const startButton =
+            document.createElement(
+                "button"
+            );
+
+        startButton.id =
+            "mapNavStartButton";
+
+        startButton.type =
+            "button";
+
+        startButton.textContent =
+            "Iniciar";
+
+        startButton.disabled =
+            true;
+
+
+        const cancelButton =
+            document.createElement(
+                "button"
+            );
+
+        cancelButton.id =
+            "mapNavCancelButton";
+
+        cancelButton.type =
+            "button";
+
+        cancelButton.textContent =
+            "Cancelar";
+
+        cancelButton.disabled =
+            true;
+
+
+        const clearButton =
+            document.createElement(
+                "button"
+            );
+
+        clearButton.id =
+            "mapNavClearButton";
+
+        clearButton.type =
+            "button";
+
+        clearButton.textContent =
+            "Limpiar";
+
+
+        const status =
+            document.createElement(
+                "span"
+            );
+
+        status.id =
+            "mapNavStatus";
+
+        status.textContent =
+            "Cola vacía";
+
+
+        toolbar.appendChild(
+            pointsButton
+        );
+
+        toolbar.appendChild(
+            startButton
+        );
+
+        toolbar.appendChild(
+            cancelButton
+        );
+
+        toolbar.appendChild(
+            clearButton
+        );
+
+        toolbar.appendChild(
+            status
+        );
+
+
+        ensureNavOverlay();
+
+
+        pointsButton.addEventListener(
+            "click",
+            () => {
+
+                setNavPlacementMode(
+                    !navPlanner.placing
+                );
+            }
+        );
+
+
+        startButton.addEventListener(
+            "click",
+            startNavQueue
+        );
+
+
+        cancelButton.addEventListener(
+            "click",
+            cancelNavQueue
+        );
+
+
+        clearButton.addEventListener(
+            "click",
+            clearNavQueue
+        );
+
+
+        scene.addEventListener(
+            "mousedown",
+            handleNavPointClick,
+            true
+        );
+
+
+        const calibrationButton =
+            document.getElementById(
+                "mapCalibrationButton"
+            );
+
+
+        if (calibrationButton) {
+
+            calibrationButton.addEventListener(
+                "click",
+                () => {
+
+                    if (
+                        navPlanner.placing
+                    ) {
+                        setNavPlacementMode(
+                            false
+                        );
+                    }
+                },
+                true
+            );
+        }
+
+
+        const mapSelect =
+            document.getElementById(
+                "mapSelect"
+            );
+
+
+        if (mapSelect) {
+
+            mapSelect.addEventListener(
+                "change",
+                () => {
+
+                    if (
+                        navPlanner.points.length
+                        ===
+                        0
+                    ) {
+                        navPlanner.map =
+                            null;
+                    }
+
+                    renderNavMarkers();
+                }
+            );
+        }
+
+
+        window.addEventListener(
+            "resize",
+            renderNavMarkers
+        );
+
+
+        navPlanner.timer =
+            window.setInterval(
+                refreshNavStatus,
+                500
+            );
+
+
+        refreshNavStatus();
+    }
+
+
+    if (
+        document.readyState
+        ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            installNavPlannerUI
+        );
+
+    } else {
+
+        installNavPlannerUI();
     }
 
 })();

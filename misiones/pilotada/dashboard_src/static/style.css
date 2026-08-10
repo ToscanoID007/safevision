@@ -869,3 +869,126 @@ button:disabled {
 #robotAlignmentGuide[hidden] {
     display: none !important;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION NIVEL 3C - PUNTOS DE NAVEGACION            */
+/* ====================================================== */
+
+#mapNavOverlay {
+    position: absolute;
+    inset: 0;
+
+    z-index: 45;
+
+    overflow: hidden;
+
+    pointer-events: none;
+    user-select: none;
+}
+
+.map-nav-marker {
+    position: absolute;
+
+    width: 26px;
+    height: 26px;
+
+    transform:
+        translate(-50%, -50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border:
+        2px solid #ffffff;
+
+    border-radius:
+        50%;
+
+    background:
+        #3b82f6;
+
+    color:
+        #ffffff;
+
+    font-size:
+        12px;
+
+    font-weight:
+        800;
+
+    line-height:
+        1;
+
+    box-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.map-nav-marker.current {
+    background:
+        #f59e0b;
+
+    transform:
+        translate(-50%, -50%)
+        scale(1.15);
+}
+
+.map-nav-marker.completed {
+    background:
+        #22c55e;
+}
+
+.viewer.map.map-nav-placing {
+    cursor:
+        crosshair;
+}
+
+#mapNavStatus {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 34px;
+
+    padding:
+        0 8px;
+
+    font-size:
+        12px;
+
+    color:
+        var(--muted);
+}
+
+#mapNavStatus[data-state="active"],
+#mapNavStatus[data-state="running"] {
+    color:
+        #60a5fa;
+}
+
+#mapNavStatus[data-state="success"],
+#mapNavStatus[data-state="ready"] {
+    color:
+        #38d996;
+}
+
+#mapNavStatus[data-state="warning"] {
+    color:
+        #fbbf24;
+}
+
+#mapNavStatus[data-state="error"] {
+    color:
+        #fb7185;
+}
+
+#mapNavCancelButton:not(:disabled) {
+    border-color:
+        #f59e0b;
+}
+
+#mapNavClearButton:not(:disabled) {
+    border-color:
+        #ef4444;
+}

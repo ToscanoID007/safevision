@@ -10,7 +10,7 @@ import time
 import urllib.request
 
 
-PORT = 8080
+PORT = 8091
 
 MAP_NAME = os.environ.get(
     "SAFEVISION_MAP_NAME",

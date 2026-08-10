@@ -14,6 +14,8 @@ import xmlrpc.client
 from pathlib import Path
 
 import cv2
+import rospy
+from std_msgs.msg import String
 from flask import Flask, Response, jsonify, request
 
 
@@ -21,13 +23,30 @@ app = Flask(__name__)
 
 CONTROL_MODE = "desconocido"
 
+NAV_COMMAND_PUB = None
+NAV_STATUS_RECEIVED = False
+
+NAV_STATUS = {
+    "state": "unavailable",
+    "running": False,
+    "remaining": [],
+    "remaining_count": 0,
+    "completed": [],
+    "completed_count": 0,
+    "current": None,
+    "map": None,
+    "active_map": None,
+    "message": "Cola de navegación no disponible"
+}
+
+
 CAMERA_DEVICE = 1
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FPS = 30
 JPEG_QUALITY = 70
 
-PORT = 8080
+PORT = 8091
 
 MAPS_DIR = Path(
     "/home/pi/robot_custom/mapping/maps"
@@ -708,6 +727,212 @@ def safevision_initialpose():
     }), 202
 
 
+
+# =========================================================
+# NIVEL 3C - PUENTE HTTP <-> COLA DE NAVEGACION
+# =========================================================
+
+def nav_status_callback(msg):
+    global NAV_STATUS
+    global NAV_STATUS_RECEIVED
+
+    try:
+        data = json.loads(
+            msg.data
+        )
+
+        if isinstance(
+            data,
+            dict
+        ):
+            NAV_STATUS = data
+            NAV_STATUS_RECEIVED = True
+
+    except Exception:
+        pass
+
+
+def iniciar_nav_bridge():
+    global NAV_COMMAND_PUB
+
+    if not rospy.core.is_initialized():
+        rospy.init_node(
+            "safevision_robot_server",
+            anonymous=False,
+            disable_signals=True
+        )
+
+    NAV_COMMAND_PUB = rospy.Publisher(
+        "/safevision/nav/command",
+        String,
+        queue_size=10
+    )
+
+    rospy.Subscriber(
+        "/safevision/nav/status",
+        String,
+        nav_status_callback,
+        queue_size=20
+    )
+
+
+def publicar_nav_command(data):
+    if NAV_COMMAND_PUB is None:
+        return False
+
+    if (
+        NAV_COMMAND_PUB.get_num_connections()
+        < 1
+    ):
+        return False
+
+    NAV_COMMAND_PUB.publish(
+        String(
+            data=json.dumps(
+                data,
+                separators=(",", ":")
+            )
+        )
+    )
+
+    return True
+
+
+@app.route("/nav/status")
+def nav_status():
+    response = dict(
+        NAV_STATUS
+    )
+
+    response["available"] = bool(
+        NAV_STATUS_RECEIVED
+    )
+
+    return jsonify(
+        response
+    )
+
+
+@app.route(
+    "/nav/queue",
+    methods=["POST"]
+)
+def nav_queue_load():
+    data = request.get_json(
+        silent=True
+    )
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "JSON inválido"
+        }), 400
+
+    map_name = data.get(
+        "map"
+    )
+
+    points = data.get(
+        "points"
+    )
+
+    if (
+        not isinstance(map_name, str)
+        or not map_name.strip()
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Falta mapa"
+        }), 400
+
+    if not isinstance(
+        points,
+        list
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "points debe ser una lista"
+        }), 400
+
+    if len(points) > 50:
+        return jsonify({
+            "ok": False,
+            "error": "Máximo 50 puntos"
+        }), 400
+
+    command = {
+        "command": "load",
+        "map": map_name.strip(),
+        "points": points
+    }
+
+    if not publicar_nav_command(
+        command
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Cola de navegación no disponible"
+        }), 503
+
+    return jsonify({
+        "ok": True,
+        "accepted": True,
+        "command": "load",
+        "count": len(points)
+    }), 202
+
+
+def nav_simple_command(
+    command
+):
+    if not publicar_nav_command({
+        "command": command
+    }):
+        return jsonify({
+            "ok": False,
+            "error": "Cola de navegación no disponible"
+        }), 503
+
+    return jsonify({
+        "ok": True,
+        "accepted": True,
+        "command": command
+    }), 202
+
+
+@app.route(
+    "/nav/start",
+    methods=["POST"]
+)
+def nav_start():
+    return nav_simple_command(
+        "start"
+    )
+
+
+@app.route(
+    "/nav/cancel",
+    methods=["POST"]
+)
+def nav_cancel():
+    return nav_simple_command(
+        "cancel"
+    )
+
+
+@app.route(
+    "/nav/clear",
+    methods=["POST"]
+)
+def nav_clear():
+    return nav_simple_command(
+        "clear"
+    )
+
+
 def main():
     global CONTROL_MODE
 
@@ -725,6 +950,8 @@ def main():
     args = parser.parse_args()
 
     CONTROL_MODE = args.control
+
+    iniciar_nav_bridge()
 
     print(
         "=============================================="

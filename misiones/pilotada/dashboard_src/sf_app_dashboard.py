@@ -93,7 +93,7 @@ def consultar_robot(ip):
     # -----------------------------------------------------
 
     respuesta = requests.get(
-        "http://{}:8080/".format(
+        "http://{}:8091/".format(
             ip
         ),
         timeout=2
@@ -108,7 +108,7 @@ def consultar_robot(ip):
 
     try:
         health = requests.get(
-            "http://{}:8080/health".format(
+            "http://{}:8091/health".format(
                 ip
             ),
             timeout=6
@@ -412,7 +412,7 @@ def video_feed():
 
 
     origen = (
-        "http://{}:8080/video_feed"
+        "http://{}:8091/video_feed"
     ).format(
         robot_ip
     )
@@ -444,7 +444,7 @@ def maps():
 
     try:
         respuesta = requests.get(
-            "http://{}:8080/maps".format(
+            "http://{}:8091/maps".format(
                 robot_ip
             ),
             timeout=3
@@ -475,7 +475,7 @@ def map_image(nombre):
 
     try:
         respuesta = requests.get(
-            "http://{}:8080/maps/{}/image".format(
+            "http://{}:8091/maps/{}/image".format(
                 robot_ip,
                 nombre
             ),
@@ -513,7 +513,7 @@ def dashboard_map_pose():
 
     try:
         respuesta = requests.get(
-            "http://{}:8080/map_pose".format(
+            "http://{}:8091/map_pose".format(
                 robot_ip
             ),
             timeout=2
@@ -552,7 +552,7 @@ def dashboard_map_meta(nombre):
 
     try:
         respuesta = requests.get(
-            "http://{}:8080/maps/{}/meta".format(
+            "http://{}:8091/maps/{}/meta".format(
                 robot_ip,
                 nombre
             ),
@@ -629,7 +629,7 @@ def dashboard_initialpose():
 
     try:
         respuesta = requests.post(
-            "http://{}:8080/initialpose".format(
+            "http://{}:8091/initialpose".format(
                 robot_ip
             ),
             json=datos,
@@ -660,6 +660,165 @@ def dashboard_initialpose():
                 .format(exc)
             )
         }), 502
+
+
+
+# =========================================================
+# SAFEVISION NIVEL 3C - NAV PROXY
+# =========================================================
+
+def nav_proxy_response(respuesta):
+
+    try:
+        contenido = respuesta.json()
+
+    except Exception:
+        contenido = {
+            "ok": False,
+            "error": "Respuesta de navegación inválida."
+        }
+
+    return jsonify(
+        contenido
+    ), respuesta.status_code
+
+
+@app.route("/nav/status")
+def dashboard_nav_status():
+
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "available": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8091/nav/status".format(
+                robot_ip
+            ),
+            timeout=2
+        )
+
+        return nav_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "available": False,
+            "error": (
+                "No se pudo consultar navegación: {}"
+                .format(exc)
+            )
+        }), 502
+
+
+@app.route(
+    "/nav/queue",
+    methods=["POST"]
+)
+def dashboard_nav_queue():
+
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    datos = request.get_json(
+        silent=True
+    ) or {}
+
+    try:
+        respuesta = requests.post(
+            "http://{}:8091/nav/queue".format(
+                robot_ip
+            ),
+            json=datos,
+            timeout=3
+        )
+
+        return nav_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo cargar la cola: {}"
+                .format(exc)
+            )
+        }), 502
+
+
+def dashboard_nav_simple(
+    comando
+):
+
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.post(
+            "http://{}:8091/nav/{}".format(
+                robot_ip,
+                comando
+            ),
+            timeout=3
+        )
+
+        return nav_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo ejecutar {}: {}"
+                .format(
+                    comando,
+                    exc
+                )
+            )
+        }), 502
+
+
+@app.route(
+    "/nav/start",
+    methods=["POST"]
+)
+def dashboard_nav_start():
+    return dashboard_nav_simple(
+        "start"
+    )
+
+
+@app.route(
+    "/nav/cancel",
+    methods=["POST"]
+)
+def dashboard_nav_cancel():
+    return dashboard_nav_simple(
+        "cancel"
+    )
+
+
+@app.route(
+    "/nav/clear",
+    methods=["POST"]
+)
+def dashboard_nav_clear():
+    return dashboard_nav_simple(
+        "clear"
+    )
 
 
 if __name__ == "__main__":
