@@ -40,6 +40,19 @@ function renderRobot(robot) {
     $("driverStatus").textContent =
         yesNo(robot.driver);
 
+    $("lidarStatus").textContent =
+        yesNo(robot.lidar);
+
+    const mapEnabled =
+        robot.map
+        &&
+        typeof robot.map.enabled === "boolean"
+            ? robot.map.enabled
+            : null;
+
+    $("mapStatus").textContent =
+        yesNo(mapEnabled);
+
     $("cameraStatus").textContent =
         yesNo(robot.camera);
 
@@ -1862,3 +1875,781 @@ if (safeVisionMapButton) {
         }
     );
 }
+
+
+
+// =========================================================
+// SAFEVISION NIVEL 2B - CALIBRACION AMCL EN MAPA
+// =========================================================
+
+(() => {
+
+    if (window.safeVisionCalibrationInstalled) {
+        return;
+    }
+
+    window.safeVisionCalibrationInstalled = true;
+
+
+    const calibration = {
+        active: false,
+        firstPoint: null
+    };
+
+
+    function getScene() {
+        return document.getElementById(
+            "mapScene"
+        );
+    }
+
+
+    function getMapImage() {
+
+        const scene =
+            getScene();
+
+        if (!scene) {
+            return null;
+        }
+
+        return scene.querySelector(
+            "img"
+        );
+    }
+
+
+    function setCalibrationStatus(
+        mensaje,
+        tipo = ""
+    ) {
+
+        const status =
+            document.getElementById(
+                "mapCalibrationStatus"
+            );
+
+        if (!status) {
+            return;
+        }
+
+        status.textContent =
+            mensaje;
+
+        status.dataset.state =
+            tipo;
+    }
+
+
+    function hideCalibrationPoint() {
+
+        const point =
+            document.getElementById(
+                "mapCalibrationPoint"
+            );
+
+        if (point) {
+            point.hidden = true;
+        }
+    }
+
+
+    function showCalibrationPoint(
+        clientX,
+        clientY
+    ) {
+
+        const scene =
+            getScene();
+
+        const image =
+            getMapImage();
+
+        const point =
+            document.getElementById(
+                "mapCalibrationPoint"
+            );
+
+        if (
+            !scene
+            ||
+            !image
+            ||
+            !point
+        ) {
+            return;
+        }
+
+
+        const imageRect =
+            image.getBoundingClientRect();
+
+        const sceneRect =
+            scene.getBoundingClientRect();
+
+
+        const x =
+            clientX
+            -
+            sceneRect.left;
+
+        const y =
+            clientY
+            -
+            sceneRect.top;
+
+
+        point.style.left =
+            `${x}px`;
+
+        point.style.top =
+            `${y}px`;
+
+        point.hidden =
+            false;
+    }
+
+
+    function screenToMap(
+        clientX,
+        clientY
+    ) {
+
+        if (
+            !safeVisionMapPose
+            ||
+            !safeVisionMapPose.meta
+        ) {
+            return null;
+        }
+
+
+        const image =
+            getMapImage();
+
+        if (!image) {
+            return null;
+        }
+
+
+        const rect =
+            image.getBoundingClientRect();
+
+
+        if (
+            clientX < rect.left
+            ||
+            clientX > rect.right
+            ||
+            clientY < rect.top
+            ||
+            clientY > rect.bottom
+        ) {
+            return null;
+        }
+
+
+        const meta =
+            safeVisionMapPose.meta;
+
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+        const originX =
+            Number(
+                meta.origin.x
+            );
+
+        const originY =
+            Number(
+                meta.origin.y
+            );
+
+        const originYaw =
+            Number(
+                meta.origin.yaw || 0
+            );
+
+
+        const u =
+            (
+                clientX
+                -
+                rect.left
+            )
+            /
+            rect.width;
+
+        const v =
+            (
+                clientY
+                -
+                rect.top
+            )
+            /
+            rect.height;
+
+
+        const pixelX =
+            u * width;
+
+        const pixelY =
+            v * height;
+
+
+        const localX =
+            pixelX
+            *
+            resolution;
+
+        const localY =
+            (
+                height
+                -
+                pixelY
+            )
+            *
+            resolution;
+
+
+        const cosO =
+            Math.cos(
+                originYaw
+            );
+
+        const sinO =
+            Math.sin(
+                originYaw
+            );
+
+
+        const mapX =
+            originX
+            +
+            cosO * localX
+            -
+            sinO * localY;
+
+        const mapY =
+            originY
+            +
+            sinO * localX
+            +
+            cosO * localY;
+
+
+        return {
+            x: mapX,
+            y: mapY,
+            u,
+            v
+        };
+    }
+
+
+    function cancelCalibration() {
+
+        calibration.active =
+            false;
+
+        calibration.firstPoint =
+            null;
+
+
+        const button =
+            document.getElementById(
+                "mapCalibrationButton"
+            );
+
+        if (button) {
+            button.textContent =
+                "Calibrar pose";
+        }
+
+
+        const scene =
+            getScene();
+
+        if (scene) {
+            scene.classList.remove(
+                "map-calibrating"
+            );
+        }
+
+
+        hideCalibrationPoint();
+
+        setCalibrationStatus(
+            ""
+        );
+    }
+
+
+    function startCalibration() {
+
+        if (
+            !safeVisionMapPose
+            ||
+            !safeVisionMapPose.meta
+        ) {
+
+            log(
+                "Primero selecciona un mapa y pulsa Mostrar.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        calibration.active =
+            true;
+
+        calibration.firstPoint =
+            null;
+
+
+        const button =
+            document.getElementById(
+                "mapCalibrationButton"
+            );
+
+        if (button) {
+            button.textContent =
+                "Cancelar calibración";
+        }
+
+
+        const scene =
+            getScene();
+
+        if (scene) {
+            scene.classList.add(
+                "map-calibrating"
+            );
+        }
+
+
+        setCalibrationStatus(
+            "1/2: clic donde está el CENTRO del robot.",
+            "active"
+        );
+
+
+        log(
+            "Calibración AMCL: marca la posición del robot.",
+            "info"
+        );
+    }
+
+
+    async function sendInitialPose(
+        x,
+        y,
+        yaw
+    ) {
+
+        setCalibrationStatus(
+            "Aplicando pose a AMCL...",
+            "active"
+        );
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/initialpose",
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                x,
+                                y,
+                                yaw
+                            })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                !response.ok
+                ||
+                !data.ok
+            ) {
+                throw new Error(
+                    data.message
+                    ||
+                    data.error
+                    ||
+                    "No se pudo aplicar la pose."
+                );
+            }
+
+
+            const deg =
+                yaw
+                *
+                180
+                /
+                Math.PI;
+
+
+            log(
+                (
+                    `AMCL recalibrado: `
+                    +
+                    `X ${x.toFixed(2)} m, `
+                    +
+                    `Y ${y.toFixed(2)} m, `
+                    +
+                    `${deg.toFixed(1)}°`
+                ),
+                "success"
+            );
+
+
+            setCalibrationStatus(
+                (
+                    `Pose aplicada: `
+                    +
+                    `${x.toFixed(2)}, `
+                    +
+                    `${y.toFixed(2)}, `
+                    +
+                    `${deg.toFixed(1)}°`
+                ),
+                "success"
+            );
+
+
+            calibration.active =
+                false;
+
+            calibration.firstPoint =
+                null;
+
+
+            const button =
+                document.getElementById(
+                    "mapCalibrationButton"
+                );
+
+            if (button) {
+                button.textContent =
+                    "Calibrar pose";
+            }
+
+
+            const scene =
+                getScene();
+
+            if (scene) {
+                scene.classList.remove(
+                    "map-calibrating"
+                );
+            }
+
+
+            setTimeout(
+                () => {
+                    hideCalibrationPoint();
+                    updateRobotMarker();
+                },
+                800
+            );
+
+
+        } catch (error) {
+
+            log(
+                `Calibración AMCL: ${error.message}`,
+                "error"
+            );
+
+            setCalibrationStatus(
+                `Error: ${error.message}`,
+                "error"
+            );
+        }
+    }
+
+
+    function handleCalibrationClick(
+        event
+    ) {
+
+        if (
+            !calibration.active
+            ||
+            event.button !== 0
+        ) {
+            return;
+        }
+
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+
+        const punto =
+            screenToMap(
+                event.clientX,
+                event.clientY
+            );
+
+
+        if (!punto) {
+
+            setCalibrationStatus(
+                "Haz clic dentro de la imagen del mapa.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        if (!calibration.firstPoint) {
+
+            calibration.firstPoint =
+                punto;
+
+
+            showCalibrationPoint(
+                event.clientX,
+                event.clientY
+            );
+
+
+            setCalibrationStatus(
+                (
+                    "2/2: ahora haz clic HACIA DONDE "
+                    +
+                    "apunta el frente del robot."
+                ),
+                "active"
+            );
+
+
+            return;
+        }
+
+
+        const dx =
+            punto.x
+            -
+            calibration.firstPoint.x;
+
+        const dy =
+            punto.y
+            -
+            calibration.firstPoint.y;
+
+
+        const distancia =
+            Math.hypot(
+                dx,
+                dy
+            );
+
+
+        if (distancia < 0.05) {
+
+            setCalibrationStatus(
+                (
+                    "El segundo clic debe indicar "
+                    +
+                    "una dirección."
+                ),
+                "error"
+            );
+
+            return;
+        }
+
+
+        const yaw =
+            Math.atan2(
+                dy,
+                dx
+            );
+
+
+        sendInitialPose(
+            calibration.firstPoint.x,
+            calibration.firstPoint.y,
+            yaw
+        );
+    }
+
+
+    function installCalibrationUI() {
+
+        const loadButton =
+            document.getElementById(
+                "loadMapButton"
+            );
+
+        const scene =
+            getScene();
+
+
+        if (
+            !loadButton
+            ||
+            !scene
+        ) {
+            return;
+        }
+
+
+        if (
+            !document.getElementById(
+                "mapCalibrationButton"
+            )
+        ) {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.id =
+                "mapCalibrationButton";
+
+            button.type =
+                "button";
+
+            button.textContent =
+                "Calibrar pose";
+
+            button.className =
+                loadButton.className;
+
+
+            loadButton.insertAdjacentElement(
+                "afterend",
+                button
+            );
+
+
+            const status =
+                document.createElement(
+                    "span"
+                );
+
+            status.id =
+                "mapCalibrationStatus";
+
+
+            button.insertAdjacentElement(
+                "afterend",
+                status
+            );
+
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    if (
+                        calibration.active
+                    ) {
+                        cancelCalibration();
+
+                    } else {
+                        startCalibration();
+                    }
+                }
+            );
+        }
+
+
+        if (
+            !document.getElementById(
+                "mapCalibrationPoint"
+            )
+        ) {
+
+            const point =
+                document.createElement(
+                    "div"
+                );
+
+            point.id =
+                "mapCalibrationPoint";
+
+            point.hidden =
+                true;
+
+            scene.appendChild(
+                point
+            );
+        }
+
+
+        scene.addEventListener(
+            "mousedown",
+            handleCalibrationClick,
+            true
+        );
+
+
+        document.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Escape"
+                    &&
+                    calibration.active
+                ) {
+                    cancelCalibration();
+                }
+            }
+        );
+    }
+
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            installCalibrationUI
+        );
+
+    } else {
+
+        installCalibrationUI();
+    }
+
+})();

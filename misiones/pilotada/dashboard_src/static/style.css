@@ -776,3 +776,72 @@ button:disabled {
 
 
 /* ====================================================== */
+/* SAFEVISION NIVEL 2B - CALIBRACION AMCL                 */
+/* ====================================================== */
+
+#mapCalibrationButton {
+    margin-left: 6px;
+}
+
+#mapCalibrationStatus {
+    margin-left: 10px;
+
+    font-size: 0.82rem;
+
+    opacity: 0.85;
+}
+
+#mapCalibrationStatus[data-state="success"] {
+    font-weight: 600;
+}
+
+#mapCalibrationStatus[data-state="error"] {
+    font-weight: 600;
+}
+
+#mapScene.map-calibrating {
+    cursor: crosshair;
+}
+
+#mapCalibrationPoint {
+    position: absolute;
+
+    z-index: 45;
+
+    width: 14px;
+    height: 14px;
+
+    border: 2px solid currentColor;
+
+    border-radius: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    pointer-events: none;
+}
+
+#mapCalibrationPoint::before,
+#mapCalibrationPoint::after {
+    content: "";
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    background: currentColor;
+
+    transform:
+        translate(-50%, -50%);
+}
+
+#mapCalibrationPoint::before {
+    width: 20px;
+    height: 1px;
+}
+
+#mapCalibrationPoint::after {
+    width: 1px;
+    height: 20px;
+}

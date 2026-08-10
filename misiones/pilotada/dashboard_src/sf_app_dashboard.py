@@ -609,6 +609,59 @@ def abrir_navegador():
         pass
 
 
+
+# =========================================================
+# SAFEVISION NIVEL 2B - INITIALPOSE PROXY
+# =========================================================
+
+@app.route("/initialpose", methods=["POST"])
+def dashboard_initialpose():
+
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "message": "Robot no conectado."
+        }), 409
+
+    datos = request.get_json(
+        silent=True
+    ) or {}
+
+    try:
+        respuesta = requests.post(
+            "http://{}:8080/initialpose".format(
+                robot_ip
+            ),
+            json=datos,
+            timeout=3
+        )
+
+        try:
+            contenido = respuesta.json()
+
+        except Exception:
+            contenido = {
+                "ok": False,
+                "message": (
+                    "Respuesta initialpose invalida."
+                )
+            }
+
+        return jsonify(
+            contenido
+        ), respuesta.status_code
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "message": (
+                "No se pudo enviar initialpose: {}"
+                .format(exc)
+            )
+        }), 502
+
+
 if __name__ == "__main__":
 
     threading.Timer(
