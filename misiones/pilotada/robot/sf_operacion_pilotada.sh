@@ -1,17 +1,26 @@
 #!/bin/bash
 
 CONTROL="$1"
+MAP_NAME="${2:-HAB2}"
 
 ROOT="/home/pi/robot_custom/misiones/pilotada"
 ROBOT_DIR="$ROOT/robot"
 LOG_DIR="$ROOT/logs"
-MAP_FILE="/home/pi/robot_custom/mapping/maps/HAB2.yaml"
+
+MAPS_DIR="/home/pi/robot_custom/mapping/maps"
+MAP_FILE="$MAPS_DIR/${MAP_NAME}.yaml"
+ACTIVE_MAP_FILE="/tmp/safevision_active_map.json"
 
 mkdir -p "$LOG_DIR"
 
 if [ "$CONTROL" != "teclado" ] && \
    [ "$CONTROL" != "mando" ]; then
-    echo "Uso: $0 teclado|mando"
+    echo "Uso: $0 teclado|mando [mapa]"
+    exit 1
+fi
+
+if [[ -z "$MAP_NAME" ]] ||    [[ "$MAP_NAME" == *"/"* ]] ||    [[ "$MAP_NAME" == *"\\"* ]] ||    [[ "$MAP_NAME" == *".."* ]]; then
+    echo "ERROR: nombre de mapa inválido."
     exit 1
 fi
 
@@ -21,6 +30,7 @@ PI_IP="$(hostname -I | awk '{print $1}')"
 export ROS_MASTER_URI="http://${PI_IP}:11311"
 export ROS_IP="$PI_IP"
 export ROBOT_TYPE="X3"
+export SAFEVISION_MAP_NAME="$MAP_NAME"
 
 source /opt/ros/melodic/setup.bash
 source /home/pi/yahboomcar_ws/devel/setup.bash
@@ -82,7 +92,9 @@ cerrar() {
         terminar_pid "$ROSCORE_PID"
     fi
 
-    echo "Operación finalizada."
+    rm -f "$ACTIVE_MAP_FILE"
+
+echo "Operación finalizada."
 }
 
 trap cerrar EXIT
@@ -95,7 +107,7 @@ echo "========================================================="
 echo " IP      : $PI_IP"
 echo " Robot   : $ROBOT_TYPE"
 echo " Control : ${CONTROL^^}"
-echo " Mapa    : HAB2"
+echo " Mapa    : $MAP_NAME"
 echo " Nivel   : 2"
 echo "========================================================="
 
@@ -105,6 +117,34 @@ if [ ! -f "$MAP_FILE" ]; then
     echo "$MAP_FILE"
     exit 1
 fi
+
+python3 - "$MAP_NAME" "$MAP_FILE" "$ACTIVE_MAP_FILE" <<'PYMAP'
+import json
+import sys
+from pathlib import Path
+
+nombre = sys.argv[1]
+yaml_path = sys.argv[2]
+destino = Path(sys.argv[3])
+
+temporal = Path(
+    str(destino) + ".tmp"
+)
+
+temporal.write_text(
+    json.dumps(
+        {
+            "name": nombre,
+            "yaml": yaml_path
+        },
+        sort_keys=True
+    )
+)
+
+temporal.replace(
+    destino
+)
+PYMAP
 
 echo ""
 echo "[1/6] Preparando ROS Master..."
@@ -178,7 +218,7 @@ fi
 echo "[OK] Driver Yahboom."
 
 echo ""
-echo "[3/6] Iniciando localización HAB2..."
+echo "[3/6] Iniciando localización $MAP_NAME..."
 echo ""
 echo "NO MUEVAS EL ROBOT."
 echo "Esperando calibración de IMU y arranque de AMCL..."
@@ -253,7 +293,7 @@ fi
 
 echo "[OK] LiDAR publicando."
 
-echo "[OK] IMU + EKF + LiDAR + HAB2 + AMCL."
+echo "[OK] IMU + EKF + LiDAR + $MAP_NAME + AMCL."
 
 echo ""
 echo "[4/6] Iniciando exportador de pose..."
@@ -329,7 +369,7 @@ echo " ROS Master   : OK"
 echo " Driver       : OK"
 echo " IMU / EKF    : OK"
 echo " LiDAR        : OK"
-echo " HAB2 / AMCL  : OK"
+echo " Mapa / AMCL  : $MAP_NAME / OK"
 echo " Pose Export  : OK"
 echo " Robot Server : OK"
 echo "========================================================="
@@ -375,7 +415,7 @@ else
     echo "========================================================="
     echo ""
     echo " Robot Server : http://${PI_IP}:8080"
-    echo " Mapa         : HAB2"
+    echo " Mapa         : $MAP_NAME"
     echo " Localización : AMCL"
     echo ""
     echo " El Dashboard puede permanecer abierto en la PC."

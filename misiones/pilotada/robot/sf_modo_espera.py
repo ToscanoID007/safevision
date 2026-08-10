@@ -12,6 +12,11 @@ import urllib.request
 
 PORT = 8080
 
+MAP_NAME = os.environ.get(
+    "SAFEVISION_MAP_NAME",
+    "HAB2"
+)
+
 
 def obtener_ip():
     try:
@@ -227,7 +232,7 @@ def mostrar(control):
     )
 
     print(
-        "{} Mapa HAB2 / AMCL".format(
+        ("{} Mapa " + MAP_NAME + " / AMCL").format(
             marca(
                 estado["map"]
             )
@@ -325,7 +330,7 @@ def mostrar(control):
 
     print("")
     print(
-        " Mapa: HAB2 - Localización AMCL activa"
+        " Mapa: {} - Localización AMCL activa".format(MAP_NAME)
     )
     print("")
 

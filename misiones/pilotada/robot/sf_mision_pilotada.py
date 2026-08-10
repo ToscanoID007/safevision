@@ -13,6 +13,10 @@ ROOT = Path(
 
 ROBOT_DIR = ROOT / "robot"
 
+MAPS_DIR = Path(
+    "/home/pi/robot_custom/mapping/maps"
+)
+
 
 def limpiar():
     os.system(
@@ -56,6 +60,114 @@ def descargar_dashboard():
         sys.executable,
         str(servidor)
     ])
+
+
+def mapas_disponibles():
+    mapas = []
+
+    if not MAPS_DIR.exists():
+        return mapas
+
+    yaml_paths = sorted(
+        MAPS_DIR.glob("*.yaml"),
+        key=lambda path: path.stem.casefold()
+    )
+
+    for yaml_path in yaml_paths:
+        nombre = yaml_path.stem
+
+        pgm_path = (
+            MAPS_DIR
+            / (nombre + ".pgm")
+        )
+
+        if pgm_path.is_file():
+            mapas.append(
+                nombre
+            )
+
+    return mapas
+
+
+def seleccionar_mapa():
+    while True:
+        limpiar()
+
+        mapas = mapas_disponibles()
+
+        print(
+            "========================================================="
+        )
+        print(
+            "          SAFEVISION - SELECCIÓN DE MAPA"
+        )
+        print(
+            "========================================================="
+        )
+        print("")
+
+        if not mapas:
+            print(
+                " No hay mapas 2D completos disponibles."
+            )
+            print(
+                " Se requiere un archivo .yaml y su .pgm."
+            )
+
+            input(
+                "\nENTER para regresar..."
+            )
+
+            return None
+
+        for indice, mapa in enumerate(
+            mapas,
+            1
+        ):
+            etiqueta = ""
+
+            if mapa == "HAB2":
+                etiqueta = " [MAPA DE PRUEBAS]"
+
+            print(
+                " {}. {}{}".format(
+                    indice,
+                    mapa,
+                    etiqueta
+                )
+            )
+
+        cancelar = len(mapas) + 1
+
+        print("")
+        print(
+            " {}. Cancelar".format(
+                cancelar
+            )
+        )
+        print("")
+        print(
+            "========================================================="
+        )
+
+        opcion = input(
+            "\nSelecciona mapa: "
+        ).strip()
+
+        try:
+            indice = int(
+                opcion
+            )
+        except ValueError:
+            continue
+
+        if indice == cancelar:
+            return None
+
+        if 1 <= indice <= len(mapas):
+            return mapas[
+                indice - 1
+            ]
 
 
 def seleccionar_control():
@@ -109,6 +221,11 @@ def seleccionar_control():
 
 
 def iniciar_operacion():
+    mapa = seleccionar_mapa()
+
+    if not mapa:
+        return
+
     control = seleccionar_control()
 
     if not control:
@@ -122,7 +239,8 @@ def iniciar_operacion():
     ejecutar([
         "bash",
         str(launcher),
-        control
+        control,
+        mapa
     ])
 
 
