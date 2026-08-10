@@ -1,0 +1,56 @@
+<launch>
+
+    <node
+        pkg="move_base"
+        type="move_base"
+        name="move_base"
+        output="screen"
+        respawn="false"
+        clear_params="true"
+    >
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_global_costmap.yaml"
+            command="load"
+        />
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_local_costmap.yaml"
+            command="load"
+        />
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_move_base.yaml"
+            command="load"
+        />
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_costmap_common.yaml"
+            command="load"
+            ns="global_costmap"
+        />
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_costmap_common.yaml"
+            command="load"
+            ns="local_costmap"
+        />
+
+        <rosparam
+            file="/home/pi/robot_custom/misiones/pilotada/robot/nav/sf_dwa.yaml"
+            command="load"
+        />
+
+        <remap
+            from="cmd_vel"
+            to="/cmd_vel_nav"
+        />
+
+        <remap
+            from="odom"
+            to="/odom"
+        />
+
+    </node>
+
+</launch>

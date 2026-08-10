@@ -40,7 +40,10 @@ DRIVER_PID=""
 LOCALIZACION_PID=""
 EXPORTER_PID=""
 SERVER_PID=""
+SELECTOR_PID=""
+NAV_PID=""
 CONTROL_PID=""
+CERRANDO=0
 
 cerrar_pid() {
     PID="$1"
@@ -61,18 +64,43 @@ terminar_pid() {
         return
     fi
 
+    if ! kill -0 "$PID" 2>/dev/null; then
+        return
+    fi
+
+    kill -TERM "$PID" 2>/dev/null || true
+
+    for I in $(seq 1 10); do
+        if ! kill -0 "$PID" 2>/dev/null; then
+            return
+        fi
+
+        sleep 0.2
+    done
+
     if kill -0 "$PID" 2>/dev/null; then
-        kill -TERM "$PID" 2>/dev/null || true
+        echo "[WARN] PID $PID no respondió a SIGTERM; usando SIGKILL."
+        kill -KILL "$PID" 2>/dev/null || true
     fi
 }
 
 cerrar() {
+    trap '' INT TERM
+
+    if [ "$CERRANDO" -eq 1 ]; then
+        return
+    fi
+
+    CERRANDO=1
+
     echo ""
     echo "========================================================="
     echo " Finalizando misión pilotada..."
     echo "========================================================="
 
     cerrar_pid "$CONTROL_PID"
+    cerrar_pid "$NAV_PID"
+    cerrar_pid "$SELECTOR_PID"
     cerrar_pid "$SERVER_PID"
     cerrar_pid "$EXPORTER_PID"
     cerrar_pid "$LOCALIZACION_PID"
@@ -81,6 +109,8 @@ cerrar() {
     sleep 3
 
     terminar_pid "$CONTROL_PID"
+    terminar_pid "$NAV_PID"
+    terminar_pid "$SELECTOR_PID"
     terminar_pid "$SERVER_PID"
     terminar_pid "$EXPORTER_PID"
     terminar_pid "$LOCALIZACION_PID"
@@ -97,7 +127,20 @@ cerrar() {
 echo "Operación finalizada."
 }
 
+salir_por_senal() {
+    CODIGO="$1"
+
+    trap '' INT TERM
+
+    cerrar
+
+    trap - EXIT
+    exit "$CODIGO"
+}
+
 trap cerrar EXIT
+trap 'salir_por_senal 130' INT
+trap 'salir_por_senal 143' TERM
 
 clear
 
@@ -147,7 +190,7 @@ temporal.replace(
 PYMAP
 
 echo ""
-echo "[1/6] Preparando ROS Master..."
+echo "[1/8] Preparando ROS Master..."
 
 if rosnode list >/dev/null 2>&1; then
     echo "[OK] ROS Master ya está activo."
@@ -177,7 +220,7 @@ else
 fi
 
 echo ""
-echo "[2/6] Iniciando driver Yahboom..."
+echo "[2/8] Iniciando driver Yahboom..."
 
 if rosnode list 2>/dev/null \
     | grep -Fx "/driver_node" >/dev/null; then
@@ -218,7 +261,7 @@ fi
 echo "[OK] Driver Yahboom."
 
 echo ""
-echo "[3/6] Iniciando localización $MAP_NAME..."
+echo "[3/8] Iniciando localización $MAP_NAME..."
 echo ""
 echo "NO MUEVAS EL ROBOT."
 echo "Esperando calibración de IMU y arranque de AMCL..."
@@ -296,7 +339,7 @@ echo "[OK] LiDAR publicando."
 echo "[OK] IMU + EKF + LiDAR + $MAP_NAME + AMCL."
 
 echo ""
-echo "[4/6] Iniciando exportador de pose..."
+echo "[4/8] Iniciando exportador de pose..."
 
 rm -f /tmp/safevision_map_pose.json
 
@@ -329,7 +372,7 @@ fi
 echo "[OK] Pose Exporter."
 
 echo ""
-echo "[5/6] Iniciando cámara y Robot Server..."
+echo "[5/8] Iniciando cámara y Robot Server..."
 
 python3 \
 "$ROBOT_DIR/sf_robot_server.py" \
@@ -378,8 +421,60 @@ echo " Robot Server:"
 echo " http://${PI_IP}:8080"
 echo ""
 
+echo ""
+echo "[6/8] Iniciando selector de movimiento..."
+
+python3 "$ROBOT_DIR/sf_cmd_vel_selector.py" > "$LOG_DIR/cmd_vel_selector.log" 2>&1 &
+
+SELECTOR_PID=$!
+
+SELECTOR_OK=0
+
+for I in $(seq 1 20); do
+    if rosnode list 2>/dev/null         | grep -Fx "/sf_cmd_vel_selector" >/dev/null; then
+        SELECTOR_OK=1
+        break
+    fi
+
+    sleep 0.25
+done
+
+if [ "$SELECTOR_OK" -ne 1 ]; then
+    echo "ERROR: sf_cmd_vel_selector no inició."
+    tail -n 30 "$LOG_DIR/cmd_vel_selector.log" 2>/dev/null || true
+    exit 1
+fi
+
+echo "[OK] Selector en modo MANUAL."
+
+echo ""
+echo "[7/8] Iniciando navegación Nivel 3..."
+
+roslaunch "$ROBOT_DIR/sf_navegacion.launch" > "$LOG_DIR/navegacion.log" 2>&1 &
+
+NAV_PID=$!
+
+NAV_OK=0
+
+for I in $(seq 1 30); do
+    if rosnode list 2>/dev/null         | grep -Fx "/move_base" >/dev/null; then
+        NAV_OK=1
+        break
+    fi
+
+    sleep 0.5
+done
+
+if [ "$NAV_OK" -ne 1 ]; then
+    echo "ERROR: move_base no inició."
+    tail -n 40 "$LOG_DIR/navegacion.log" 2>/dev/null || true
+    exit 1
+fi
+
+echo "[OK] move_base activo sin objetivo."
+
 if [ "$CONTROL" = "mando" ]; then
-    echo "[6/6] Preparando control por mando..."
+    echo "[8/8] Preparando control por mando..."
 
     if [ ! -e /dev/input/js0 ]; then
         echo "ERROR: no se detectó /dev/input/js0"
@@ -387,8 +482,7 @@ if [ "$CONTROL" = "mando" ]; then
     fi
 
     roslaunch \
-    yahboomcar_ctrl \
-    yahboom_joy.launch \
+    "$ROBOT_DIR/sf_control_mando.launch" \
     > "$LOG_DIR/control.log" 2>&1 &
 
     CONTROL_PID=$!
@@ -399,10 +493,16 @@ if [ "$CONTROL" = "mando" ]; then
     "$ROBOT_DIR/sf_modo_espera.py" \
     mando
 
+    ESPERA_RC=$?
+
+    if [ "$ESPERA_RC" -ne 0 ]; then
+        exit "$ESPERA_RC"
+    fi
+
     wait "$CONTROL_PID"
 
 else
-    echo "[6/6] Sistema preparado para teclado."
+    echo "[8/8] Sistema preparado para teclado."
 
     python3 \
     "$ROBOT_DIR/sf_modo_espera.py" \
@@ -427,6 +527,5 @@ else
     echo ""
 
     roslaunch \
-    yahboomcar_ctrl \
-    yahboom_keyboard.launch
+    "$ROBOT_DIR/sf_control_teclado.launch"
 fi
