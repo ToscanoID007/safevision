@@ -4472,6 +4472,7 @@ if (safeVisionMapButton) {
         placing: false,
         lastStatus: null,
         executionSeen: false,
+        orientationPointId: null,
         timer: null
     };
 
@@ -4953,6 +4954,102 @@ if (safeVisionMapButton) {
     }
 
 
+    function beginNavOrientation(
+        pointId
+    ) {
+
+        if (navQueueIsRunning()) {
+
+            setNavStatus(
+                "No se puede orientar mientras navega.",
+                "warning"
+            );
+
+            return;
+        }
+
+
+        const point =
+            navPlanner.points.find(
+                item =>
+                    item.id === pointId
+            );
+
+
+        if (!point) {
+            return;
+        }
+
+
+        navPlanner.orientationPointId =
+            pointId;
+
+
+        renderNavMarkers();
+
+        renderNavQueue();
+
+
+        setNavStatus(
+            (
+                pointId
+                +
+                " · haz clic en el mapa hacia donde debe mirar"
+            ),
+            "active"
+        );
+    }
+
+
+    function setNavPointAuto(
+        pointId
+    ) {
+
+        if (navQueueIsRunning()) {
+            return;
+        }
+
+
+        const point =
+            navPlanner.points.find(
+                item =>
+                    item.id === pointId
+            );
+
+
+        if (!point) {
+            return;
+        }
+
+
+        point.yaw =
+            null;
+
+        navPlanner.orientationPointId =
+            null;
+
+        navPlanner.executionSeen =
+            false;
+
+
+        renderNavMarkers();
+
+        renderNavQueue();
+
+        updateNavButtons();
+
+
+        setNavStatus(
+            (
+                pointId
+                +
+                " · orientación Auto"
+            ),
+            "ready"
+        );
+    }
+
+
     function renumberNavPoints() {
 
         navPlanner.points.forEach(
@@ -4973,6 +5070,9 @@ if (safeVisionMapButton) {
 
         navPlanner.executionSeen =
             false;
+
+        navPlanner.orientationPointId =
+            null;
 
         renumberNavPoints();
 
@@ -5376,6 +5476,82 @@ if (safeVisionMapButton) {
                 );
 
 
+                const orientButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                orientButton.type =
+                    "button";
+
+                orientButton.className =
+                    "map-nav-row-button";
+
+                orientButton.textContent =
+                    (
+                        navPlanner.orientationPointId
+                        ===
+                        point.id
+                    )
+                        ?
+                        "Elige mapa"
+                        :
+                        "Orientar";
+
+                orientButton.title =
+                    "Elegir orientación en el mapa";
+
+                orientButton.disabled =
+                    running;
+
+                orientButton.addEventListener(
+                    "click",
+                    () => {
+
+                        beginNavOrientation(
+                            point.id
+                        );
+                    }
+                );
+
+
+                const autoButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                autoButton.type =
+                    "button";
+
+                autoButton.className =
+                    "map-nav-row-button";
+
+                autoButton.textContent =
+                    "Auto";
+
+                autoButton.title =
+                    "Volver a orientación automática";
+
+                autoButton.disabled =
+                    (
+                        running
+                        ||
+                        point.yaw === null
+                        ||
+                        point.yaw === undefined
+                    );
+
+                autoButton.addEventListener(
+                    "click",
+                    () => {
+
+                        setNavPointAuto(
+                            point.id
+                        );
+                    }
+                );
+
+
                 const deleteButton =
                     document.createElement(
                         "button"
@@ -5413,6 +5589,14 @@ if (safeVisionMapButton) {
 
                 actions.appendChild(
                     downButton
+                );
+
+                actions.appendChild(
+                    orientButton
+                );
+
+                actions.appendChild(
+                    autoButton
                 );
 
                 actions.appendChild(
@@ -5873,6 +6057,215 @@ if (safeVisionMapButton) {
                 "#ffffff";
 
             ctx.stroke();
+
+
+            const orientationSelected =
+                navPlanner.orientationPointId
+                ===
+                point.id;
+
+
+            if (orientationSelected) {
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    pixelX,
+                    pixelY,
+                    radius
+                    +
+                    3.5
+                    *
+                    screenCompensation,
+                    0,
+                    Math.PI * 2
+                );
+
+                ctx.lineWidth =
+                    1.2
+                    *
+                    screenCompensation;
+
+                ctx.strokeStyle =
+                    "#ef4444";
+
+                ctx.stroke();
+            }
+
+
+            const hasYaw =
+                (
+                    point.yaw !== null
+                    &&
+                    point.yaw !== undefined
+                    &&
+                    Number.isFinite(
+                        Number(
+                            point.yaw
+                        )
+                    )
+                );
+
+
+            if (hasYaw) {
+
+                const yaw =
+                    Number(
+                        point.yaw
+                    );
+
+
+                const dx =
+                    Math.cos(
+                        yaw
+                    );
+
+                const dy =
+                    -Math.sin(
+                        yaw
+                    );
+
+
+                const startDistance =
+                    4.5
+                    *
+                    screenCompensation;
+
+                const arrowDistance =
+                    14
+                    *
+                    screenCompensation;
+
+
+                const startX =
+                    pixelX
+                    +
+                    dx
+                    *
+                    startDistance;
+
+                const startY =
+                    pixelY
+                    +
+                    dy
+                    *
+                    startDistance;
+
+
+                const tipX =
+                    pixelX
+                    +
+                    dx
+                    *
+                    arrowDistance;
+
+                const tipY =
+                    pixelY
+                    +
+                    dy
+                    *
+                    arrowDistance;
+
+
+                ctx.beginPath();
+
+                ctx.moveTo(
+                    startX,
+                    startY
+                );
+
+                ctx.lineTo(
+                    tipX,
+                    tipY
+                );
+
+                ctx.lineWidth =
+                    1.4
+                    *
+                    screenCompensation;
+
+                ctx.strokeStyle =
+                    "#ef4444";
+
+                ctx.lineCap =
+                    "round";
+
+                ctx.stroke();
+
+
+                const triangleLength =
+                    4.5
+                    *
+                    screenCompensation;
+
+                const triangleHalf =
+                    3.2
+                    *
+                    screenCompensation;
+
+
+                const baseX =
+                    tipX
+                    -
+                    dx
+                    *
+                    triangleLength;
+
+                const baseY =
+                    tipY
+                    -
+                    dy
+                    *
+                    triangleLength;
+
+
+                const perpendicularX =
+                    -dy;
+
+                const perpendicularY =
+                    dx;
+
+
+                ctx.beginPath();
+
+                ctx.moveTo(
+                    tipX,
+                    tipY
+                );
+
+                ctx.lineTo(
+                    baseX
+                    +
+                    perpendicularX
+                    *
+                    triangleHalf,
+                    baseY
+                    +
+                    perpendicularY
+                    *
+                    triangleHalf
+                );
+
+                ctx.lineTo(
+                    baseX
+                    -
+                    perpendicularX
+                    *
+                    triangleHalf,
+                    baseY
+                    -
+                    perpendicularY
+                    *
+                    triangleHalf
+                );
+
+                ctx.closePath();
+
+                ctx.fillStyle =
+                    "#ef4444";
+
+                ctx.fill();
+            }
 
 
             ctx.font =
@@ -6408,6 +6801,9 @@ if (safeVisionMapButton) {
 
     async function startNavQueue() {
 
+        navPlanner.orientationPointId =
+            null;
+
         try {
 
             if (
@@ -6610,6 +7006,9 @@ if (safeVisionMapButton) {
 
     async function clearNavQueue() {
 
+        navPlanner.orientationPointId =
+            null;
+
         try {
 
             const status =
@@ -6671,8 +7070,6 @@ if (safeVisionMapButton) {
     ) {
 
         if (
-            !navPlanner.placing
-            ||
             event.button
             !==
             0
@@ -6701,6 +7098,132 @@ if (safeVisionMapButton) {
         if (
             mapView.areaSelecting
         ) {
+            return;
+        }
+
+
+        if (
+            navPlanner.orientationPointId
+        ) {
+
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+
+
+            const source =
+                navPlanner.points.find(
+                    item =>
+                        item.id
+                        ===
+                        navPlanner.orientationPointId
+                );
+
+
+            const target =
+                navScreenToMap(
+                    event.clientX,
+                    event.clientY
+                );
+
+
+            if (
+                !source
+                ||
+                !target
+            ) {
+
+                setNavStatus(
+                    "Haz clic dentro de la imagen del mapa.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            const dx =
+                Number(target.x)
+                -
+                Number(source.x);
+
+            const dy =
+                Number(target.y)
+                -
+                Number(source.y);
+
+
+            if (
+                Math.hypot(
+                    dx,
+                    dy
+                )
+                <
+                0.03
+            ) {
+
+                setNavStatus(
+                    (
+                        source.id
+                        +
+                        " · elige una dirección un poco más alejada"
+                    ),
+                    "warning"
+                );
+
+                return;
+            }
+
+
+            source.yaw =
+                Math.atan2(
+                    dy,
+                    dx
+                );
+
+
+            const degrees =
+                Math.round(
+                    source.yaw
+                    *
+                    180
+                    /
+                    Math.PI
+                );
+
+
+            navPlanner.orientationPointId =
+                null;
+
+            navPlanner.executionSeen =
+                false;
+
+
+            renderNavMarkers();
+
+            renderNavQueue();
+
+            updateNavButtons();
+
+
+            setNavStatus(
+                (
+                    source.id
+                    +
+                    " · orientación "
+                    +
+                    degrees
+                    +
+                    "°"
+                ),
+                "ready"
+            );
+
+            return;
+        }
+
+
+        if (!navPlanner.placing) {
             return;
         }
 
