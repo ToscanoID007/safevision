@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision · Programar misión</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='programar.css') }}"
+    >
+</head>
+
+
+<body>
+
+<header class="prog-topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+
+        <span>
+            Programar misión
+        </span>
+    </div>
+
+    <a
+        class="prog-back"
+        href="/"
+    >
+        ← Misión Pilotada
+    </a>
+
+</header>
+
+
+<main class="prog-layout">
+
+    <section class="prog-code-panel">
+
+        <div class="prog-panel-title">
+            <div>
+                <h2>Código</h2>
+
+                <span>
+                    Lógica ejecutada por la laptop
+                </span>
+            </div>
+        </div>
+
+
+        <div class="prog-route-meta">
+
+            <label>
+                Nombre de misión
+
+                <input
+                    id="progMissionName"
+                    type="text"
+                    value="Nueva misión"
+                    autocomplete="off"
+                >
+            </label>
+
+
+            <label>
+                Punto inicial
+
+                <select
+                    id="progInitialPoint"
+                    disabled
+                >
+                    <option value="">
+                        Sin puntos
+                    </option>
+                </select>
+            </label>
+
+        </div>
+
+
+        <textarea
+            id="progCode"
+            spellcheck="false"
+        ># SafeVision
+
+ir("A")
+esperar(2)
+orientar(0)
+</textarea>
+
+
+        <div class="prog-code-actions">
+
+            <button
+                id="progNewButton"
+                type="button"
+            >
+                Nuevo
+            </button>
+
+            <button
+                id="progValidateButton"
+                type="button"
+            >
+                Validar
+            </button>
+
+        </div>
+
+
+        <pre
+            id="progConsole"
+            class="prog-console"
+        >Editor preparado.</pre>
+
+    </section>
+
+
+    <section class="prog-map-panel">
+
+        <div class="prog-panel-title">
+
+            <div>
+                <h2>Mapa</h2>
+
+                <span>
+                    Diseño de la ruta
+                </span>
+            </div>
+
+        </div>
+
+
+        <div class="prog-map-toolbar">
+
+            <select id="progMapSelect">
+                <option value="">
+                    Seleccionar mapa...
+                </option>
+            </select>
+
+            <button
+                id="progLoadMap"
+                type="button"
+            >
+                Mostrar
+            </button>
+
+            <button
+                id="progZoomOut"
+                type="button"
+            >
+                −
+            </button>
+
+            <button
+                id="progZoomIn"
+                type="button"
+            >
+                +
+            </button>
+
+            <button
+                id="progResetMap"
+                type="button"
+            >
+                Ajustar
+            </button>
+
+        </div>
+
+
+        <div
+            id="progMapViewport"
+            class="prog-map-viewport"
+        >
+
+            <div
+                id="progMapPlaceholder"
+                class="prog-placeholder"
+            >
+                Selecciona un mapa.
+            </div>
+
+
+            <div
+                id="progMapScene"
+                class="prog-map-scene"
+                hidden
+            >
+
+                <img
+                    id="progMapImage"
+                    alt="Mapa SafeVision"
+                    draggable="false"
+                >
+
+            </div>
+
+        </div>
+
+
+        <div class="prog-map-footer">
+
+            <span id="progMapStatus">
+                Sin mapa cargado
+            </span>
+
+            <span>
+                Puntos: <strong id="progPointCount">0</strong>
+            </span>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<script
+    src="{{ url_for('static', filename='programar.js') }}"
+></script>
+
+</body>
+
+</html>
