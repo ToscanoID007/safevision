@@ -190,6 +190,10 @@ button:hover {
         auto
         auto
         auto
+        auto
+        auto
+        auto
+        auto
         auto;
     gap: 6px;
     border-bottom: 1px solid var(--border);
@@ -198,7 +202,7 @@ button:hover {
 .prog-map-viewport {
     position: relative;
     flex: 1;
-    min-height: 420px;
+    min-height: 320px;
     overflow: hidden;
     background: #030609;
 }
@@ -249,4 +253,119 @@ button:hover {
     .prog-map-panel {
         min-height: 620px;
     }
+}
+
+
+.prog-area-selection {
+    position: absolute;
+    z-index: 30;
+    border: 2px dashed #60a5fa;
+    background: rgba(59, 130, 246, 0.14);
+    pointer-events: none;
+}
+
+.prog-map-locked-badge {
+    position: absolute;
+    z-index: 40;
+    top: 12px;
+    right: 12px;
+    padding: 6px 9px;
+    border: 1px solid #ef4444;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #fca5a5;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+}
+
+.prog-route-tools {
+    flex: 0 0 205px;
+    min-height: 205px;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border);
+    background: #09111b;
+}
+
+.prog-route-tools-head {
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.prog-route-tools-head > div:first-child {
+    display: grid;
+    gap: 2px;
+}
+
+.prog-route-tools-head strong {
+    font-size: 13px;
+}
+
+.prog-route-tools-head span {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.prog-route-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.prog-route-buttons button {
+    padding: 6px 8px;
+    font-size: 11px;
+}
+
+.prog-route-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.prog-route-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.prog-route-table th,
+.prog-route-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid #1d2a39;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.prog-route-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #0d1723;
+    color: #a9bad0;
+    font-weight: 600;
+}
+
+.prog-empty-row td {
+    padding: 22px 8px;
+    color: var(--muted);
+    text-align: center;
+}
+
+#progAreaZoom.prog-active-tool {
+    border-color: #3b82f6;
+    background: #172b46;
+    color: #bfdbfe;
+}
+
+#progMapLock.prog-locked {
+    border-color: #ef4444;
+    color: #fca5a5;
 }

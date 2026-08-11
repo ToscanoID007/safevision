@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='programar.css') }}"
+        href="{{ url_for('static', filename='programar.css', v='programacion-v1b') }}"
     >
 </head>
 
@@ -168,6 +168,36 @@ orientar(0)
             </button>
 
             <button
+                id="progRotateLeft"
+                type="button"
+                title="Rotar mapa 90° a la izquierda"
+            >
+                ↺
+            </button>
+
+            <button
+                id="progRotateRight"
+                type="button"
+                title="Rotar mapa 90° a la derecha"
+            >
+                ↻
+            </button>
+
+            <button
+                id="progAreaZoom"
+                type="button"
+            >
+                Zoom área
+            </button>
+
+            <button
+                id="progMapLock"
+                type="button"
+            >
+                Bloquear
+            </button>
+
+            <button
                 id="progResetMap"
                 type="button"
             >
@@ -204,7 +234,116 @@ orientar(0)
 
             </div>
 
+            <div
+                id="progAreaSelection"
+                class="prog-area-selection"
+                hidden
+            ></div>
+
+            <div
+                id="progMapLockedBadge"
+                class="prog-map-locked-badge"
+                hidden
+            >
+                MAPA BLOQUEADO
+            </div>
+
         </div>
+
+
+        <section class="prog-route-tools">
+
+            <div class="prog-route-tools-head">
+
+                <div>
+                    <strong>
+                        Puntos de ruta
+                    </strong>
+
+                    <span>
+                        Edición de waypoints y pose inicial
+                    </span>
+                </div>
+
+
+                <div class="prog-route-buttons">
+
+                    <button
+                        id="progAddPoints"
+                        type="button"
+                        disabled
+                    >
+                        Agregar puntos
+                    </button>
+
+                    <button
+                        id="progClearPoints"
+                        type="button"
+                        disabled
+                    >
+                        Borrar
+                    </button>
+
+                    <button
+                        id="progOrientPoint"
+                        type="button"
+                        disabled
+                    >
+                        Orientar
+                    </button>
+
+                    <button
+                        id="progAutoPoint"
+                        type="button"
+                        disabled
+                    >
+                        Auto
+                    </button>
+
+                    <button
+                        id="progInitialPointButton"
+                        type="button"
+                        disabled
+                    >
+                        ★ Inicial
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="prog-route-table-wrap">
+
+                <table class="prog-route-table">
+
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Punto</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Orientación</th>
+                            <th>Inicial</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="progRouteTableBody">
+
+                        <tr class="prog-empty-row">
+                            <td colspan="7">
+                                Carga un mapa y agrega puntos.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
 
 
         <div class="prog-map-footer">
@@ -225,7 +364,7 @@ orientar(0)
 
 
 <script
-    src="{{ url_for('static', filename='programar.js') }}"
+    src="{{ url_for('static', filename='programar.js', v='programacion-v1b') }}"
 ></script>
 
 </body>
