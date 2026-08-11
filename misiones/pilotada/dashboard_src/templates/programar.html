@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='programar.css', v='programacion-v1b') }}"
+        href="{{ url_for('static', filename='programar.css', v='programacion-v1e') }}"
     >
 </head>
 
@@ -167,21 +167,26 @@ orientar(0)
                 +
             </button>
 
-            <button
-                id="progRotateLeft"
-                type="button"
-                title="Rotar mapa 90° a la izquierda"
-            >
-                ↺
-            </button>
+            <div class="prog-rotation-control">
 
-            <button
-                id="progRotateRight"
-                type="button"
-                title="Rotar mapa 90° a la derecha"
-            >
-                ↻
-            </button>
+                <span>
+                    Rotar
+                </span>
+
+                <input
+                    id="progRotationSlider"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value="0"
+                >
+
+                <output id="progRotationValue">
+                    0°
+                </output>
+
+            </div>
 
             <button
                 id="progAreaZoom"
@@ -364,7 +369,7 @@ orientar(0)
 
 
 <script
-    src="{{ url_for('static', filename='programar.js', v='programacion-v1b') }}"
+    src="{{ url_for('static', filename='programar.js', v='programacion-v1e') }}"
 ></script>
 
 </body>
