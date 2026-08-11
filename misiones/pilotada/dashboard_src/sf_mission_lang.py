@@ -14,6 +14,10 @@ ALIAS_RE = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_]*$"
 )
 
+VARIABLE_RE = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_]*$"
+)
+
 ALLOWED_COMMANDS = {
     "ir",
     "esperar",
@@ -21,6 +25,40 @@ ALLOWED_COMMANDS = {
     "girar",
     "relocalizar"
 }
+
+RESERVED_NAMES = (
+    ALLOWED_COMMANDS
+    |
+    {
+        "range",
+        "True",
+        "False",
+        "None"
+    }
+)
+
+ALLOWED_BIN_OPS = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod
+)
+
+ALLOWED_AUG_OPS = ALLOWED_BIN_OPS
+
+ALLOWED_COMPARE_OPS = (
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE
+)
+
+MAX_RANGE_ITERATIONS = 10000
+MAX_RANGE_ARGUMENT = 100000
 
 
 def _error(
@@ -139,6 +177,81 @@ def _number_literal(
     return None
 
 
+def _integer_literal(
+    node
+):
+    value = _number_literal(
+        node
+    )
+
+    if (
+        value is None
+        or
+        not math.isfinite(
+            value
+        )
+        or
+        int(
+            value
+        )
+        !=
+        value
+    ):
+        return None
+
+    return int(
+        value
+    )
+
+
+def _bool_literal(
+    node
+):
+    constant_type = getattr(
+        ast,
+        "Constant",
+        None
+    )
+
+    if (
+        constant_type is not None
+        and
+        isinstance(
+            node,
+            constant_type
+        )
+        and
+        isinstance(
+            node.value,
+            bool
+        )
+    ):
+        return node.value
+
+    name_constant = getattr(
+        ast,
+        "NameConstant",
+        None
+    )
+
+    if (
+        name_constant is not None
+        and
+        isinstance(
+            node,
+            name_constant
+        )
+        and
+        isinstance(
+            node.value,
+            bool
+        )
+    ):
+        return node.value
+
+    return None
+
+
 def _string_literal(
     node
 ):
@@ -203,11 +316,28 @@ def _canonical_point_id(
     )
 
 
+def _valid_variable_name(
+    name
+):
+    return (
+        isinstance(
+            name,
+            str
+        )
+        and
+        VARIABLE_RE.match(
+            name
+        )
+        is not None
+        and
+        name not in RESERVED_NAMES
+    )
+
+
 def _build_point_context(
     points
 ):
     errors = []
-
     ids = {}
     aliases = {}
 
@@ -238,6 +368,7 @@ def _build_point_context(
                     )
                 )
             })
+
             continue
 
         point_id = _canonical_point_id(
@@ -257,11 +388,12 @@ def _build_point_context(
                     )
                 )
             })
+
             continue
 
-        key = point_id.casefold()
+        id_key = point_id.casefold()
 
-        if key in ids:
+        if id_key in ids:
             errors.append({
                 "line": 0,
                 "column": 0,
@@ -274,7 +406,9 @@ def _build_point_context(
             })
 
         else:
-            ids[key] = point_id
+            ids[
+                id_key
+            ] = point_id
 
         alias = str(
             point.get(
@@ -285,46 +419,391 @@ def _build_point_context(
             ""
         ).strip()
 
-        if alias:
+        if not alias:
+            continue
 
-            if not ALIAS_RE.match(
-                alias
-            ):
-                errors.append({
-                    "line": 0,
-                    "column": 0,
-                    "message": (
-                        "El alias '{}' no es válido."
-                        .format(
-                            alias
-                        )
+        if not ALIAS_RE.match(
+            alias
+        ):
+            errors.append({
+                "line": 0,
+                "column": 0,
+                "message": (
+                    "El alias '{}' no es válido."
+                    .format(
+                        alias
                     )
-                })
+                )
+            })
 
-            else:
-                alias_key = alias.casefold()
+            continue
 
-                if alias_key in aliases:
-                    errors.append({
-                        "line": 0,
-                        "column": 0,
-                        "message": (
-                            "El alias '{}' está duplicado."
-                            .format(
-                                alias
-                            )
-                        )
-                    })
+        alias_key = alias.casefold()
 
-                else:
-                    aliases[
-                        alias_key
-                    ] = point_id
+        if alias_key in aliases:
+            errors.append({
+                "line": 0,
+                "column": 0,
+                "message": (
+                    "El alias '{}' está duplicado."
+                    .format(
+                        alias
+                    )
+                )
+            })
+
+        else:
+            aliases[
+                alias_key
+            ] = point_id
 
     return ids, aliases, errors
 
 
-def _validate_velocity(
+def _validate_expression(
+    node,
+    variables,
+    errors
+):
+    if _number_literal(
+        node
+    ) is not None:
+        return True
+
+    if _bool_literal(
+        node
+    ) is not None:
+        return True
+
+    if isinstance(
+        node,
+        ast.Name
+    ):
+        if node.id not in variables:
+            errors.append(
+                _error(
+                    node,
+                    (
+                        "Variable no definida: {}."
+                        .format(
+                            node.id
+                        )
+                    )
+                )
+            )
+
+            return False
+
+        return True
+
+    if isinstance(
+        node,
+        ast.UnaryOp
+    ):
+        if not isinstance(
+            node.op,
+            (
+                ast.UAdd,
+                ast.USub,
+                ast.Not
+            )
+        ):
+            errors.append(
+                _error(
+                    node,
+                    "Operador unario no permitido."
+                )
+            )
+
+            return False
+
+        return _validate_expression(
+            node.operand,
+            variables,
+            errors
+        )
+
+    if isinstance(
+        node,
+        ast.BinOp
+    ):
+        if not isinstance(
+            node.op,
+            ALLOWED_BIN_OPS
+        ):
+            errors.append(
+                _error(
+                    node,
+                    "Operación matemática no permitida."
+                )
+            )
+
+            return False
+
+        left_ok = _validate_expression(
+            node.left,
+            variables,
+            errors
+        )
+
+        right_ok = _validate_expression(
+            node.right,
+            variables,
+            errors
+        )
+
+        if isinstance(
+            node.op,
+            (
+                ast.Div,
+                ast.FloorDiv,
+                ast.Mod
+            )
+        ):
+            divisor = _number_literal(
+                node.right
+            )
+
+            if divisor == 0:
+                errors.append(
+                    _error(
+                        node.right,
+                        "División entre cero."
+                    )
+                )
+
+                right_ok = False
+
+        return (
+            left_ok
+            and
+            right_ok
+        )
+
+    if isinstance(
+        node,
+        ast.BoolOp
+    ):
+        if not isinstance(
+            node.op,
+            (
+                ast.And,
+                ast.Or
+            )
+        ):
+            errors.append(
+                _error(
+                    node,
+                    "Operador lógico no permitido."
+                )
+            )
+
+            return False
+
+        ok = True
+
+        for value in node.values:
+            if not _validate_expression(
+                value,
+                variables,
+                errors
+            ):
+                ok = False
+
+        return ok
+
+    if isinstance(
+        node,
+        ast.Compare
+    ):
+        ok = _validate_expression(
+            node.left,
+            variables,
+            errors
+        )
+
+        for operator in node.ops:
+            if not isinstance(
+                operator,
+                ALLOWED_COMPARE_OPS
+            ):
+                errors.append(
+                    _error(
+                        node,
+                        "Comparación no permitida."
+                    )
+                )
+
+                ok = False
+
+        for comparator in node.comparators:
+            if not _validate_expression(
+                comparator,
+                variables,
+                errors
+            ):
+                ok = False
+
+        return ok
+
+    errors.append(
+        _error(
+            node,
+            (
+                "Expresión no permitida: {}."
+                .format(
+                    type(
+                        node
+                    ).__name__
+                )
+            )
+        )
+    )
+
+    return False
+
+
+def _validate_range(
+    node,
+    variables,
+    errors
+):
+    if (
+        not isinstance(
+            node,
+            ast.Call
+        )
+        or
+        not isinstance(
+            node.func,
+            ast.Name
+        )
+        or
+        node.func.id != "range"
+    ):
+        errors.append(
+            _error(
+                node,
+                "El for solo permite range(...)."
+            )
+        )
+
+        return False
+
+    if node.keywords:
+        errors.append(
+            _error(
+                node,
+                "range() no acepta parámetros nombrados."
+            )
+        )
+
+        return False
+
+    if not (
+        1
+        <=
+        len(
+            node.args
+        )
+        <=
+        3
+    ):
+        errors.append(
+            _error(
+                node,
+                "range() acepta de 1 a 3 enteros."
+            )
+        )
+
+        return False
+
+    values = []
+
+    for argument in node.args:
+        value = _integer_literal(
+            argument
+        )
+
+        if value is None:
+            errors.append(
+                _error(
+                    argument,
+                    "range() solo acepta enteros literales."
+                )
+            )
+
+            return False
+
+        if abs(
+            value
+        ) > MAX_RANGE_ARGUMENT:
+            errors.append(
+                _error(
+                    argument,
+                    "Valor de range() demasiado grande."
+                )
+            )
+
+            return False
+
+        values.append(
+            value
+        )
+
+    if (
+        len(
+            values
+        )
+        == 3
+        and
+        values[2] == 0
+    ):
+        errors.append(
+            _error(
+                node.args[2],
+                "El paso de range() no puede ser 0."
+            )
+        )
+
+        return False
+
+    try:
+        iterations = len(
+            range(
+                *values
+            )
+        )
+
+    except Exception:
+        errors.append(
+            _error(
+                node,
+                "range() inválido."
+            )
+        )
+
+        return False
+
+    if iterations > MAX_RANGE_ITERATIONS:
+        errors.append(
+            _error(
+                node,
+                (
+                    "El for supera el límite de {} iteraciones."
+                    .format(
+                        MAX_RANGE_ITERATIONS
+                    )
+                )
+            )
+        )
+
+        return False
+
+    return True
+
+
+def _validate_velocity_call(
     call,
     errors
 ):
@@ -337,7 +816,8 @@ def _validate_velocity(
                 "Debe recibir exactamente un ángulo."
             )
         )
-        return
+
+        return False
 
     angle = _number_literal(
         call.args[0]
@@ -353,9 +833,11 @@ def _validate_velocity(
         errors.append(
             _error(
                 call.args[0],
-                "El ángulo debe ser un número."
+                "El ángulo debe ser un número literal."
             )
         )
+
+        return False
 
     if len(
         call.keywords
@@ -366,21 +848,30 @@ def _validate_velocity(
                 "Solo se permite el parámetro velocidad."
             )
         )
-        return
+
+        return False
+
+    ok = True
 
     for keyword in call.keywords:
-
         if keyword.arg != "velocidad":
             errors.append(
                 _error(
                     call,
-                    "Parámetro no permitido: {}.".format(
-                        keyword.arg
-                        if keyword.arg
-                        else "**kwargs"
+                    (
+                        "Parámetro no permitido: {}."
+                        .format(
+                            keyword.arg
+                            if keyword.arg
+                            else
+                            "**kwargs"
+                        )
                     )
                 )
             )
+
+            ok = False
+
             continue
 
         velocity = _number_literal(
@@ -402,6 +893,596 @@ def _validate_velocity(
                     "velocidad debe ser un número mayor que 0."
                 )
             )
+
+            ok = False
+
+    return ok
+
+
+def _validate_command(
+    statement,
+    call,
+    ids,
+    aliases,
+    errors,
+    commands
+):
+    if not isinstance(
+        call.func,
+        ast.Name
+    ):
+        errors.append(
+            _error(
+                call,
+                "Solo se permiten instrucciones SafeVision directas."
+            )
+        )
+
+        return
+
+    command = call.func.id
+
+    if command not in ALLOWED_COMMANDS:
+        errors.append(
+            _error(
+                call,
+                (
+                    "Instrucción no permitida: {}."
+                    .format(
+                        command
+                    )
+                )
+            )
+        )
+
+        return
+
+    command_info = {
+        "line": int(
+            getattr(
+                statement,
+                "lineno",
+                0
+            )
+            or
+            0
+        ),
+        "name": command
+    }
+
+    before = len(
+        errors
+    )
+
+    if command == "ir":
+        if (
+            len(
+                call.args
+            )
+            !=
+            1
+            or
+            call.keywords
+        ):
+            errors.append(
+                _error(
+                    call,
+                    'Uso: ir("0x000") o ir("alias").'
+                )
+            )
+
+        else:
+            target = _string_literal(
+                call.args[0]
+            )
+
+            if target is None:
+                errors.append(
+                    _error(
+                        call.args[0],
+                        "La referencia de ir() debe ser texto."
+                    )
+                )
+
+            else:
+                target = target.strip()
+
+                point_id = _canonical_point_id(
+                    target
+                )
+
+                if point_id is not None:
+                    resolved_id = ids.get(
+                        point_id.casefold()
+                    )
+
+                else:
+                    resolved_id = aliases.get(
+                        target.casefold()
+                    )
+
+                if resolved_id is None:
+                    errors.append(
+                        _error(
+                            call.args[0],
+                            (
+                                "El punto '{}' no existe en esta misión."
+                                .format(
+                                    target
+                                )
+                            )
+                        )
+                    )
+
+                else:
+                    command_info[
+                        "target"
+                    ] = target
+
+                    command_info[
+                        "target_id"
+                    ] = resolved_id
+
+    elif command == "esperar":
+        if (
+            len(
+                call.args
+            )
+            !=
+            1
+            or
+            call.keywords
+        ):
+            errors.append(
+                _error(
+                    call,
+                    "Uso: esperar(segundos)."
+                )
+            )
+
+        else:
+            seconds = _number_literal(
+                call.args[0]
+            )
+
+            if (
+                seconds is None
+                or
+                not math.isfinite(
+                    seconds
+                )
+                or
+                seconds < 0
+            ):
+                errors.append(
+                    _error(
+                        call.args[0],
+                        "El tiempo debe ser un número literal mayor o igual a 0."
+                    )
+                )
+
+            else:
+                command_info[
+                    "seconds"
+                ] = seconds
+
+    elif command in (
+        "orientar",
+        "girar"
+    ):
+        if _validate_velocity_call(
+            call,
+            errors
+        ):
+            command_info[
+                "angle"
+            ] = _number_literal(
+                call.args[0]
+            )
+
+            if call.keywords:
+                command_info[
+                    "velocity"
+                ] = _number_literal(
+                    call.keywords[0].value
+                )
+
+    elif command == "relocalizar":
+        if (
+            call.args
+            or
+            call.keywords
+        ):
+            errors.append(
+                _error(
+                    call,
+                    "Uso: relocalizar()."
+                )
+            )
+
+    if len(
+        errors
+    ) == before:
+        commands.append(
+            command_info
+        )
+
+
+def _validate_assignment(
+    statement,
+    variables,
+    errors
+):
+    if len(
+        statement.targets
+    ) != 1:
+        errors.append(
+            _error(
+                statement,
+                "Solo se permite asignar una variable a la vez."
+            )
+        )
+
+        return
+
+    target = statement.targets[0]
+
+    if not isinstance(
+        target,
+        ast.Name
+    ):
+        errors.append(
+            _error(
+                target,
+                "Solo se permiten variables simples."
+            )
+        )
+
+        return
+
+    if not _valid_variable_name(
+        target.id
+    ):
+        errors.append(
+            _error(
+                target,
+                (
+                    "Nombre de variable no permitido: {}."
+                    .format(
+                        target.id
+                    )
+                )
+            )
+        )
+
+        return
+
+    if _validate_expression(
+        statement.value,
+        variables,
+        errors
+    ):
+        variables.add(
+            target.id
+        )
+
+
+def _validate_aug_assignment(
+    statement,
+    variables,
+    errors
+):
+    if not isinstance(
+        statement.target,
+        ast.Name
+    ):
+        errors.append(
+            _error(
+                statement.target,
+                "Solo se permiten variables simples."
+            )
+        )
+
+        return
+
+    name = statement.target.id
+
+    if name not in variables:
+        errors.append(
+            _error(
+                statement.target,
+                (
+                    "Variable no definida: {}."
+                    .format(
+                        name
+                    )
+                )
+            )
+        )
+
+        return
+
+    if not isinstance(
+        statement.op,
+        ALLOWED_AUG_OPS
+    ):
+        errors.append(
+            _error(
+                statement,
+                "Operación de asignación no permitida."
+            )
+        )
+
+        return
+
+    _validate_expression(
+        statement.value,
+        variables,
+        errors
+    )
+
+
+def _validate_block(
+    statements,
+    variables,
+    ids,
+    aliases,
+    errors,
+    commands,
+    loop_depth=0
+):
+    for statement in statements:
+
+        if isinstance(
+            statement,
+            ast.Expr
+        ):
+            if not isinstance(
+                statement.value,
+                ast.Call
+            ):
+                errors.append(
+                    _error(
+                        statement,
+                        "Solo se permiten llamadas a instrucciones SafeVision."
+                    )
+                )
+
+                continue
+
+            _validate_command(
+                statement,
+                statement.value,
+                ids,
+                aliases,
+                errors,
+                commands
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.Assign
+        ):
+            _validate_assignment(
+                statement,
+                variables,
+                errors
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.AugAssign
+        ):
+            _validate_aug_assignment(
+                statement,
+                variables,
+                errors
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.If
+        ):
+            _validate_expression(
+                statement.test,
+                variables,
+                errors
+            )
+
+            base_variables = set(
+                variables
+            )
+
+            body_variables = set(
+                base_variables
+            )
+
+            _validate_block(
+                statement.body,
+                body_variables,
+                ids,
+                aliases,
+                errors,
+                commands,
+                loop_depth
+            )
+
+            if statement.orelse:
+                else_variables = set(
+                    base_variables
+                )
+
+                _validate_block(
+                    statement.orelse,
+                    else_variables,
+                    ids,
+                    aliases,
+                    errors,
+                    commands,
+                    loop_depth
+                )
+
+                guaranteed = (
+                    body_variables
+                    &
+                    else_variables
+                )
+
+            else:
+                guaranteed = base_variables
+
+            variables.clear()
+
+            variables.update(
+                guaranteed
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.For
+        ):
+            if not isinstance(
+                statement.target,
+                ast.Name
+            ):
+                errors.append(
+                    _error(
+                        statement.target,
+                        "La variable del for debe ser un nombre simple."
+                    )
+                )
+
+                continue
+
+            loop_name = statement.target.id
+
+            if not _valid_variable_name(
+                loop_name
+            ):
+                errors.append(
+                    _error(
+                        statement.target,
+                        (
+                            "Nombre de variable no permitido: {}."
+                            .format(
+                                loop_name
+                            )
+                        )
+                    )
+                )
+
+                continue
+
+            range_ok = _validate_range(
+                statement.iter,
+                variables,
+                errors
+            )
+
+            if statement.orelse:
+                errors.append(
+                    _error(
+                        statement,
+                        "for ... else todavía no está permitido."
+                    )
+                )
+
+            body_variables = set(
+                variables
+            )
+
+            body_variables.add(
+                loop_name
+            )
+
+            if range_ok:
+                _validate_block(
+                    statement.body,
+                    body_variables,
+                    ids,
+                    aliases,
+                    errors,
+                    commands,
+                    loop_depth + 1
+                )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.While
+        ):
+            _validate_expression(
+                statement.test,
+                variables,
+                errors
+            )
+
+            if statement.orelse:
+                errors.append(
+                    _error(
+                        statement,
+                        "while ... else todavía no está permitido."
+                    )
+                )
+
+            body_variables = set(
+                variables
+            )
+
+            _validate_block(
+                statement.body,
+                body_variables,
+                ids,
+                aliases,
+                errors,
+                commands,
+                loop_depth + 1
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.Break
+        ):
+            if loop_depth <= 0:
+                errors.append(
+                    _error(
+                        statement,
+                        "break solo puede usarse dentro de for o while."
+                    )
+                )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.Pass
+        ):
+            continue
+
+        errors.append(
+            _error(
+                statement,
+                (
+                    "Instrucción no permitida: {}."
+                    .format(
+                        type(
+                            statement
+                        ).__name__
+                    )
+                )
+            )
+        )
 
 
 def validate_program(
@@ -484,252 +1565,17 @@ def validate_program(
 
         return result
 
-    for statement in tree.body:
+    variables = set()
 
-        if not isinstance(
-            statement,
-            ast.Expr
-        ):
-            result["errors"].append(
-                _error(
-                    statement,
-                    (
-                        "Instrucción todavía no permitida: {}."
-                        .format(
-                            type(
-                                statement
-                            ).__name__
-                        )
-                    )
-                )
-            )
-            continue
-
-        call = statement.value
-
-        if not isinstance(
-            call,
-            ast.Call
-        ):
-            result["errors"].append(
-                _error(
-                    statement,
-                    "Solo se permiten llamadas a instrucciones SafeVision."
-                )
-            )
-            continue
-
-        if not isinstance(
-            call.func,
-            ast.Name
-        ):
-            result["errors"].append(
-                _error(
-                    call,
-                    "Solo se permiten instrucciones SafeVision directas."
-                )
-            )
-            continue
-
-        command = call.func.id
-
-        if command not in ALLOWED_COMMANDS:
-            result["errors"].append(
-                _error(
-                    call,
-                    (
-                        "Instrucción no permitida: {}."
-                        .format(
-                            command
-                        )
-                    )
-                )
-            )
-            continue
-
-        command_info = {
-            "line": int(
-                getattr(
-                    statement,
-                    "lineno",
-                    0
-                )
-                or
-                0
-            ),
-            "name": command
-        }
-
-        if command == "ir":
-
-            if (
-                len(
-                    call.args
-                )
-                !=
-                1
-                or
-                call.keywords
-            ):
-                result["errors"].append(
-                    _error(
-                        call,
-                        'Uso: ir("0x000") o ir("alias").'
-                    )
-                )
-                continue
-
-            target = _string_literal(
-                call.args[0]
-            )
-
-            if target is None:
-                result["errors"].append(
-                    _error(
-                        call.args[0],
-                        "La referencia de ir() debe ser texto."
-                    )
-                )
-                continue
-
-            target = target.strip()
-
-            point_id = _canonical_point_id(
-                target
-            )
-
-            resolved_id = None
-
-            if point_id is not None:
-                resolved_id = ids.get(
-                    point_id.casefold()
-                )
-
-            else:
-                resolved_id = aliases.get(
-                    target.casefold()
-                )
-
-            if resolved_id is None:
-                result["errors"].append(
-                    _error(
-                        call.args[0],
-                        (
-                            "El punto '{}' no existe en esta misión."
-                            .format(
-                                target
-                            )
-                        )
-                    )
-                )
-                continue
-
-            command_info[
-                "target"
-            ] = target
-
-            command_info[
-                "target_id"
-            ] = resolved_id
-
-        elif command == "esperar":
-
-            if (
-                len(
-                    call.args
-                )
-                !=
-                1
-                or
-                call.keywords
-            ):
-                result["errors"].append(
-                    _error(
-                        call,
-                        "Uso: esperar(segundos)."
-                    )
-                )
-                continue
-
-            seconds = _number_literal(
-                call.args[0]
-            )
-
-            if (
-                seconds is None
-                or
-                not math.isfinite(
-                    seconds
-                )
-                or
-                seconds < 0
-            ):
-                result["errors"].append(
-                    _error(
-                        call.args[0],
-                        "El tiempo debe ser un número mayor o igual a 0."
-                    )
-                )
-                continue
-
-            command_info[
-                "seconds"
-            ] = seconds
-
-        elif command in (
-            "orientar",
-            "girar"
-        ):
-
-            before = len(
-                result["errors"]
-            )
-
-            _validate_velocity(
-                call,
-                result["errors"]
-            )
-
-            if (
-                len(
-                    result["errors"]
-                )
-                !=
-                before
-            ):
-                continue
-
-            command_info[
-                "angle"
-            ] = _number_literal(
-                call.args[0]
-            )
-
-            if call.keywords:
-                command_info[
-                    "velocity"
-                ] = _number_literal(
-                    call.keywords[0].value
-                )
-
-        elif command == "relocalizar":
-
-            if (
-                call.args
-                or
-                call.keywords
-            ):
-                result["errors"].append(
-                    _error(
-                        call,
-                        "Uso: relocalizar()."
-                    )
-                )
-                continue
-
-        result["commands"].append(
-            command_info
-        )
+    _validate_block(
+        tree.body,
+        variables,
+        ids,
+        aliases,
+        result["errors"],
+        result["commands"],
+        0
+    )
 
     result["command_count"] = len(
         result["commands"]
