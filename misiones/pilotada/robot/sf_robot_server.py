@@ -53,6 +53,18 @@ MAPS_DIR = Path(
 )
 
 
+MISSIONS_DIR = Path(
+    "/home/pi/robot_custom/misiones/programadas"
+)
+
+MISSIONS_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+MISSION_SUFFIX = ".sfmision"
+
+
 
 
 SAFEVISION_POSE_FILE = Path(
@@ -370,6 +382,397 @@ def video_feed():
         )
     )
 
+
+
+
+# =========================================================
+# MISIONES SAFEVISION
+# =========================================================
+
+def mission_name_valid(
+    value
+):
+    if not isinstance(
+        value,
+        str
+    ):
+        return False
+
+    name = value.strip()
+
+    if (
+        not name
+        or
+        len(name) > 64
+        or
+        name in (".", "..")
+        or
+        name.endswith(".")
+        or
+        name.lower().endswith(
+            MISSION_SUFFIX
+        )
+    ):
+        return False
+
+    invalid = '<>:"/\\|?*'
+
+    for char in name:
+        if (
+            char in invalid
+            or
+            ord(char) < 32
+        ):
+            return False
+
+    return True
+
+
+def mission_point_id_valid(
+    value
+):
+    if not isinstance(
+        value,
+        str
+    ):
+        return False
+
+    text = value.strip()
+
+    if (
+        len(text) != 5
+        or
+        not text.lower().startswith(
+            "0x"
+        )
+    ):
+        return False
+
+    try:
+        number = int(
+            text[2:],
+            16
+        )
+
+    except Exception:
+        return False
+
+    return (
+        0
+        <=
+        number
+        <=
+        0xFFF
+    )
+
+
+def validate_mission_data(
+    data
+):
+    if not isinstance(
+        data,
+        dict
+    ):
+        return False, "La misión debe ser un objeto JSON."
+
+    if (
+        data.get("format")
+        !=
+        "safevision-mission"
+    ):
+        return False, "Formato de misión inválido."
+
+    if data.get("version") != 1:
+        return False, "Versión de misión no compatible."
+
+    if not mission_name_valid(
+        data.get("name")
+    ):
+        return False, "Nombre de misión inválido."
+
+    map_name = data.get(
+        "map",
+        ""
+    )
+
+    if (
+        map_name is not None
+        and
+        not isinstance(
+            map_name,
+            str
+        )
+    ):
+        return False, "Mapa inválido."
+
+    code = data.get(
+        "code",
+        ""
+    )
+
+    if not isinstance(
+        code,
+        str
+    ):
+        return False, "El código debe ser texto."
+
+    points = data.get(
+        "points"
+    )
+
+    if not isinstance(
+        points,
+        list
+    ):
+        return False, "points debe ser una lista."
+
+    if len(points) > 4096:
+        return False, "La misión tiene demasiados puntos."
+
+    ids = set()
+
+    for point in points:
+        if not isinstance(
+            point,
+            dict
+        ):
+            return False, "Punto inválido."
+
+        point_id = point.get(
+            "id"
+        )
+
+        if not mission_point_id_valid(
+            point_id
+        ):
+            return False, "ID de punto inválido."
+
+        canonical = point_id.lower()
+
+        if canonical in ids:
+            return False, "Hay IDs de punto duplicados."
+
+        ids.add(
+            canonical
+        )
+
+        alias = point.get(
+            "alias",
+            ""
+        )
+
+        if not isinstance(
+            alias,
+            str
+        ):
+            return False, "Alias inválido."
+
+        try:
+            float(
+                point["x"]
+            )
+
+            float(
+                point["y"]
+            )
+
+        except Exception:
+            return False, "Coordenadas de punto inválidas."
+
+        yaw = point.get(
+            "yaw"
+        )
+
+        if yaw is not None:
+            try:
+                float(
+                    yaw
+                )
+
+            except Exception:
+                return False, "Orientación inválida."
+
+    initial_id = data.get(
+        "initial_point_id"
+    )
+
+    if (
+        initial_id is not None
+        and
+        (
+            not mission_point_id_valid(
+                initial_id
+            )
+            or
+            initial_id.lower()
+            not in ids
+        )
+    ):
+        return False, "Punto inicial inválido."
+
+    next_id = data.get(
+        "next_point_id",
+        0
+    )
+
+    if (
+        not isinstance(
+            next_id,
+            int
+        )
+        or
+        next_id < 0
+        or
+        next_id > 0x1000
+    ):
+        return False, "Contador de IDs inválido."
+
+    return True, ""
+
+
+def mission_path(
+    name
+):
+    return (
+        MISSIONS_DIR
+        /
+        (
+            name.strip()
+            +
+            MISSION_SUFFIX
+        )
+    )
+
+
+@app.route("/missions")
+def robot_missions():
+    files = []
+
+    for path in sorted(
+        MISSIONS_DIR.glob(
+            "*" + MISSION_SUFFIX
+        ),
+        key=lambda item: item.name.lower()
+    ):
+        files.append({
+            "name": path.stem,
+            "filename": path.name
+        })
+
+    return jsonify({
+        "ok": True,
+        "missions": files
+    })
+
+
+@app.route(
+    "/missions/save",
+    methods=["POST"]
+)
+def robot_mission_save():
+    data = request.get_json(
+        silent=True
+    )
+
+    ok, message = validate_mission_data(
+        data
+    )
+
+    if not ok:
+        return jsonify({
+            "ok": False,
+            "error": message
+        }), 400
+
+    path = mission_path(
+        data["name"]
+    )
+
+    temp = Path(
+        str(path)
+        +
+        ".tmp"
+    )
+
+    try:
+        temp.write_text(
+            json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=2
+            )
+            +
+            "\n",
+            encoding="utf-8"
+        )
+
+        temp.replace(
+            path
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo guardar la misión: {}"
+                .format(exc)
+            )
+        }), 500
+
+    return jsonify({
+        "ok": True,
+        "name": data["name"],
+        "path": str(path)
+    })
+
+
+@app.route(
+    "/missions/delete",
+    methods=["POST"]
+)
+def robot_mission_delete():
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    name = data.get(
+        "name"
+    )
+
+    if not mission_name_valid(
+        name
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Nombre de misión inválido."
+        }), 400
+
+    path = mission_path(
+        name
+    )
+
+    if not path.exists():
+        return jsonify({
+            "ok": False,
+            "error": "Misión no encontrada."
+        }), 404
+
+    try:
+        path.unlink()
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo eliminar: {}"
+                .format(exc)
+            )
+        }), 500
+
+    return jsonify({
+        "ok": True,
+        "name": name
+    })
 
 
 # =========================================================

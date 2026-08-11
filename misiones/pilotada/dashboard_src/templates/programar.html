@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='programar.css', v='programacion-v1f') }}"
+        href="{{ url_for('static', filename='programar.css', v='programacion-v1g') }}"
     >
 </head>
 
@@ -90,7 +90,7 @@
             spellcheck="false"
         ># SafeVision
 
-ir("A")
+ir("0x000")
 esperar(2)
 orientar(0)
 </textarea>
@@ -98,18 +98,77 @@ orientar(0)
 
         <div class="prog-code-actions">
 
-            <button
-                id="progNewButton"
-                type="button"
-            >
+            <button id="progNewButton" type="button">
                 Nuevo
             </button>
 
+            <button id="progOpenButton" type="button">
+                Abrir
+            </button>
+
+            <button id="progSaveButton" type="button">
+                Guardar
+            </button>
+
+            <button id="progSaveAsButton" type="button">
+                Guardar como
+            </button>
+
+            <button id="progDuplicateButton" type="button">
+                Duplicar
+            </button>
+
+            <button id="progDeleteButton" type="button">
+                Eliminar
+            </button>
+
+            <button id="progImportButton" type="button">
+                Importar
+            </button>
+
+            <button id="progExportButton" type="button">
+                Exportar
+            </button>
+
+            <button id="progValidateButton" type="button">
+                Validar
+            </button>
+
+            <input
+                id="progImportFile"
+                type="file"
+                accept=".sfmision"
+                hidden
+            >
+
+        </div>
+
+
+        <div class="prog-mission-storage">
+
+            <span
+                id="progMissionSaveStatus"
+                class="prog-mission-save-status"
+            >
+                Sin guardar
+            </span>
+
+            <span class="prog-mission-folder-label">
+                Carpeta:
+            </span>
+
+            <span
+                id="progMissionFolder"
+                class="prog-mission-folder"
+            >
+                Cargando...
+            </span>
+
             <button
-                id="progValidateButton"
+                id="progFolderButton"
                 type="button"
             >
-                Validar
+                Cambiar carpeta
             </button>
 
         </div>
@@ -369,7 +428,7 @@ orientar(0)
 
 
 <script
-    src="{{ url_for('static', filename='programar.js', v='programacion-v1f') }}"
+    src="{{ url_for('static', filename='programar.js', v='programacion-v1g') }}"
 ></script>
 
 </body>

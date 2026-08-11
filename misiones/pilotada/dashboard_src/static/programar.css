@@ -613,3 +613,62 @@ button:hover {
 .prog-alias-input:disabled {
     opacity: 0.45;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION PROGRAMACION V1G - PERSISTENCIA MISIONES    */
+/* ====================================================== */
+
+.prog-code-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.prog-code-actions button {
+    flex: 0 0 auto;
+}
+
+.prog-mission-storage {
+    margin-top: 8px;
+    padding: 7px 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    border: 1px solid #1f2d3d;
+    border-radius: 7px;
+    background: #07101a;
+    font-size: 10px;
+}
+
+.prog-mission-save-status {
+    padding: 3px 7px;
+    border-radius: 5px;
+    background: #101b29;
+    color: #bfdbfe;
+    font-weight: 700;
+}
+
+.prog-mission-folder-label {
+    color: #74869b;
+}
+
+.prog-mission-folder {
+    flex: 1;
+    min-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #9fb2c8;
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+}
+
+#progFolderButton {
+    padding: 4px 7px;
+    font-size: 10px;
+}

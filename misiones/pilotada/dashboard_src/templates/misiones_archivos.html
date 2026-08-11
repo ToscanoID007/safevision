@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        SafeVision · Misiones guardadas
+    </title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #050a10;
+            color: #dce8f5;
+            font-family: Arial, sans-serif;
+        }
+
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            font-size: 22px;
+        }
+
+        .folder {
+            margin-bottom: 22px;
+            color: #8da2b8;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .mission {
+            margin-bottom: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #203044;
+            border-radius: 8px;
+            background: #0b1420;
+        }
+
+        .name {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .name strong {
+            display: block;
+        }
+
+        .name small {
+            color: #75889e;
+        }
+
+        a {
+            padding: 7px 10px;
+            border: 1px solid #30445c;
+            border-radius: 6px;
+            color: #dbeafe;
+            text-decoration: none;
+            background: #122033;
+        }
+
+        a:hover {
+            background: #1a2d47;
+        }
+
+        .empty {
+            padding: 25px;
+            border: 1px dashed #30445c;
+            border-radius: 8px;
+            color: #8296aa;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wrap">
+
+        <h1>
+            Misiones guardadas
+        </h1>
+
+        <div class="folder">
+            {{ folder }}
+        </div>
+
+
+        {% if missions %}
+
+            {% for mission in missions %}
+
+                <div class="mission">
+
+                    <div class="name">
+
+                        <strong>
+                            {{ mission.filename }}
+                        </strong>
+
+                        <small>
+                            {{ mission.size }} bytes
+                        </small>
+
+                    </div>
+
+
+                    <a
+                        href="{{ url_for('programar_mision', mission=mission.name) }}"
+                    >
+                        Abrir
+                    </a>
+
+
+                    <a
+                        href="{{ url_for('download_mission', name=mission.name) }}"
+                    >
+                        Descargar
+                    </a>
+
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="empty">
+                No hay archivos .sfmision en esta carpeta.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</body>
+</html>

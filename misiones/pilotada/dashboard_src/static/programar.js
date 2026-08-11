@@ -39,6 +39,12 @@ const progPlanner = {
 };
 
 
+
+const progMissionState = {
+    savedName: null
+};
+
+
 // =========================================================
 // LOG
 // =========================================================
@@ -3826,6 +3832,1372 @@ function handleProgPointClick(
 }
 
 
+
+// =========================================================
+// PERSISTENCIA DE MISIONES
+// =========================================================
+
+function missionNameError(
+    value
+) {
+    const name =
+        String(
+            value
+            ||
+            ""
+        ).trim();
+
+    if (!name) {
+        return "El nombre no puede estar vacío.";
+    }
+
+    if (name.length > 64) {
+        return "El nombre no puede superar 64 caracteres.";
+    }
+
+    if (
+        name === "."
+        ||
+        name === ".."
+        ||
+        name.endsWith(".")
+    ) {
+        return "Nombre de misión inválido.";
+    }
+
+    if (
+        name.toLowerCase().endsWith(
+            ".sfmision"
+        )
+    ) {
+        return "Escribe el nombre sin la extensión .sfmision.";
+    }
+
+    if (
+        /[<>:"/\\|?*\u0000-\u001F]/.test(
+            name
+        )
+    ) {
+        return "El nombre contiene caracteres no permitidos.";
+    }
+
+    return null;
+}
+
+
+function buildMissionPayload() {
+
+    const nameInput =
+        $p("progMissionName");
+
+    const codeInput =
+        $p("progCode");
+
+    const mapSelect =
+        $p("progMapSelect");
+
+
+    const name =
+        nameInput
+            ?
+            nameInput.value.trim()
+            :
+            "";
+
+
+    const nameError =
+        missionNameError(
+            name
+        );
+
+
+    if (nameError) {
+        throw new Error(
+            nameError
+        );
+    }
+
+
+    return {
+        format:
+            "safevision-mission",
+
+        version:
+            1,
+
+        name:
+            name,
+
+        map:
+            (
+                progPlanner.map
+                ||
+                (
+                    mapSelect
+                        ?
+                        mapSelect.value
+                        :
+                        ""
+                )
+                ||
+                ""
+            ),
+
+        initial_point_id:
+            progPlanner.initialPointId,
+
+        next_point_id:
+            progPlanner.nextPointId,
+
+        points:
+            progPlanner.points.map(
+                (point, index) => ({
+                    order:
+                        index + 1,
+
+                    id:
+                        point.id,
+
+                    alias:
+                        point.alias
+                        ||
+                        "",
+
+                    x:
+                        Number(
+                            point.x
+                        ),
+
+                    y:
+                        Number(
+                            point.y
+                        ),
+
+                    yaw:
+                        (
+                            point.yaw
+                            ===
+                            undefined
+                                ?
+                                null
+                                :
+                                point.yaw
+                        ),
+
+                    u:
+                        point.u,
+
+                    v:
+                        point.v
+                })
+            ),
+
+        code:
+            codeInput
+                ?
+                codeInput.value
+                :
+                ""
+    };
+}
+
+
+async function missionFetchJson(
+    url,
+    options = {}
+) {
+
+    const response =
+        await fetch(
+            url,
+            options
+        );
+
+
+    let data = {};
+
+    try {
+        data =
+            await response.json();
+
+    } catch (error) {
+        data = {};
+    }
+
+
+    if (!response.ok) {
+        throw new Error(
+            data.message
+            ||
+            data.error
+            ||
+            (
+                "Error HTTP "
+                +
+                response.status
+            )
+        );
+    }
+
+
+    return data;
+}
+
+
+function updateMissionSaveStatus(
+    data
+) {
+
+    const element =
+        $p(
+            "progMissionSaveStatus"
+        );
+
+
+    if (!element) {
+        return;
+    }
+
+
+    const pcOk =
+        Boolean(
+            data
+            &&
+            data.pc
+            &&
+            data.pc.ok
+        );
+
+
+    const piOk =
+        Boolean(
+            data
+            &&
+            data.pi
+            &&
+            data.pi.ok
+        );
+
+
+    const piState =
+        (
+            data
+            &&
+            data.pi
+            &&
+            data.pi.state
+        )
+        ||
+        "";
+
+
+    let text =
+        pcOk
+            ?
+            "✓ PC"
+            :
+            "⚠ PC";
+
+
+    if (piOk) {
+
+        text +=
+            " · ✓ Pi";
+
+    } else if (
+        piState
+        ===
+        "disconnected"
+    ) {
+
+        text +=
+            " · ⚠ Pi desconectada";
+
+    } else {
+
+        text +=
+            " · ⚠ Pi";
+    }
+
+
+    element.textContent =
+        text;
+}
+
+
+function setMissionUnsaved() {
+
+    const element =
+        $p(
+            "progMissionSaveStatus"
+        );
+
+
+    if (element) {
+        element.textContent =
+            "Sin guardar";
+    }
+}
+
+
+async function refreshMissionStorageConfig() {
+
+    const folder =
+        $p(
+            "progMissionFolder"
+        );
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions/config"
+            );
+
+
+        if (folder) {
+            folder.textContent =
+                data.folder;
+        }
+
+    } catch (error) {
+
+        if (folder) {
+            folder.textContent =
+                "No disponible";
+        }
+
+
+        progLog(
+            (
+                "Biblioteca: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+async function changeMissionFolder() {
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions/select-folder",
+                {
+                    method:
+                        "POST"
+                }
+            );
+
+
+        if (
+            data.cancelled
+            ||
+            !data.ok
+        ) {
+            return;
+        }
+
+
+        const folder =
+            $p(
+                "progMissionFolder"
+            );
+
+
+        if (folder) {
+            folder.textContent =
+                data.folder;
+        }
+
+
+        progLog(
+            (
+                "Carpeta de misiones: "
+                +
+                data.folder
+            )
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo cambiar carpeta: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+async function saveCurrentMission(
+    overwrite = true
+) {
+
+    let mission;
+
+    try {
+
+        mission =
+            buildMissionPayload();
+
+    } catch (error) {
+
+        progLog(
+            error.message
+        );
+
+        return null;
+    }
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                (
+                    "/missions/save?overwrite="
+                    +
+                    (
+                        overwrite
+                            ?
+                            "1"
+                            :
+                            "0"
+                    )
+                ),
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(
+                            mission
+                        )
+                }
+            );
+
+
+        progMissionState.savedName =
+            mission.name;
+
+
+        updateMissionSaveStatus(
+            data
+        );
+
+
+        progLog(
+            (
+                "Misión guardada: "
+                +
+                mission.name
+            )
+        );
+
+
+        return data;
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo guardar: "
+                +
+                error.message
+            )
+        );
+
+        return null;
+    }
+}
+
+
+async function saveMissionAs() {
+
+    const input =
+        $p(
+            "progMissionName"
+        );
+
+
+    if (!input) {
+        return;
+    }
+
+
+    const previous =
+        input.value;
+
+
+    const proposed =
+        window.prompt(
+            "Nuevo nombre de la misión:",
+            previous
+        );
+
+
+    if (proposed === null) {
+        return;
+    }
+
+
+    const error =
+        missionNameError(
+            proposed
+        );
+
+
+    if (error) {
+
+        progLog(
+            error
+        );
+
+        return;
+    }
+
+
+    input.value =
+        proposed.trim();
+
+
+    const result =
+        await saveCurrentMission(
+            false
+        );
+
+
+    if (!result) {
+        input.value =
+            previous;
+    }
+}
+
+
+async function duplicateCurrentMission() {
+
+    let mission;
+
+    try {
+
+        mission =
+            buildMissionPayload();
+
+    } catch (error) {
+
+        progLog(
+            error.message
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions/duplicate",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(
+                            mission
+                        )
+                }
+            );
+
+
+        const input =
+            $p(
+                "progMissionName"
+            );
+
+
+        if (input) {
+            input.value =
+                data.mission.name;
+        }
+
+
+        progMissionState.savedName =
+            data.mission.name;
+
+
+        updateMissionSaveStatus(
+            data
+        );
+
+
+        progLog(
+            (
+                "Copia creada: "
+                +
+                data.mission.name
+            )
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo duplicar: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+async function deleteCurrentMission() {
+
+    const input =
+        $p(
+            "progMissionName"
+        );
+
+
+    if (!input) {
+        return;
+    }
+
+
+    const name =
+        input.value.trim();
+
+
+    const error =
+        missionNameError(
+            name
+        );
+
+
+    if (error) {
+
+        progLog(
+            error
+        );
+
+        return;
+    }
+
+
+    const target =
+        window.prompt(
+            "Eliminar de: pc, pi o ambos",
+            "ambos"
+        );
+
+
+    if (target === null) {
+        return;
+    }
+
+
+    const normalized =
+        target
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        ![
+            "pc",
+            "pi",
+            "ambos"
+        ].includes(
+            normalized
+        )
+    ) {
+
+        progLog(
+            "Usa pc, pi o ambos."
+        );
+
+        return;
+    }
+
+
+    if (
+        !window.confirm(
+            (
+                "¿Eliminar '"
+                +
+                name
+                +
+                "' de "
+                +
+                normalized
+                +
+                "?"
+            )
+        )
+    ) {
+        return;
+    }
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions/delete",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            name:
+                                name,
+
+                            target:
+                                normalized
+                        })
+                }
+            );
+
+
+        const messages = [];
+
+
+        if (data.pc) {
+            messages.push(
+                data.pc.message
+            );
+        }
+
+
+        if (data.pi) {
+            messages.push(
+                data.pi.message
+            );
+        }
+
+
+        progLog(
+            messages.join(
+                " "
+            )
+        );
+
+
+        if (
+            normalized
+            ===
+            "pc"
+            ||
+            normalized
+            ===
+            "ambos"
+        ) {
+
+            progMissionState.savedName =
+                null;
+
+            setMissionUnsaved();
+        }
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo eliminar: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+function missionNextIdFromPoints(
+    points
+) {
+
+    let maximum =
+        -1;
+
+
+    for (
+        const point
+        of points
+    ) {
+
+        const value =
+            parseInt(
+                String(
+                    point.id
+                ).slice(
+                    2
+                ),
+                16
+            );
+
+
+        if (
+            Number.isInteger(
+                value
+            )
+            &&
+            value > maximum
+        ) {
+
+            maximum =
+                value;
+        }
+    }
+
+
+    return Math.min(
+        0x1000,
+        maximum + 1
+    );
+}
+
+
+function applyMissionData(
+    mission
+) {
+
+    const name =
+        $p(
+            "progMissionName"
+        );
+
+    const code =
+        $p(
+            "progCode"
+        );
+
+    const mapSelect =
+        $p(
+            "progMapSelect"
+        );
+
+
+    if (name) {
+        name.value =
+            mission.name;
+    }
+
+
+    if (code) {
+        code.value =
+            mission.code
+            ||
+            "";
+    }
+
+
+    const mapName =
+        mission.map
+        ||
+        "";
+
+
+    if (
+        mapSelect
+        &&
+        mapName
+    ) {
+
+        let found =
+            Array.from(
+                mapSelect.options
+            ).some(
+                option =>
+                    option.value
+                    ===
+                    mapName
+            );
+
+
+        if (!found) {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+            option.value =
+                mapName;
+
+            option.textContent =
+                mapName;
+
+            mapSelect.appendChild(
+                option
+            );
+        }
+
+
+        mapSelect.value =
+            mapName;
+    }
+
+
+    progPlanner.points =
+        [];
+
+    progPlanner.selectedId =
+        null;
+
+    progPlanner.orientationPointId =
+        null;
+
+    progPlanner.initialPointId =
+        null;
+
+
+    renderProgPlanner();
+
+
+    let applied =
+        false;
+
+
+    const applyPlanner =
+        () => {
+
+            if (applied) {
+                return;
+            }
+
+
+            applied =
+                true;
+
+
+            progPlanner.map =
+                mapName
+                ||
+                null;
+
+
+            progPlanner.points =
+                (
+                    mission.points
+                    ||
+                    []
+                )
+                .slice()
+                .sort(
+                    (a, b) =>
+                        Number(
+                            a.order
+                            ||
+                            0
+                        )
+                        -
+                        Number(
+                            b.order
+                            ||
+                            0
+                        )
+                )
+                .map(
+                    point => ({
+                        id:
+                            point.id,
+
+                        alias:
+                            point.alias
+                            ||
+                            "",
+
+                        x:
+                            Number(
+                                point.x
+                            ),
+
+                        y:
+                            Number(
+                                point.y
+                            ),
+
+                        yaw:
+                            (
+                                point.yaw
+                                ===
+                                undefined
+                                    ?
+                                    null
+                                    :
+                                    point.yaw
+                            ),
+
+                        u:
+                            point.u,
+
+                        v:
+                            point.v
+                    })
+                );
+
+
+            progPlanner.initialPointId =
+                mission.initial_point_id
+                ||
+                null;
+
+
+            const storedNext =
+                Number(
+                    mission.next_point_id
+                );
+
+
+            progPlanner.nextPointId =
+                (
+                    Number.isInteger(
+                        storedNext
+                    )
+                    &&
+                    storedNext >= 0
+                    &&
+                    storedNext <= 0x1000
+                )
+                    ?
+                    storedNext
+                    :
+                    missionNextIdFromPoints(
+                        progPlanner.points
+                    );
+
+
+            renderProgPlanner();
+
+
+            progMissionState.savedName =
+                mission.name;
+
+
+            const status =
+                $p(
+                    "progMissionSaveStatus"
+                );
+
+
+            if (status) {
+                status.textContent =
+                    "Misión abierta";
+            }
+
+
+            progLog(
+                (
+                    "Misión abierta: "
+                    +
+                    mission.name
+                )
+            );
+        };
+
+
+    if (
+        mapName
+        &&
+        mapSelect
+    ) {
+
+        const image =
+            $p(
+                "progMapImage"
+            );
+
+
+        if (image) {
+
+            image.addEventListener(
+                "load",
+                () => {
+
+                    window.setTimeout(
+                        applyPlanner,
+                        0
+                    );
+                },
+                {
+                    once:
+                        true
+                }
+            );
+        }
+
+
+        showProgMap();
+
+
+        window.setTimeout(
+            applyPlanner,
+            1000
+        );
+
+    } else {
+
+        applyPlanner();
+    }
+}
+
+
+async function openMissionFromLibrary() {
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions"
+            );
+
+
+        const missions =
+            data.missions
+            ||
+            [];
+
+
+        if (!missions.length) {
+
+            progLog(
+                "No hay misiones guardadas en la PC."
+            );
+
+            return;
+        }
+
+
+        const menu =
+            missions
+                .map(
+                    (item, index) =>
+                        (
+                            String(
+                                index + 1
+                            )
+                            +
+                            ") "
+                            +
+                            item.name
+                        )
+                )
+                .join(
+                    "\n"
+                );
+
+
+        const selected =
+            window.prompt(
+                (
+                    "Misiones guardadas:\n\n"
+                    +
+                    menu
+                    +
+                    "\n\nEscribe el número:"
+                )
+            );
+
+
+        if (selected === null) {
+            return;
+        }
+
+
+        const index =
+            Number(
+                selected
+            )
+            -
+            1;
+
+
+        if (
+            !Number.isInteger(
+                index
+            )
+            ||
+            index < 0
+            ||
+            index >= missions.length
+        ) {
+
+            progLog(
+                "Selección inválida."
+            );
+
+            return;
+        }
+
+
+        const loaded =
+            await missionFetchJson(
+                (
+                    "/missions/load?name="
+                    +
+                    encodeURIComponent(
+                        missions[index].name
+                    )
+                )
+            );
+
+
+        applyMissionData(
+            loaded.mission
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo abrir: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+async function importMissionFile(
+    file
+) {
+
+    if (!file) {
+        return;
+    }
+
+
+    const form =
+        new FormData();
+
+
+    form.append(
+        "file",
+        file
+    );
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/missions/import",
+                {
+                    method:
+                        "POST",
+
+                    body:
+                        form
+                }
+            );
+
+
+        updateMissionSaveStatus(
+            data
+        );
+
+
+        applyMissionData(
+            data.mission
+        );
+
+
+        progLog(
+            (
+                "Misión importada: "
+                +
+                data.mission.name
+            )
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo importar: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
+async function loadMissionFromQuery() {
+
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+
+    const name =
+        params.get(
+            "mission"
+        );
+
+
+    if (!name) {
+        return;
+    }
+
+
+    try {
+
+        const data =
+            await missionFetchJson(
+                (
+                    "/missions/load?name="
+                    +
+                    encodeURIComponent(
+                        name
+                    )
+                )
+            );
+
+
+        applyMissionData(
+            data.mission
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo abrir la misión solicitada: "
+                +
+                error.message
+            )
+        );
+    }
+}
+
+
 // =========================================================
 // EDITOR DE CODIGO - PLACEHOLDER
 // =========================================================
@@ -3870,7 +5242,6 @@ function resetProgramDraft() {
 
 
     if (name) {
-
         name.value =
             "Nueva misión";
     }
@@ -3881,15 +5252,40 @@ function resetProgramDraft() {
         code.value =
 `# SafeVision
 
-ir("A")
+ir("0x000")
 esperar(2)
 orientar(0)
 `;
     }
 
 
+    progPlanner.points =
+        [];
+
+    progPlanner.selectedId =
+        null;
+
+    progPlanner.orientationPointId =
+        null;
+
+    progPlanner.initialPointId =
+        null;
+
+    progPlanner.nextPointId =
+        0;
+
+
+    progMissionState.savedName =
+        null;
+
+
+    setMissionUnsaved();
+
+    renderProgPlanner();
+
+
     progLog(
-        "Nuevo programa preparado."
+        "Nueva misión preparada."
     );
 }
 
@@ -3952,6 +5348,33 @@ window.addEventListener(
 
         const newButton =
             $p("progNewButton");
+
+        const openButton =
+            $p("progOpenButton");
+
+        const saveButton =
+            $p("progSaveButton");
+
+        const saveAsButton =
+            $p("progSaveAsButton");
+
+        const duplicateButton =
+            $p("progDuplicateButton");
+
+        const deleteButton =
+            $p("progDeleteButton");
+
+        const importButton =
+            $p("progImportButton");
+
+        const importFile =
+            $p("progImportFile");
+
+        const exportButton =
+            $p("progExportButton");
+
+        const folderButton =
+            $p("progFolderButton");
 
 
         ensureProgWaypointCanvas();
@@ -4124,6 +5547,121 @@ window.addEventListener(
                 resetProgramDraft
             );
         }
+
+
+        if (openButton) {
+
+            openButton.addEventListener(
+                "click",
+                openMissionFromLibrary
+            );
+        }
+
+
+        if (saveButton) {
+
+            saveButton.addEventListener(
+                "click",
+                () => {
+
+                    saveCurrentMission(
+                        true
+                    );
+                }
+            );
+        }
+
+
+        if (saveAsButton) {
+
+            saveAsButton.addEventListener(
+                "click",
+                saveMissionAs
+            );
+        }
+
+
+        if (duplicateButton) {
+
+            duplicateButton.addEventListener(
+                "click",
+                duplicateCurrentMission
+            );
+        }
+
+
+        if (deleteButton) {
+
+            deleteButton.addEventListener(
+                "click",
+                deleteCurrentMission
+            );
+        }
+
+
+        if (
+            importButton
+            &&
+            importFile
+        ) {
+
+            importButton.addEventListener(
+                "click",
+                () => {
+
+                    importFile.value =
+                        "";
+
+                    importFile.click();
+                }
+            );
+
+
+            importFile.addEventListener(
+                "change",
+                () => {
+
+                    importMissionFile(
+                        importFile.files[
+                            0
+                        ]
+                    );
+                }
+            );
+        }
+
+
+        if (exportButton) {
+
+            exportButton.addEventListener(
+                "click",
+                () => {
+
+                    window.open(
+                        "/misiones/archivos",
+                        "_blank"
+                    );
+                }
+            );
+        }
+
+
+        if (folderButton) {
+
+            folderButton.addEventListener(
+                "click",
+                changeMissionFolder
+            );
+        }
+
+
+        refreshMissionStorageConfig();
+
+
+        window.setTimeout(
+            loadMissionFromQuery,
+            500
+        );
 
 
         if (scene) {
