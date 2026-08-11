@@ -1126,3 +1126,80 @@ button:disabled {
     color:
         #38d996;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION NIVEL 3C.3 - EDICION DE COLA               */
+/* ====================================================== */
+
+.map-nav-row-actions {
+    display: flex;
+
+    align-items: center;
+
+    gap: 5px;
+}
+
+.map-nav-row-button {
+    min-width: 30px;
+
+    min-height: 28px;
+
+    padding:
+        3px
+        7px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.18
+        );
+
+    border-radius:
+        5px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.06
+        );
+
+    color:
+        inherit;
+
+    cursor:
+        pointer;
+}
+
+.map-nav-row-button:hover:not(:disabled) {
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.13
+        );
+}
+
+.map-nav-row-button.danger:not(:disabled) {
+    border-color:
+        rgba(
+            239,
+            68,
+            68,
+            0.65
+        );
+}
+
+.map-nav-row-button:disabled {
+    opacity:
+        0.35;
+
+    cursor:
+        not-allowed;
+}

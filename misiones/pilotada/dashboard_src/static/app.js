@@ -4471,6 +4471,7 @@ if (safeVisionMapButton) {
         map: null,
         placing: false,
         lastStatus: null,
+        executionSeen: false,
         timer: null
     };
 
@@ -4788,6 +4789,7 @@ if (safeVisionMapButton) {
                             <th>Y</th>
                             <th>Orientación</th>
                             <th>Estado</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
 
@@ -4806,6 +4808,286 @@ if (safeVisionMapButton) {
 
 
         return panel;
+    }
+
+
+
+    // =====================================================
+    // SAFEVISION NIVEL 3C.3 - EDICION DE COLA
+    // =====================================================
+
+    function navQueueIsRunning() {
+
+        return Boolean(
+            navPlanner.lastStatus
+            &&
+            navPlanner.lastStatus.running
+        );
+    }
+
+
+    function navStatusMatchesCurrentQueue(
+        status
+    ) {
+
+        if (
+            !status
+            ||
+            !navPlanner.map
+            ||
+            status.map !== navPlanner.map
+        ) {
+            return false;
+        }
+
+
+        const completed =
+            Array.isArray(
+                status.completed
+            )
+                ?
+                status.completed
+                :
+                [];
+
+        const remaining =
+            Array.isArray(
+                status.remaining
+            )
+                ?
+                status.remaining
+                :
+                [];
+
+
+        const queue =
+            completed.concat(
+                remaining
+            );
+
+
+        if (
+            queue.length
+            !==
+            navPlanner.points.length
+        ) {
+            return false;
+        }
+
+
+        return navPlanner.points.every(
+            (point, index) => {
+
+                const remote =
+                    queue[index];
+
+
+                if (!remote) {
+                    return false;
+                }
+
+
+                return (
+                    remote.id === point.id
+                    &&
+                    Math.abs(
+                        Number(remote.x)
+                        -
+                        Number(point.x)
+                    )
+                    <
+                    0.000001
+                    &&
+                    Math.abs(
+                        Number(remote.y)
+                        -
+                        Number(point.y)
+                    )
+                    <
+                    0.000001
+                );
+            }
+        );
+    }
+
+
+    function navVisibleExecutionStatus() {
+
+        const status =
+            navPlanner.lastStatus
+            ||
+            {};
+
+
+        if (
+            !navStatusMatchesCurrentQueue(
+                status
+            )
+        ) {
+            return {};
+        }
+
+
+        if (
+            !navPlanner.executionSeen
+            &&
+            (
+                status.state === "ready"
+                ||
+                status.state === "running"
+                ||
+                status.state === "relocalizing"
+            )
+        ) {
+
+            navPlanner.executionSeen =
+                true;
+        }
+
+
+        return navPlanner.executionSeen
+            ?
+            status
+            :
+            {};
+    }
+
+
+    function renumberNavPoints() {
+
+        navPlanner.points.forEach(
+            (point, index) => {
+
+                point.id =
+                    navPointId(
+                        index
+                    );
+            }
+        );
+    }
+
+
+    function refreshNavQueueAfterEdit(
+        message
+    ) {
+
+        navPlanner.executionSeen =
+            false;
+
+        renumberNavPoints();
+
+
+        if (
+            navPlanner.points.length
+            ===
+            0
+        ) {
+
+            navPlanner.map =
+                null;
+        }
+
+
+        renderNavMarkers();
+
+        updateNavButtons();
+
+        setNavStatus(
+            message,
+            navPlanner.points.length
+                ?
+                "ready"
+                :
+                ""
+        );
+    }
+
+
+    function moveNavPoint(
+        index,
+        direction
+    ) {
+
+        if (navQueueIsRunning()) {
+
+            setNavStatus(
+                "No se puede reordenar mientras navega.",
+                "warning"
+            );
+
+            return;
+        }
+
+
+        const target =
+            index
+            +
+            direction;
+
+
+        if (
+            target < 0
+            ||
+            target >= navPlanner.points.length
+        ) {
+            return;
+        }
+
+
+        const point =
+            navPlanner.points[index];
+
+
+        navPlanner.points[index] =
+            navPlanner.points[target];
+
+        navPlanner.points[target] =
+            point;
+
+
+        refreshNavQueueAfterEdit(
+            "Orden de puntos actualizado"
+        );
+    }
+
+
+    function deleteNavPoint(
+        index
+    ) {
+
+        if (navQueueIsRunning()) {
+
+            setNavStatus(
+                "No se puede eliminar mientras navega.",
+                "warning"
+            );
+
+            return;
+        }
+
+
+        if (
+            index < 0
+            ||
+            index >= navPlanner.points.length
+        ) {
+            return;
+        }
+
+
+        navPlanner.points.splice(
+            index,
+            1
+        );
+
+
+        refreshNavQueueAfterEdit(
+            navPlanner.points.length
+                ?
+                "Punto eliminado"
+                :
+                "Cola vacía"
+        );
     }
 
 
@@ -4894,17 +5176,17 @@ if (safeVisionMapButton) {
             true;
 
 
+        const executionStatus =
+            navVisibleExecutionStatus();
+
+
         const completed =
             new Set(
-                (
-                    navPlanner.lastStatus
-                    &&
-                    Array.isArray(
-                        navPlanner.lastStatus.completed
-                    )
+                Array.isArray(
+                    executionStatus.completed
                 )
                     ?
-                    navPlanner.lastStatus.completed.map(
+                    executionStatus.completed.map(
                         point => point.id
                     )
                     :
@@ -4913,13 +5195,9 @@ if (safeVisionMapButton) {
 
 
         const currentId =
-            (
-                navPlanner.lastStatus
-                &&
-                navPlanner.lastStatus.current
-            )
+            executionStatus.current
                 ?
-                navPlanner.lastStatus.current.id
+                executionStatus.current.id
                 :
                 null;
 
@@ -5015,6 +5293,138 @@ if (safeVisionMapButton) {
                 }
 
 
+                const actions =
+                    document.createElement(
+                        "td"
+                    );
+
+                actions.className =
+                    "map-nav-row-actions";
+
+
+                const running =
+                    navQueueIsRunning();
+
+
+                const upButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                upButton.type =
+                    "button";
+
+                upButton.className =
+                    "map-nav-row-button";
+
+                upButton.textContent =
+                    "↑";
+
+                upButton.title =
+                    "Subir punto";
+
+                upButton.disabled =
+                    running
+                    ||
+                    index === 0;
+
+                upButton.addEventListener(
+                    "click",
+                    () => {
+
+                        moveNavPoint(
+                            index,
+                            -1
+                        );
+                    }
+                );
+
+
+                const downButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                downButton.type =
+                    "button";
+
+                downButton.className =
+                    "map-nav-row-button";
+
+                downButton.textContent =
+                    "↓";
+
+                downButton.title =
+                    "Bajar punto";
+
+                downButton.disabled =
+                    running
+                    ||
+                    index
+                    ===
+                    navPlanner.points.length - 1;
+
+                downButton.addEventListener(
+                    "click",
+                    () => {
+
+                        moveNavPoint(
+                            index,
+                            1
+                        );
+                    }
+                );
+
+
+                const deleteButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                deleteButton.type =
+                    "button";
+
+                deleteButton.className =
+                    "map-nav-row-button danger";
+
+                deleteButton.textContent =
+                    "Eliminar";
+
+                deleteButton.title =
+                    "Eliminar este punto";
+
+                deleteButton.disabled =
+                    running;
+
+                deleteButton.addEventListener(
+                    "click",
+                    () => {
+
+                        deleteNavPoint(
+                            index
+                        );
+                    }
+                );
+
+
+                actions.appendChild(
+                    upButton
+                );
+
+                actions.appendChild(
+                    downButton
+                );
+
+                actions.appendChild(
+                    deleteButton
+                );
+
+
+                row.appendChild(
+                    actions
+                );
+
+
                 body.appendChild(
                     row
                 );
@@ -5065,17 +5475,17 @@ if (safeVisionMapButton) {
             image.getBoundingClientRect();
 
 
+        const executionStatus =
+            navVisibleExecutionStatus();
+
+
         const completed =
             new Set(
-                (
-                    navPlanner.lastStatus
-                    &&
-                    Array.isArray(
-                        navPlanner.lastStatus.completed
-                    )
+                Array.isArray(
+                    executionStatus.completed
                 )
                     ?
-                    navPlanner.lastStatus.completed.map(
+                    executionStatus.completed.map(
                         point => point.id
                     )
                     :
@@ -5084,13 +5494,9 @@ if (safeVisionMapButton) {
 
 
         const currentId =
-            (
-                navPlanner.lastStatus
-                &&
-                navPlanner.lastStatus.current
-            )
+            executionStatus.current
                 ?
-                navPlanner.lastStatus.current.id
+                executionStatus.current.id
                 :
                 null;
 
@@ -6022,6 +6428,9 @@ if (safeVisionMapButton) {
             return;
         }
 
+
+        navPlanner.executionSeen =
+            false;
 
         navPlanner.map =
             mapName;
