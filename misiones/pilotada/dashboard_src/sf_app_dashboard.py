@@ -27,6 +27,10 @@ from sf_motor_inferencia import (
     MotorInferencia
 )
 
+from sf_mission_lang import (
+    validate_program
+)
+
 
 # =========================================================
 # APP
@@ -547,6 +551,55 @@ def programar_mision():
         "programar.html"
     )
 
+
+
+
+@app.route(
+    "/programar/validate",
+    methods=["POST"]
+)
+def programar_validate():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    code = data.get(
+        "code",
+        ""
+    )
+
+    points = data.get(
+        "points",
+        []
+    )
+
+
+    if not isinstance(
+        code,
+        str
+    ):
+        return error(
+            "El código debe ser texto."
+        )
+
+
+    if not isinstance(
+        points,
+        list
+    ):
+        return error(
+            "La lista de puntos no es válida."
+        )
+
+
+    return jsonify(
+        validate_program(
+            code,
+            points
+        )
+    )
 
 
 # =========================================================

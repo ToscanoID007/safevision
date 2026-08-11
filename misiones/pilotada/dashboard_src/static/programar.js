@@ -5202,10 +5202,12 @@ async function loadMissionFromQuery() {
 // EDITOR DE CODIGO - PLACEHOLDER
 // =========================================================
 
-function validateProgramDraft() {
+async function validateProgramDraft() {
 
     const element =
-        $p("progCode");
+        $p(
+            "progCode"
+        );
 
 
     const code =
@@ -5226,9 +5228,161 @@ function validateProgramDraft() {
     }
 
 
-    progLog(
-        "Validación sintáctica se implementará después del editor de rutas."
-    );
+    try {
+
+        const data =
+            await missionFetchJson(
+                "/programar/validate",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            code:
+                                code,
+
+                            points:
+                                progPlanner.points.map(
+                                    point => ({
+                                        id:
+                                            point.id,
+
+                                        alias:
+                                            point.alias
+                                            ||
+                                            ""
+                                    })
+                                )
+                        })
+                }
+            );
+
+
+        if (!data.ok) {
+
+            const messages =
+                (
+                    data.errors
+                    ||
+                    []
+                )
+                .map(
+                    item => {
+
+                        const location =
+                            item.line
+                                ?
+                                (
+                                    "Línea "
+                                    +
+                                    item.line
+                                    +
+                                    ": "
+                                )
+                                :
+                                "";
+
+
+                        return (
+                            "✗ "
+                            +
+                            location
+                            +
+                            item.message
+                        );
+                    }
+                );
+
+
+            progLog(
+                (
+                    "Programa inválido.\n"
+                    +
+                    messages.join(
+                        "\n"
+                    )
+                )
+            );
+
+            return;
+        }
+
+
+        const resolved =
+            (
+                data.commands
+                ||
+                []
+            )
+            .filter(
+                item =>
+                    item.name
+                    ===
+                    "ir"
+            )
+            .map(
+                item =>
+                    (
+                        item.target
+                        +
+                        " → "
+                        +
+                        item.target_id
+                    )
+            );
+
+
+        let message =
+            (
+                "✓ Programa válido · "
+                +
+                data.command_count
+                +
+                (
+                    data.command_count
+                    ===
+                    1
+                        ?
+                        " instrucción."
+                        :
+                        " instrucciones."
+                )
+            );
+
+
+        if (resolved.length) {
+
+            message +=
+                (
+                    "\nReferencias: "
+                    +
+                    resolved.join(
+                        ", "
+                    )
+                );
+        }
+
+
+        progLog(
+            message
+        );
+
+    } catch (error) {
+
+        progLog(
+            (
+                "No se pudo validar: "
+                +
+                error.message
+            )
+        );
+    }
 }
 
 
