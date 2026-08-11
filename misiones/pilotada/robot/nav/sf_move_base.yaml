@@ -15,7 +15,7 @@ shutdown_costmaps: false
 make_plan_clear_costmap: false
 make_plan_add_unreachable_goal: false
 
-oscillation_timeout: 10.0
-oscillation_distance: 0.15
+oscillation_timeout: 20.0
+oscillation_distance: 0.05
 
 max_planning_retries: 3

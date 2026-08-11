@@ -4,6 +4,7 @@
 import json
 import math
 import threading
+import time
 from pathlib import Path
 
 import actionlib
@@ -11,9 +12,11 @@ import rospy
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist
 from move_base_msgs.msg import MoveBaseAction
 from move_base_msgs.msg import MoveBaseGoal
 from nav_msgs.srv import GetPlan
+from std_msgs.msg import Int32
 from std_msgs.msg import String
 from std_srvs.srv import SetBool
 
@@ -47,11 +50,58 @@ class SafeVisionNavQueue:
             )
         )
 
+        self.relocalization_enabled = bool(
+            rospy.get_param(
+                "~relocalization_enabled",
+                True
+            )
+        )
+
+        self.relocalization_attempts = int(
+            rospy.get_param(
+                "~relocalization_attempts",
+                1
+            )
+        )
+
+        self.relocalization_spin_seconds = float(
+            rospy.get_param(
+                "~relocalization_spin_seconds",
+                10.0
+            )
+        )
+
+        self.relocalization_angular_speed = float(
+            rospy.get_param(
+                "~relocalization_angular_speed",
+                0.30
+            )
+        )
+
+        self.relocalization_light_effect = int(
+            rospy.get_param(
+                "~relocalization_light_effect",
+                3
+            )
+        )
+
         self.status_pub = rospy.Publisher(
             "/safevision/nav/status",
             String,
             queue_size=1,
             latch=True
+        )
+
+        self.recovery_cmd_pub = rospy.Publisher(
+            "/cmd_vel_nav",
+            Twist,
+            queue_size=10
+        )
+
+        self.light_pub = rospy.Publisher(
+            "/RGBLight",
+            Int32,
+            queue_size=10
         )
 
         rospy.Subscriber(
@@ -564,6 +614,113 @@ class SafeVisionNavQueue:
             response.plan.poses
         )
 
+    def set_recovery_light(self, effect):
+        message = Int32(
+            data=int(
+                effect
+            )
+        )
+
+        for _ in range(3):
+            self.light_pub.publish(
+                message
+            )
+            rospy.sleep(0.03)
+
+    def stop_recovery_motion(self):
+        stop = Twist()
+
+        for _ in range(4):
+            self.recovery_cmd_pub.publish(
+                stop
+            )
+            rospy.sleep(0.04)
+
+    def relocalize(self, point, attempt):
+        with self.lock:
+            self.state = "relocalizing"
+            self.message = (
+                "Relocalizando {} · intento {}".format(
+                    point["id"],
+                    attempt
+                )
+            )
+
+        self.publish_status()
+
+        rospy.logwarn(
+            "SafeVision: relocalizando %s, intento %s",
+            point["id"],
+            attempt
+        )
+
+        self.move_base.cancel_all_goals()
+
+        self.stop_recovery_motion()
+
+        self.set_recovery_light(
+            self.relocalization_light_effect
+        )
+
+        twist = Twist()
+
+        twist.angular.z = (
+            self.relocalization_angular_speed
+        )
+
+        deadline = (
+            time.monotonic()
+            +
+            self.relocalization_spin_seconds
+        )
+
+        rate = rospy.Rate(
+            10
+        )
+
+        try:
+            while (
+                not rospy.is_shutdown()
+                and
+                not self.cancel_event.is_set()
+                and
+                time.monotonic() < deadline
+            ):
+                self.recovery_cmd_pub.publish(
+                    twist
+                )
+
+                rate.sleep()
+
+        finally:
+            self.stop_recovery_motion()
+
+            self.set_recovery_light(
+                0
+            )
+
+        if self.cancel_event.is_set():
+            return False
+
+        rospy.sleep(
+            0.8
+        )
+
+        self.current_pose()
+
+        with self.lock:
+            self.state = "running"
+
+            self.message = (
+                "Reintentando {} después de relocalizar".format(
+                    point["id"]
+                )
+            )
+
+        self.publish_status()
+
+        return True
+
     def execute_queue(self):
         try:
             rospy.wait_for_service(
@@ -620,59 +777,83 @@ class SafeVisionNavQueue:
                         "El mapa activo cambió durante la navegación"
                     )
 
-                pose = self.current_pose()
+                recovery_count = 0
 
-                target = self.build_pose(
-                    point,
-                    pose
-                )
+                while not rospy.is_shutdown():
+                    pose = self.current_pose()
 
-                if not self.plan_exists(
-                    target,
-                    pose
-                ):
-                    raise RuntimeError(
-                        "Sin ruta válida hacia {}".format(
-                            point["id"]
+                    target = self.build_pose(
+                        point,
+                        pose
+                    )
+
+                    if not self.plan_exists(
+                        target,
+                        pose
+                    ):
+                        raise RuntimeError(
+                            "Sin ruta válida hacia {}".format(
+                                point["id"]
+                            )
+                        )
+
+                    goal = MoveBaseGoal()
+
+                    goal.target_pose = target
+
+                    self.move_base.send_goal(
+                        goal
+                    )
+
+                    finished = self.move_base.wait_for_result(
+                        rospy.Duration(
+                            self.goal_timeout
                         )
                     )
 
-                goal = MoveBaseGoal()
+                    if self.cancel_event.is_set():
+                        self.move_base.cancel_all_goals()
+                        return
 
-                goal.target_pose = target
+                    if not finished:
+                        self.move_base.cancel_goal()
 
-                self.move_base.send_goal(
-                    goal
-                )
-
-                finished = self.move_base.wait_for_result(
-                    rospy.Duration(
-                        self.goal_timeout
-                    )
-                )
-
-                if self.cancel_event.is_set():
-                    self.move_base.cancel_all_goals()
-                    return
-
-                if not finished:
-                    self.move_base.cancel_goal()
-
-                    raise RuntimeError(
-                        "Timeout navegando hacia {}".format(
-                            point["id"]
+                        raise RuntimeError(
+                            "Timeout navegando hacia {}".format(
+                                point["id"]
+                            )
                         )
+
+                    state = self.move_base.get_state()
+
+                    if state == 3:
+                        break
+
+                    can_relocalize = (
+                        state == 4
+                        and
+                        self.relocalization_enabled
+                        and
+                        recovery_count
+                        <
+                        self.relocalization_attempts
                     )
 
-                state = self.move_base.get_state()
-
-                if state != 3:
-                    raise RuntimeError(
-                        "move_base falló en {} con estado {}".format(
-                            point["id"],
-                            state
+                    if not can_relocalize:
+                        raise RuntimeError(
+                            "move_base falló en {} con estado {}".format(
+                                point["id"],
+                                state
+                            )
                         )
-                    )
+
+                    recovery_count += 1
+
+                    if not self.relocalize(
+                        point,
+                        recovery_count
+                    ):
+                        return
 
                 with self.lock:
                     completed = self.queue.pop(
@@ -708,6 +889,12 @@ class SafeVisionNavQueue:
 
         finally:
             self.move_base.cancel_all_goals()
+
+            self.stop_recovery_motion()
+
+            self.set_recovery_light(
+                0
+            )
 
             try:
                 rospy.wait_for_service(
