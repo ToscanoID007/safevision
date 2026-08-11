@@ -4720,7 +4720,313 @@ if (safeVisionMapButton) {
     }
 
 
+
+    // =====================================================
+    // SAFEVISION NIVEL 3C.2 - TABLA DE NAVEGACION
+    // =====================================================
+
+    function ensureNavQueueTable() {
+
+        const viewport =
+            document.getElementById(
+                "mapViewport"
+            );
+
+
+        if (!viewport) {
+            return null;
+        }
+
+
+        let panel =
+            document.getElementById(
+                "mapNavQueuePanel"
+            );
+
+
+        if (panel) {
+            return panel;
+        }
+
+
+        panel =
+            document.createElement(
+                "div"
+            );
+
+        panel.id =
+            "mapNavQueuePanel";
+
+        panel.innerHTML =
+            `
+            <div class="map-nav-table-header">
+                <strong>Cola de navegación</strong>
+
+                <span id="mapNavQueueCount">
+                    0 puntos
+                </span>
+            </div>
+
+            <div
+                id="mapNavQueueEmpty"
+                class="map-nav-table-empty"
+            >
+                Aún no hay puntos.
+            </div>
+
+            <div class="map-nav-table-scroll">
+                <table
+                    id="mapNavQueueTable"
+                    class="map-nav-table"
+                    hidden
+                >
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Punto</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Orientación</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+
+                    <tbody
+                        id="mapNavQueueBody"
+                    ></tbody>
+                </table>
+            </div>
+            `;
+
+
+        viewport.insertAdjacentElement(
+            "afterend",
+            panel
+        );
+
+
+        return panel;
+    }
+
+
+    function renderNavQueue() {
+
+        const panel =
+            ensureNavQueueTable();
+
+
+        if (!panel) {
+            return;
+        }
+
+
+        const table =
+            document.getElementById(
+                "mapNavQueueTable"
+            );
+
+        const body =
+            document.getElementById(
+                "mapNavQueueBody"
+            );
+
+        const empty =
+            document.getElementById(
+                "mapNavQueueEmpty"
+            );
+
+        const count =
+            document.getElementById(
+                "mapNavQueueCount"
+            );
+
+
+        if (
+            !table
+            ||
+            !body
+            ||
+            !empty
+            ||
+            !count
+        ) {
+            return;
+        }
+
+
+        const total =
+            navPlanner.points.length;
+
+
+        count.textContent =
+            (
+                total
+                +
+                (
+                    total === 1
+                        ?
+                        " punto"
+                        :
+                        " puntos"
+                )
+            );
+
+
+        body.replaceChildren();
+
+
+        if (total === 0) {
+
+            table.hidden =
+                true;
+
+            empty.hidden =
+                false;
+
+            return;
+        }
+
+
+        table.hidden =
+            false;
+
+        empty.hidden =
+            true;
+
+
+        const completed =
+            new Set(
+                (
+                    navPlanner.lastStatus
+                    &&
+                    Array.isArray(
+                        navPlanner.lastStatus.completed
+                    )
+                )
+                    ?
+                    navPlanner.lastStatus.completed.map(
+                        point => point.id
+                    )
+                    :
+                    []
+            );
+
+
+        const currentId =
+            (
+                navPlanner.lastStatus
+                &&
+                navPlanner.lastStatus.current
+            )
+                ?
+                navPlanner.lastStatus.current.id
+                :
+                null;
+
+
+        navPlanner.points.forEach(
+            (point, index) => {
+
+                const row =
+                    document.createElement(
+                        "tr"
+                    );
+
+
+                let state =
+                    "Pendiente";
+
+
+                if (
+                    completed.has(
+                        point.id
+                    )
+                ) {
+
+                    state =
+                        "Completado";
+
+                    row.classList.add(
+                        "completed"
+                    );
+
+                } else if (
+                    currentId ===
+                    point.id
+                ) {
+
+                    state =
+                        "En curso";
+
+                    row.classList.add(
+                        "current"
+                    );
+                }
+
+
+                const yawText =
+                    (
+                        point.yaw === null
+                        ||
+                        point.yaw === undefined
+                    )
+                        ?
+                        "Auto"
+                        :
+                        (
+                            Math.round(
+                                Number(point.yaw)
+                                *
+                                180
+                                /
+                                Math.PI
+                            )
+                            +
+                            "°"
+                        );
+
+
+                const cells = [
+                    String(index + 1),
+                    String(point.id),
+                    Number(point.x).toFixed(2),
+                    Number(point.y).toFixed(2),
+                    yawText,
+                    state
+                ];
+
+
+                for (
+                    const value
+                    of cells
+                ) {
+
+                    const cell =
+                        document.createElement(
+                            "td"
+                        );
+
+                    cell.textContent =
+                        value;
+
+                    row.appendChild(
+                        cell
+                    );
+                }
+
+
+                body.appendChild(
+                    row
+                );
+            }
+        );
+    }
+
+
     function renderNavMarkers() {
+
+        renderNavQueue();
+
 
         const overlay =
             ensureNavOverlay();
@@ -5860,7 +6166,10 @@ if (safeVisionMapButton) {
             "button";
 
         clearButton.textContent =
-            "Limpiar";
+            "Borrar cola";
+
+        clearButton.title =
+            "Eliminar todos los puntos de navegación";
 
 
         const status =
@@ -5897,6 +6206,10 @@ if (safeVisionMapButton) {
 
 
         ensureNavOverlay();
+
+        ensureNavQueueTable();
+
+        renderNavQueue();
 
 
         pointsButton.addEventListener(

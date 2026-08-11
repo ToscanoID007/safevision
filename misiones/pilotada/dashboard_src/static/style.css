@@ -992,3 +992,137 @@ button:disabled {
     border-color:
         #ef4444;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION NIVEL 3C.2 - TABLA DE NAVEGACION           */
+/* ====================================================== */
+
+#mapNavQueuePanel {
+    border-top:
+        1px solid var(--border);
+
+    background:
+        rgba(
+            8,
+            16,
+            26,
+            0.96
+        );
+}
+
+.map-nav-table-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding:
+        9px
+        12px;
+
+    border-bottom:
+        1px solid var(--border);
+
+    font-size:
+        13px;
+}
+
+#mapNavQueueCount {
+    color:
+        var(--muted);
+
+    font-size:
+        12px;
+}
+
+.map-nav-table-empty {
+    padding:
+        12px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        12px;
+}
+
+.map-nav-table-scroll {
+    max-height:
+        205px;
+
+    overflow:
+        auto;
+}
+
+.map-nav-table {
+    width:
+        100%;
+
+    border-collapse:
+        collapse;
+
+    font-size:
+        12px;
+}
+
+.map-nav-table th,
+.map-nav-table td {
+    padding:
+        7px
+        9px;
+
+    border-bottom:
+        1px solid rgba(
+            255,
+            255,
+            255,
+            0.07
+        );
+
+    text-align:
+        left;
+
+    white-space:
+        nowrap;
+}
+
+.map-nav-table th {
+    position:
+        sticky;
+
+    top:
+        0;
+
+    z-index:
+        2;
+
+    background:
+        #0b121c;
+
+    color:
+        var(--muted);
+
+    font-weight:
+        700;
+}
+
+.map-nav-table tr.current td {
+    background:
+        rgba(
+            245,
+            158,
+            11,
+            0.14
+        );
+
+    color:
+        #fbbf24;
+}
+
+.map-nav-table tr.completed td {
+    color:
+        #38d996;
+}
