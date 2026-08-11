@@ -5433,18 +5433,129 @@ if (safeVisionMapButton) {
     }
 
 
+    // =====================================================
+    // SAFEVISION - WAYPOINTS CANVAS
+    // Misma estrategia de escala que robotAlignmentGuide.
+    // =====================================================
+
+    function getNavWaypointCanvas(
+        width,
+        height,
+        renderScale
+    ) {
+
+        const scene =
+            document.getElementById(
+                "mapScene"
+            );
+
+
+        if (!scene) {
+            return null;
+        }
+
+
+        let canvas =
+            document.getElementById(
+                "safeVisionNavWaypointCanvas"
+            );
+
+
+        if (!canvas) {
+
+            canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.id =
+                "safeVisionNavWaypointCanvas";
+
+            canvas.style.position =
+                "absolute";
+
+            canvas.style.inset =
+                "0";
+
+            canvas.style.zIndex =
+                "45";
+
+            canvas.style.width =
+                "100%";
+
+            canvas.style.height =
+                "100%";
+
+            canvas.style.pointerEvents =
+                "none";
+
+            canvas.style.userSelect =
+                "none";
+
+            scene.appendChild(
+                canvas
+            );
+        }
+
+
+        const targetWidth =
+            Math.max(
+                1,
+                Math.round(
+                    width
+                    *
+                    renderScale
+                )
+            );
+
+        const targetHeight =
+            Math.max(
+                1,
+                Math.round(
+                    height
+                    *
+                    renderScale
+                )
+            );
+
+
+        if (
+            canvas.width
+            !==
+            targetWidth
+        ) {
+
+            canvas.width =
+                targetWidth;
+        }
+
+
+        if (
+            canvas.height
+            !==
+            targetHeight
+        ) {
+
+            canvas.height =
+                targetHeight;
+        }
+
+
+        return canvas;
+    }
+
+
     function renderNavMarkers() {
 
-        renderNavQueue();
+        if (
+            typeof renderNavQueue
+            ===
+            "function"
+        ) {
 
+            renderNavQueue();
+        }
 
-        const overlay =
-            ensureNavOverlay();
-
-        const viewport =
-            document.getElementById(
-                "mapViewport"
-            );
 
         const image =
             document.getElementById(
@@ -5453,10 +5564,6 @@ if (safeVisionMapButton) {
 
 
         if (
-            !overlay
-            ||
-            !viewport
-            ||
             !image
             ||
             image.offsetParent === null
@@ -5465,27 +5572,186 @@ if (safeVisionMapButton) {
         }
 
 
-        overlay.replaceChildren();
+        document.querySelectorAll(
+            ".map-nav-marker, "
+            +
+            ".safevision-nav-visible-marker, "
+            +
+            ".safevision-nav-screen-marker"
+        ).forEach(
+            marker => marker.remove()
+        );
 
 
-        const viewportRect =
-            viewport.getBoundingClientRect();
+        const oldOverlay =
+            document.getElementById(
+                "mapNavOverlay"
+            );
 
-        const imageRect =
-            image.getBoundingClientRect();
+
+        if (oldOverlay) {
+
+            oldOverlay.replaceChildren();
+
+            oldOverlay.style.display =
+                "none";
+        }
 
 
-        const executionStatus =
-            navVisibleExecutionStatus();
+        const width =
+            Number(
+                image.naturalWidth
+                ||
+                image.width
+            );
+
+        const height =
+            Number(
+                image.naturalHeight
+                ||
+                image.height
+            );
+
+
+        if (
+            !width
+            ||
+            !height
+        ) {
+            return;
+        }
+
+
+        const zoomScale =
+            Math.max(
+                1,
+                Number(
+                    mapView.scale
+                )
+                ||
+                1
+            );
+
+
+        const deviceScale =
+            Math.max(
+                1,
+                Number(
+                    window.devicePixelRatio
+                )
+                ||
+                1
+            );
+
+
+        const renderScale =
+            Math.min(
+                5,
+                zoomScale
+                *
+                deviceScale
+            );
+
+
+        const canvas =
+            getNavWaypointCanvas(
+                width,
+                height,
+                renderScale
+            );
+
+
+        if (!canvas) {
+            return;
+        }
+
+
+        const rect =
+            canvas.getBoundingClientRect();
+
+
+        const scaleX =
+            rect.width
+            /
+            width;
+
+        const scaleY =
+            rect.height
+            /
+            height;
+
+
+        const displayScale =
+            Math.max(
+                0.05,
+                (
+                    scaleX
+                    +
+                    scaleY
+                )
+                /
+                2
+            );
+
+
+        const screenCompensation =
+            1.0
+            /
+            displayScale;
+
+
+        const ctx =
+            canvas.getContext(
+                "2d"
+            );
+
+
+        if (!ctx) {
+            return;
+        }
+
+
+        ctx.setTransform(
+            renderScale,
+            0,
+            0,
+            renderScale,
+            0,
+            0
+        );
+
+
+        ctx.clearRect(
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        const status =
+            (
+                typeof navVisibleExecutionStatus
+                ===
+                "function"
+            )
+                ?
+                navVisibleExecutionStatus()
+                :
+                (
+                    navPlanner.lastStatus
+                    ||
+                    {}
+                );
 
 
         const completed =
             new Set(
                 Array.isArray(
-                    executionStatus.completed
+                    status.completed
                 )
                     ?
-                    executionStatus.completed.map(
+                    status.completed.map(
                         point => point.id
                     )
                     :
@@ -5494,11 +5760,32 @@ if (safeVisionMapButton) {
 
 
         const currentId =
-            executionStatus.current
+            status.current
                 ?
-                executionStatus.current.id
+                status.current.id
                 :
                 null;
+
+
+        const radius =
+            2.8
+            *
+            screenCompensation;
+
+        const outline =
+            0.8
+            *
+            screenCompensation;
+
+        const labelFont =
+            9
+            *
+            screenCompensation;
+
+        const labelGap =
+            6
+            *
+            screenCompensation;
 
 
         for (
@@ -5506,25 +5793,39 @@ if (safeVisionMapButton) {
             of navPlanner.points
         ) {
 
-            const marker =
-                document.createElement(
-                    "div"
+            const u =
+                Number(
+                    point.u
                 );
 
-            marker.className =
-                "map-nav-marker";
-
-            marker.textContent =
-                point.id;
-
-            marker.title =
-                (
-                    `${point.id} | `
-                    +
-                    `X ${point.x.toFixed(2)} m | `
-                    +
-                    `Y ${point.y.toFixed(2)} m`
+            const v =
+                Number(
+                    point.v
                 );
+
+
+            if (
+                !Number.isFinite(u)
+                ||
+                !Number.isFinite(v)
+            ) {
+                continue;
+            }
+
+
+            const pixelX =
+                u
+                *
+                width;
+
+            const pixelY =
+                v
+                *
+                height;
+
+
+            let color =
+                "#22c55e";
 
 
             if (
@@ -5532,9 +5833,9 @@ if (safeVisionMapButton) {
                     point.id
                 )
             ) {
-                marker.classList.add(
-                    "completed"
-                );
+
+                color =
+                    "#2563eb";
             }
 
 
@@ -5543,41 +5844,86 @@ if (safeVisionMapButton) {
                 ===
                 point.id
             ) {
-                marker.classList.add(
-                    "current"
-                );
+
+                color =
+                    "#f59e0b";
             }
 
 
-            marker.style.left =
+            ctx.beginPath();
+
+            ctx.arc(
+                pixelX,
+                pixelY,
+                radius,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fillStyle =
+                color;
+
+            ctx.fill();
+
+
+            ctx.lineWidth =
+                outline;
+
+            ctx.strokeStyle =
+                "#ffffff";
+
+            ctx.stroke();
+
+
+            ctx.font =
                 (
-                    imageRect.left
-                    -
-                    viewportRect.left
+                    "700 "
                     +
-                    point.u
-                    *
-                    imageRect.width
-                )
-                +
-                "px";
-
-            marker.style.top =
-                (
-                    imageRect.top
-                    -
-                    viewportRect.top
+                    labelFont
                     +
-                    point.v
-                    *
-                    imageRect.height
-                )
+                    "px sans-serif"
+                );
+
+            ctx.textAlign =
+                "left";
+
+            ctx.textBaseline =
+                "middle";
+
+            ctx.lineJoin =
+                "round";
+
+
+            ctx.lineWidth =
+                2
+                *
+                screenCompensation;
+
+            ctx.strokeStyle =
+                "rgba(255,255,255,0.95)";
+
+            ctx.strokeText(
+                String(
+                    point.id
+                ),
+                pixelX
                 +
-                "px";
+                labelGap,
+                pixelY
+            );
 
 
-            overlay.appendChild(
-                marker
+            ctx.fillStyle =
+                "#111827";
+
+            ctx.fillText(
+                String(
+                    point.id
+                ),
+                pixelX
+                +
+                labelGap,
+                pixelY
             );
         }
     }
