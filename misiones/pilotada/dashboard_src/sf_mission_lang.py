@@ -1590,3 +1590,822 @@ def validate_program(
     )
 
     return result
+
+
+
+# =========================================================
+# EVALUADOR SEGURO PARA SIMULACION
+# =========================================================
+
+MAX_SIMULATION_STEPS = 2000
+MAX_SIMULATION_ACTIONS = 1000
+
+
+class _SimulationRuntimeError(
+    Exception
+):
+    def __init__(
+        self,
+        node,
+        message
+    ):
+        super().__init__(
+            message
+        )
+
+        self.node = node
+        self.message = message
+
+
+class _SimulationBreak(
+    Exception
+):
+    pass
+
+
+def _simulation_tick(
+    state,
+    node
+):
+    state["steps"] += 1
+
+    if (
+        state["steps"]
+        >
+        state["max_steps"]
+    ):
+        raise _SimulationRuntimeError(
+            node,
+            (
+                "La simulación superó el límite de {} pasos."
+                .format(
+                    state["max_steps"]
+                )
+            )
+        )
+
+
+def _simulation_binary(
+    operator,
+    left,
+    right,
+    node
+):
+    try:
+        if isinstance(
+            operator,
+            ast.Add
+        ):
+            return left + right
+
+        if isinstance(
+            operator,
+            ast.Sub
+        ):
+            return left - right
+
+        if isinstance(
+            operator,
+            ast.Mult
+        ):
+            return left * right
+
+        if isinstance(
+            operator,
+            ast.Div
+        ):
+            return left / right
+
+        if isinstance(
+            operator,
+            ast.FloorDiv
+        ):
+            return left // right
+
+        if isinstance(
+            operator,
+            ast.Mod
+        ):
+            return left % right
+
+    except ZeroDivisionError:
+        raise _SimulationRuntimeError(
+            node,
+            "División entre cero durante la simulación."
+        )
+
+    except Exception:
+        raise _SimulationRuntimeError(
+            node,
+            "No se pudo evaluar la operación matemática."
+        )
+
+    raise _SimulationRuntimeError(
+        node,
+        "Operación matemática no permitida."
+    )
+
+
+def _simulation_compare(
+    operator,
+    left,
+    right,
+    node
+):
+    try:
+        if isinstance(
+            operator,
+            ast.Eq
+        ):
+            return left == right
+
+        if isinstance(
+            operator,
+            ast.NotEq
+        ):
+            return left != right
+
+        if isinstance(
+            operator,
+            ast.Lt
+        ):
+            return left < right
+
+        if isinstance(
+            operator,
+            ast.LtE
+        ):
+            return left <= right
+
+        if isinstance(
+            operator,
+            ast.Gt
+        ):
+            return left > right
+
+        if isinstance(
+            operator,
+            ast.GtE
+        ):
+            return left >= right
+
+    except Exception:
+        raise _SimulationRuntimeError(
+            node,
+            "No se pudo evaluar la comparación."
+        )
+
+    raise _SimulationRuntimeError(
+        node,
+        "Comparación no permitida."
+    )
+
+
+def _simulation_expression(
+    node,
+    variables
+):
+    number = _number_literal(
+        node
+    )
+
+    if number is not None:
+        return number
+
+    boolean = _bool_literal(
+        node
+    )
+
+    if boolean is not None:
+        return boolean
+
+    if isinstance(
+        node,
+        ast.Name
+    ):
+        if node.id not in variables:
+            raise _SimulationRuntimeError(
+                node,
+                (
+                    "Variable no definida durante la simulación: {}."
+                    .format(
+                        node.id
+                    )
+                )
+            )
+
+        return variables[
+            node.id
+        ]
+
+    if isinstance(
+        node,
+        ast.UnaryOp
+    ):
+        value = _simulation_expression(
+            node.operand,
+            variables
+        )
+
+        if isinstance(
+            node.op,
+            ast.UAdd
+        ):
+            return +value
+
+        if isinstance(
+            node.op,
+            ast.USub
+        ):
+            return -value
+
+        if isinstance(
+            node.op,
+            ast.Not
+        ):
+            return not bool(
+                value
+            )
+
+        raise _SimulationRuntimeError(
+            node,
+            "Operador unario no permitido."
+        )
+
+    if isinstance(
+        node,
+        ast.BinOp
+    ):
+        left = _simulation_expression(
+            node.left,
+            variables
+        )
+
+        right = _simulation_expression(
+            node.right,
+            variables
+        )
+
+        return _simulation_binary(
+            node.op,
+            left,
+            right,
+            node
+        )
+
+    if isinstance(
+        node,
+        ast.BoolOp
+    ):
+        if isinstance(
+            node.op,
+            ast.And
+        ):
+            for value_node in node.values:
+                value = _simulation_expression(
+                    value_node,
+                    variables
+                )
+
+                if not bool(
+                    value
+                ):
+                    return False
+
+            return True
+
+        if isinstance(
+            node.op,
+            ast.Or
+        ):
+            for value_node in node.values:
+                value = _simulation_expression(
+                    value_node,
+                    variables
+                )
+
+                if bool(
+                    value
+                ):
+                    return True
+
+            return False
+
+        raise _SimulationRuntimeError(
+            node,
+            "Operador lógico no permitido."
+        )
+
+    if isinstance(
+        node,
+        ast.Compare
+    ):
+        left = _simulation_expression(
+            node.left,
+            variables
+        )
+
+        for operator, comparator in zip(
+            node.ops,
+            node.comparators
+        ):
+            right = _simulation_expression(
+                comparator,
+                variables
+            )
+
+            if not _simulation_compare(
+                operator,
+                left,
+                right,
+                node
+            ):
+                return False
+
+            left = right
+
+        return True
+
+    raise _SimulationRuntimeError(
+        node,
+        (
+            "Expresión no soportada durante simulación: {}."
+            .format(
+                type(
+                    node
+                ).__name__
+            )
+        )
+    )
+
+
+def _simulation_range(
+    node
+):
+    values = []
+
+    for argument in node.args:
+        value = _integer_literal(
+            argument
+        )
+
+        if value is None:
+            raise _SimulationRuntimeError(
+                argument,
+                "range() requiere enteros literales."
+            )
+
+        values.append(
+            value
+        )
+
+    try:
+        return range(
+            *values
+        )
+
+    except Exception:
+        raise _SimulationRuntimeError(
+            node,
+            "range() inválido."
+        )
+
+
+def _simulation_add_action(
+    trace,
+    state,
+    action,
+    node
+):
+    if (
+        len(
+            trace
+        )
+        >=
+        state["max_actions"]
+    ):
+        raise _SimulationRuntimeError(
+            node,
+            (
+                "La simulación superó el límite de {} acciones."
+                .format(
+                    state["max_actions"]
+                )
+            )
+        )
+
+    trace.append(
+        action
+    )
+
+
+def _simulation_command(
+    statement,
+    call,
+    ids,
+    aliases,
+    trace,
+    state
+):
+    command = call.func.id
+
+    action = {
+        "name": command,
+        "line": int(
+            getattr(
+                statement,
+                "lineno",
+                0
+            )
+            or
+            0
+        )
+    }
+
+    if command == "ir":
+        target = (
+            _string_literal(
+                call.args[0]
+            )
+            or
+            ""
+        ).strip()
+
+        point_id = _canonical_point_id(
+            target
+        )
+
+        if point_id is not None:
+            resolved_id = ids.get(
+                point_id.casefold()
+            )
+
+        else:
+            resolved_id = aliases.get(
+                target.casefold()
+            )
+
+        if resolved_id is None:
+            raise _SimulationRuntimeError(
+                call,
+                (
+                    "El punto '{}' no existe."
+                    .format(
+                        target
+                    )
+                )
+            )
+
+        action["target"] = target
+        action["target_id"] = resolved_id
+
+    elif command == "esperar":
+        action["seconds"] = _number_literal(
+            call.args[0]
+        )
+
+    elif command in (
+        "orientar",
+        "girar"
+    ):
+        action["angle"] = _number_literal(
+            call.args[0]
+        )
+
+        if call.keywords:
+            action["velocity"] = _number_literal(
+                call.keywords[0].value
+            )
+
+    _simulation_add_action(
+        trace,
+        state,
+        action,
+        statement
+    )
+
+
+def _simulation_assign(
+    statement,
+    variables
+):
+    target = statement.targets[
+        0
+    ]
+
+    variables[
+        target.id
+    ] = _simulation_expression(
+        statement.value,
+        variables
+    )
+
+
+def _simulation_aug_assign(
+    statement,
+    variables
+):
+    name = statement.target.id
+
+    left = variables[
+        name
+    ]
+
+    right = _simulation_expression(
+        statement.value,
+        variables
+    )
+
+    variables[
+        name
+    ] = _simulation_binary(
+        statement.op,
+        left,
+        right,
+        statement
+    )
+
+
+def _simulation_block(
+    statements,
+    variables,
+    ids,
+    aliases,
+    trace,
+    state,
+    loop_depth=0
+):
+    for statement in statements:
+        _simulation_tick(
+            state,
+            statement
+        )
+
+        if isinstance(
+            statement,
+            ast.Expr
+        ):
+            _simulation_command(
+                statement,
+                statement.value,
+                ids,
+                aliases,
+                trace,
+                state
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.Assign
+        ):
+            _simulation_assign(
+                statement,
+                variables
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.AugAssign
+        ):
+            _simulation_aug_assign(
+                statement,
+                variables
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.If
+        ):
+            condition = _simulation_expression(
+                statement.test,
+                variables
+            )
+
+            branch = (
+                statement.body
+                if bool(
+                    condition
+                )
+                else
+                statement.orelse
+            )
+
+            _simulation_block(
+                branch,
+                variables,
+                ids,
+                aliases,
+                trace,
+                state,
+                loop_depth
+            )
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.For
+        ):
+            loop_name = statement.target.id
+
+            for value in _simulation_range(
+                statement.iter
+            ):
+                _simulation_tick(
+                    state,
+                    statement
+                )
+
+                variables[
+                    loop_name
+                ] = value
+
+                try:
+                    _simulation_block(
+                        statement.body,
+                        variables,
+                        ids,
+                        aliases,
+                        trace,
+                        state,
+                        loop_depth + 1
+                    )
+
+                except _SimulationBreak:
+                    break
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.While
+        ):
+            while True:
+                _simulation_tick(
+                    state,
+                    statement
+                )
+
+                condition = _simulation_expression(
+                    statement.test,
+                    variables
+                )
+
+                if not bool(
+                    condition
+                ):
+                    break
+
+                try:
+                    _simulation_block(
+                        statement.body,
+                        variables,
+                        ids,
+                        aliases,
+                        trace,
+                        state,
+                        loop_depth + 1
+                    )
+
+                except _SimulationBreak:
+                    break
+
+            continue
+
+        if isinstance(
+            statement,
+            ast.Break
+        ):
+            raise _SimulationBreak()
+
+        if isinstance(
+            statement,
+            ast.Pass
+        ):
+            continue
+
+        raise _SimulationRuntimeError(
+            statement,
+            (
+                "Instrucción no soportada durante simulación: {}."
+                .format(
+                    type(
+                        statement
+                    ).__name__
+                )
+            )
+        )
+
+
+def simulate_program(
+    code,
+    points,
+    max_steps=MAX_SIMULATION_STEPS,
+    max_actions=MAX_SIMULATION_ACTIONS
+):
+    validation = validate_program(
+        code,
+        points
+    )
+
+    result = {
+        "ok": False,
+        "errors": [],
+        "trace": [],
+        "action_count": 0,
+        "steps": 0
+    }
+
+    if not validation["ok"]:
+        result["errors"] = validation[
+            "errors"
+        ]
+
+        return result
+
+    ids, aliases, context_errors = (
+        _build_point_context(
+            points
+        )
+    )
+
+    if context_errors:
+        result["errors"] = context_errors
+        return result
+
+    try:
+        tree = ast.parse(
+            code,
+            mode="exec"
+        )
+
+        variables = {}
+
+        state = {
+            "steps": 0,
+            "max_steps": int(
+                max_steps
+            ),
+            "max_actions": int(
+                max_actions
+            )
+        }
+
+        trace = []
+
+        _simulation_block(
+            tree.body,
+            variables,
+            ids,
+            aliases,
+            trace,
+            state,
+            0
+        )
+
+        result["ok"] = True
+        result["trace"] = trace
+        result["action_count"] = len(
+            trace
+        )
+        result["steps"] = state[
+            "steps"
+        ]
+
+        return result
+
+    except _SimulationRuntimeError as exc:
+        result["errors"] = [
+            _error(
+                exc.node,
+                exc.message
+            )
+        ]
+
+        if "state" in locals():
+            result["steps"] = state[
+                "steps"
+            ]
+
+        if "trace" in locals():
+            result["trace"] = trace
+            result["action_count"] = len(
+                trace
+            )
+
+        return result
+
+    except _SimulationBreak:
+        result["errors"] = [{
+            "line": 0,
+            "column": 0,
+            "message": "break fuera de un ciclo durante simulación."
+        }]
+
+        return result

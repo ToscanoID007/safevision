@@ -28,6 +28,7 @@ from sf_motor_inferencia import (
 )
 
 from sf_mission_lang import (
+    simulate_program,
     validate_program
 )
 
@@ -596,6 +597,55 @@ def programar_validate():
 
     return jsonify(
         validate_program(
+            code,
+            points
+        )
+    )
+
+
+
+@app.route(
+    "/programar/simulate",
+    methods=["POST"]
+)
+def programar_simulate():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    code = data.get(
+        "code",
+        ""
+    )
+
+    points = data.get(
+        "points",
+        []
+    )
+
+
+    if not isinstance(
+        code,
+        str
+    ):
+        return error(
+            "El código debe ser texto."
+        )
+
+
+    if not isinstance(
+        points,
+        list
+    ):
+        return error(
+            "La lista de puntos no es válida."
+        )
+
+
+    return jsonify(
+        simulate_program(
             code,
             points
         )

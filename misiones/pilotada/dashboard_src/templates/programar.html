@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='programar.css', v='programacion-v1h') }}"
+        href="{{ url_for('static', filename='programar.css', v='programacion-v1j') }}"
     >
 </head>
 
@@ -132,6 +132,18 @@ orientar(0)
 
             <button id="progValidateButton" type="button">
                 Validar
+            </button>
+
+            <button id="progSimulateButton" type="button">
+                Simular
+            </button>
+
+            <button
+                id="progStopSimulationButton"
+                type="button"
+                disabled
+            >
+                Detener
             </button>
 
             <input
@@ -428,8 +440,12 @@ orientar(0)
 
 
 <script
-    src="{{ url_for('static', filename='programar.js', v='programacion-v1h') }}"
+    src="{{ url_for('static', filename='programar.js', v='programacion-v1j') }}"
 ></script>
+
+    <script
+        src="{{ url_for('static', filename='programar_sim.js', v='programacion-v1j') }}"
+    ></script>
 
 </body>
 
