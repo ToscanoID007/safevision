@@ -33,7 +33,9 @@ const progPlanner = {
 
     selectedId: null,
     orientationPointId: null,
-    initialPointId: null
+    initialPointId: null,
+
+    nextPointId: 0
 };
 
 
@@ -1524,104 +1526,146 @@ function progScreenToMap(
 // =========================================================
 
 function progPointId(
-    index
+    value
 ) {
 
-    let value =
-        index
-        +
-        1;
-
-    let text =
-        "";
+    const number =
+        Number(
+            value
+        );
 
 
-    while (
-        value > 0
+    if (
+        !Number.isInteger(
+            number
+        )
+        ||
+        number < 0
+        ||
+        number > 0xFFF
     ) {
-
-        value -=
-            1;
-
-
-        text =
-            String.fromCharCode(
-                65
-                +
-                (
-                    value
-                    %
-                    26
-                )
-            )
-            +
-            text;
-
-
-        value =
-            Math.floor(
-                value
-                /
-                26
-            );
+        return null;
     }
 
 
-    return text;
+    return (
+        "0x"
+        +
+        number
+            .toString(16)
+            .toUpperCase()
+            .padStart(
+                3,
+                "0"
+            )
+    );
+}
+
+
+function normalizeProgPointId(
+    value
+) {
+
+    const text =
+        String(
+            value
+            ||
+            ""
+        ).trim();
+
+
+    const match =
+        text.match(
+            /^0[xX]([0-9a-fA-F]{1,3})$/
+        );
+
+
+    if (!match) {
+        return null;
+    }
+
+
+    const number =
+        parseInt(
+            match[1],
+            16
+        );
+
+
+    return progPointId(
+        number
+    );
+}
+
+
+function progPointIdExists(
+    id,
+    ignoredPoint = null
+) {
+
+    return progPlanner.points.some(
+        point => {
+
+            if (
+                ignoredPoint
+                &&
+                point === ignoredPoint
+            ) {
+                return false;
+            }
+
+
+            return (
+                point.id
+                ===
+                id
+            );
+        }
+    );
+}
+
+
+function nextProgPointId() {
+
+    while (
+        progPlanner.nextPointId
+        <=
+        0xFFF
+    ) {
+
+        const id =
+            progPointId(
+                progPlanner.nextPointId
+            );
+
+
+        progPlanner.nextPointId +=
+            1;
+
+
+        if (
+            !progPointIdExists(
+                id
+            )
+        ) {
+
+            return id;
+        }
+    }
+
+
+    return null;
 }
 
 
 function renumberProgPoints() {
 
-    progPlanner.points.forEach(
-        (point, index) => {
+    /*
+     * Los IDs son estables.
+     * El orden se obtiene directamente
+     * de la posición en progPlanner.points.
+     */
 
-            const oldId =
-                point.id;
-
-            const newId =
-                progPointId(
-                    index
-                );
-
-
-            point.id =
-                newId;
-
-
-            if (
-                progPlanner.selectedId
-                ===
-                oldId
-            ) {
-
-                progPlanner.selectedId =
-                    newId;
-            }
-
-
-            if (
-                progPlanner.orientationPointId
-                ===
-                oldId
-            ) {
-
-                progPlanner.orientationPointId =
-                    newId;
-            }
-
-
-            if (
-                progPlanner.initialPointId
-                ===
-                oldId
-            ) {
-
-                progPlanner.initialPointId =
-                    newId;
-            }
-        }
-    );
 }
 
 
@@ -1847,9 +1891,15 @@ function renderProgMarkers() {
 
 
     for (
-        const point
-        of progPlanner.points
+        let pointIndex = 0;
+        pointIndex < progPlanner.points.length;
+        pointIndex += 1
     ) {
+
+        const point =
+            progPlanner.points[
+                pointIndex
+            ];
 
         const u =
             Number(
@@ -2194,8 +2244,20 @@ function renderProgMarkers() {
         ctx.textBaseline =
             "middle";
 
+        const displayLabel =
+            (
+                String(
+                    pointIndex + 1
+                )
+                +
+                " · "
+                +
+                point.id
+            );
+
+
         ctx.fillText(
-            point.id,
+            displayLabel,
             pixelX
             +
             6
@@ -2207,6 +2269,51 @@ function renderProgMarkers() {
             *
             screenCompensation
         );
+
+
+        const pointAlias =
+            normalizeProgAlias(
+                point.alias
+            );
+
+
+        if (pointAlias) {
+
+            ctx.font =
+                (
+                    8
+                    *
+                    screenCompensation
+                    +
+                    "px sans-serif"
+                );
+
+            ctx.fillStyle =
+                "#bfdbfe";
+
+
+            ctx.fillText(
+                (
+                    initial
+                        ?
+                        "★ "
+                        :
+                        ""
+                )
+                +
+                pointAlias,
+                pixelX
+                +
+                6
+                *
+                screenCompensation,
+                pixelY
+                +
+                5
+                *
+                screenCompensation
+            );
+        }
 
 
         if (initial) {
@@ -2244,6 +2351,73 @@ function renderProgMarkers() {
 // =========================================================
 // TABLA
 // =========================================================
+
+function normalizeProgAlias(
+    value
+) {
+
+    return String(
+        value
+        ||
+        ""
+    ).trim();
+}
+
+
+function validProgAlias(
+    value
+) {
+
+    if (!value) {
+        return true;
+    }
+
+
+    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(
+        value
+    );
+}
+
+
+function progAliasExists(
+    alias,
+    ignoredPoint = null
+) {
+
+    const normalized =
+        normalizeProgAlias(
+            alias
+        ).toLowerCase();
+
+
+    if (!normalized) {
+        return false;
+    }
+
+
+    return progPlanner.points.some(
+        point => {
+
+            if (
+                ignoredPoint
+                &&
+                point === ignoredPoint
+            ) {
+                return false;
+            }
+
+
+            return (
+                normalizeProgAlias(
+                    point.alias
+                ).toLowerCase()
+                ===
+                normalized
+            );
+        }
+    );
+}
+
 
 function selectedProgPoint() {
 
@@ -2305,11 +2479,32 @@ function updateProgInitialSelect() {
                 "option"
             );
 
+
+        const alias =
+            normalizeProgAlias(
+                point.alias
+            );
+
+
         option.value =
             point.id;
 
+
         option.textContent =
-            point.id;
+            (
+                point.id
+                +
+                (
+                    alias
+                        ?
+                        " · "
+                        +
+                        alias
+                        :
+                        ""
+                )
+            );
+
 
         select.appendChild(
             option
@@ -2483,6 +2678,390 @@ function renderProgTable() {
             );
 
 
+            // ---------------------------------------------
+            // ORDEN
+            // ---------------------------------------------
+
+            const orderCell =
+                document.createElement(
+                    "td"
+                );
+
+            orderCell.textContent =
+                String(
+                    index + 1
+                );
+
+            row.appendChild(
+                orderCell
+            );
+
+
+            // ---------------------------------------------
+            // ID HEX EDITABLE
+            // ---------------------------------------------
+
+            const idCell =
+                document.createElement(
+                    "td"
+                );
+
+            const idInput =
+                document.createElement(
+                    "input"
+                );
+
+            idInput.type =
+                "text";
+
+            idInput.className =
+                "prog-point-id-input";
+
+            idInput.value =
+                point.id;
+
+            idInput.maxLength =
+                5;
+
+            idInput.disabled =
+                progMapView.locked;
+
+
+            idInput.addEventListener(
+                "click",
+                event => {
+
+                    event.stopPropagation();
+                }
+            );
+
+
+            idInput.addEventListener(
+                "change",
+                event => {
+
+                    event.stopPropagation();
+
+
+                    const oldId =
+                        point.id;
+
+                    const proposed =
+                        normalizeProgPointId(
+                            idInput.value
+                        );
+
+
+                    if (!proposed) {
+
+                        idInput.value =
+                            oldId;
+
+                        progLog(
+                            "ID inválido. Usa 0x000 hasta 0xFFF."
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        progPointIdExists(
+                            proposed,
+                            point
+                        )
+                    ) {
+
+                        idInput.value =
+                            oldId;
+
+                        progLog(
+                            (
+                                proposed
+                                +
+                                " ya pertenece a otro punto."
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    point.id =
+                        proposed;
+
+
+                    if (
+                        progPlanner.selectedId
+                        ===
+                        oldId
+                    ) {
+
+                        progPlanner.selectedId =
+                            proposed;
+                    }
+
+
+                    if (
+                        progPlanner.orientationPointId
+                        ===
+                        oldId
+                    ) {
+
+                        progPlanner.orientationPointId =
+                            proposed;
+                    }
+
+
+                    if (
+                        progPlanner.initialPointId
+                        ===
+                        oldId
+                    ) {
+
+                        progPlanner.initialPointId =
+                            proposed;
+                    }
+
+
+                    progLog(
+                        (
+                            oldId
+                            +
+                            " → "
+                            +
+                            proposed
+                        )
+                    );
+
+
+                    renderProgPlanner();
+                }
+            );
+
+
+            idCell.appendChild(
+                idInput
+            );
+
+            row.appendChild(
+                idCell
+            );
+
+
+            // ---------------------------------------------
+            // ★ + ALIAS
+            // ---------------------------------------------
+
+            const aliasCell =
+                document.createElement(
+                    "td"
+                );
+
+            aliasCell.className =
+                "prog-alias-cell";
+
+
+            const initialButton =
+                document.createElement(
+                    "button"
+                );
+
+            initialButton.type =
+                "button";
+
+            initialButton.className =
+                "prog-inline-initial";
+
+            initialButton.textContent =
+                point.id
+                ===
+                progPlanner.initialPointId
+                    ?
+                    "★"
+                    :
+                    "☆";
+
+            initialButton.title =
+                point.id
+                ===
+                progPlanner.initialPointId
+                    ?
+                    "Punto inicial"
+                    :
+                    "Marcar como punto inicial";
+
+            initialButton.disabled =
+                (
+                    progMapView.locked
+                    ||
+                    point.id
+                    ===
+                    progPlanner.initialPointId
+                );
+
+
+            initialButton.addEventListener(
+                "click",
+                event => {
+
+                    event.stopPropagation();
+
+
+                    progPlanner.selectedId =
+                        point.id;
+
+                    progPlanner.initialPointId =
+                        point.id;
+
+
+                    progLog(
+                        (
+                            point.id
+                            +
+                            ": punto inicial."
+                        )
+                    );
+
+
+                    renderProgPlanner();
+                }
+            );
+
+
+            const aliasInput =
+                document.createElement(
+                    "input"
+                );
+
+            aliasInput.type =
+                "text";
+
+            aliasInput.className =
+                "prog-alias-input";
+
+            aliasInput.value =
+                point.alias
+                ||
+                "";
+
+            aliasInput.placeholder =
+                "entrada_lab1";
+
+            aliasInput.disabled =
+                progMapView.locked;
+
+
+            aliasInput.addEventListener(
+                "click",
+                event => {
+
+                    event.stopPropagation();
+                }
+            );
+
+
+            aliasInput.addEventListener(
+                "change",
+                event => {
+
+                    event.stopPropagation();
+
+
+                    const previous =
+                        point.alias
+                        ||
+                        "";
+
+                    const proposed =
+                        normalizeProgAlias(
+                            aliasInput.value
+                        );
+
+
+                    if (
+                        !validProgAlias(
+                            proposed
+                        )
+                    ) {
+
+                        aliasInput.value =
+                            previous;
+
+                        progLog(
+                            "Alias inválido: usa letras, números y _."
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        progAliasExists(
+                            proposed,
+                            point
+                        )
+                    ) {
+
+                        aliasInput.value =
+                            previous;
+
+                        progLog(
+                            "Ese alias ya pertenece a otro punto."
+                        );
+
+                        return;
+                    }
+
+
+                    point.alias =
+                        proposed;
+
+                    aliasInput.value =
+                        proposed;
+
+
+                    progLog(
+                        proposed
+                            ?
+                            (
+                                point.id
+                                +
+                                " = "
+                                +
+                                proposed
+                            )
+                            :
+                            (
+                                point.id
+                                +
+                                ": alias eliminado."
+                            )
+                    );
+
+
+                    renderProgPlanner();
+                }
+            );
+
+
+            aliasCell.appendChild(
+                initialButton
+            );
+
+            aliasCell.appendChild(
+                aliasInput
+            );
+
+            row.appendChild(
+                aliasCell
+            );
+
+
+            // ---------------------------------------------
+            // X / Y / ORIENTACION
+            // ---------------------------------------------
+
             const yawText =
                 (
                     point.yaw
@@ -2512,30 +3091,19 @@ function renderProgTable() {
 
 
             const values = [
-                String(
-                    index + 1
-                ),
-                point.id,
                 Number(
                     point.x
                 ).toFixed(
                     2
                 ),
+
                 Number(
                     point.y
                 ).toFixed(
                     2
                 ),
-                yawText,
-                (
-                    point.id
-                    ===
-                    progPlanner.initialPointId
-                        ?
-                        "★"
-                        :
-                        ""
-                )
+
+                yawText
             ];
 
 
@@ -2557,6 +3125,10 @@ function renderProgTable() {
                 );
             }
 
+
+            // ---------------------------------------------
+            // ACCIONES
+            // ---------------------------------------------
 
             const actions =
                 document.createElement(
@@ -2582,6 +3154,7 @@ function renderProgTable() {
                                 index - 1
                             ];
 
+
                         progPlanner.points[
                             index - 1
                         ] =
@@ -2592,8 +3165,6 @@ function renderProgTable() {
                         ] =
                             previous;
 
-
-                        renumberProgPoints();
 
                         renderProgPlanner();
                     }
@@ -2620,6 +3191,7 @@ function renderProgTable() {
                                 index + 1
                             ];
 
+
                         progPlanner.points[
                             index + 1
                         ] =
@@ -2630,8 +3202,6 @@ function renderProgTable() {
                         ] =
                             next;
 
-
-                        renumberProgPoints();
 
                         renderProgPlanner();
                     }
@@ -2683,8 +3253,6 @@ function renderProgTable() {
                                 null;
                         }
 
-
-                        renumberProgPoints();
 
                         renderProgPlanner();
                     }
@@ -3198,11 +3766,26 @@ function handleProgPointClick(
     }
 
 
+    const newId =
+        nextProgPointId();
+
+
+    if (!newId) {
+
+        progLog(
+            "No quedan IDs automáticos entre 0x000 y 0xFFF."
+        );
+
+        return;
+    }
+
+
     const point = {
         id:
-            progPointId(
-                progPlanner.points.length
-            ),
+            newId,
+
+        alias:
+            "",
 
         x:
             target.x,

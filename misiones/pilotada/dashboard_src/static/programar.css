@@ -536,3 +536,80 @@ button:hover {
     cursor:
         default;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION PROGRAMACION V1F - HEX ID + ALIAS           */
+/* ====================================================== */
+
+.prog-point-id-input {
+    width: 64px;
+    padding: 4px 5px;
+    border: 1px solid #263446;
+    border-radius: 5px;
+    background: #070d15;
+    color: #86efac;
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    font-size: 10px;
+    text-align: center;
+}
+
+.prog-point-id-input:focus {
+    outline: none;
+    border-color: #22c55e;
+}
+
+.prog-alias-cell {
+    min-width: 145px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.prog-inline-initial {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #fbbf24;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.prog-inline-initial:disabled {
+    opacity: 1;
+    cursor: default;
+}
+
+.prog-alias-input {
+    width: 120px;
+    min-width: 90px;
+    padding: 4px 6px;
+    border: 1px solid #263446;
+    border-radius: 5px;
+    background: #070d15;
+    color: #bfdbfe;
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    font-size: 10px;
+}
+
+.prog-alias-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.prog-point-id-input:disabled,
+.prog-alias-input:disabled {
+    opacity: 0.45;
+}
