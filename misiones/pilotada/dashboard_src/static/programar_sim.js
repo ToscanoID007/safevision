@@ -302,6 +302,310 @@ function renderProgSimulation() {
     }
 
 
+    const hasReferenceYaw =
+        (
+            progSimulation.referenceYaw !== null
+            &&
+            progSimulation.referenceYaw !== undefined
+            &&
+            Number.isFinite(
+                Number(
+                    progSimulation.referenceYaw
+                )
+            )
+        );
+
+
+    const referenceYaw =
+        hasReferenceYaw
+            ?
+            Number(
+                progSimulation.referenceYaw
+            )
+            :
+            null;
+
+
+    const referencePoint =
+        progSimulation.currentPointId
+            ?
+            progSimulation.pointMap.get(
+                progSimulation.currentPointId
+            )
+            :
+            null;
+
+
+    if (
+        referencePoint
+        &&
+        hasReferenceYaw
+    ) {
+
+        const referenceScreen =
+            toScreen(
+                referencePoint
+            );
+
+
+        const hasFixedReference =
+            (
+                referencePoint.yaw !== null
+                &&
+                referencePoint.yaw !== undefined
+                &&
+                Number.isFinite(
+                    Number(
+                        referencePoint.yaw
+                    )
+                )
+            );
+
+
+        const originYaw =
+            Number(
+                (
+                    progPlanner.meta
+                    &&
+                    progPlanner.meta.origin
+                    &&
+                    progPlanner.meta.origin.yaw
+                )
+                    ||
+                    0
+            );
+
+
+        const visualYaw =
+            referenceYaw
+            -
+            originYaw;
+
+
+        const dx =
+            Math.cos(
+                visualYaw
+            );
+
+        const dy =
+            -Math.sin(
+                visualYaw
+            );
+
+
+        const ringRadius =
+            10
+            *
+            compensation;
+
+        const startDistance =
+            11
+            *
+            compensation;
+
+        const arrowDistance =
+            30
+            *
+            compensation;
+
+        const headSize =
+            6
+            *
+            compensation;
+
+
+        const startX =
+            referenceScreen.x
+            +
+            dx
+            *
+            startDistance;
+
+        const startY =
+            referenceScreen.y
+            +
+            dy
+            *
+            startDistance;
+
+        const tipX =
+            referenceScreen.x
+            +
+            dx
+            *
+            arrowDistance;
+
+        const tipY =
+            referenceScreen.y
+            +
+            dy
+            *
+            arrowDistance;
+
+
+        ctx.save();
+
+
+        ctx.lineWidth =
+            2
+            *
+            compensation;
+
+        ctx.strokeStyle =
+            hasFixedReference
+                ?
+                "#fbbf24"
+                :
+                "#38bdf8";
+
+        ctx.fillStyle =
+            ctx.strokeStyle;
+
+
+        if (!hasFixedReference) {
+
+            ctx.setLineDash([
+                4 * compensation,
+                3 * compensation
+            ]);
+        }
+
+
+        ctx.beginPath();
+
+        ctx.arc(
+            referenceScreen.x,
+            referenceScreen.y,
+            ringRadius,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.stroke();
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            startX,
+            startY
+        );
+
+        ctx.lineTo(
+            tipX,
+            tipY
+        );
+
+        ctx.stroke();
+
+
+        ctx.setLineDash([]);
+
+
+        const perpendicularX =
+            -dy;
+
+        const perpendicularY =
+            dx;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            tipX,
+            tipY
+        );
+
+        ctx.lineTo(
+            tipX
+            -
+            dx
+            *
+            headSize
+            +
+            perpendicularX
+            *
+            headSize
+            *
+            0.65,
+            tipY
+            -
+            dy
+            *
+            headSize
+            +
+            perpendicularY
+            *
+            headSize
+            *
+            0.65
+        );
+
+        ctx.lineTo(
+            tipX
+            -
+            dx
+            *
+            headSize
+            -
+            perpendicularX
+            *
+            headSize
+            *
+            0.65,
+            tipY
+            -
+            dy
+            *
+            headSize
+            -
+            perpendicularY
+            *
+            headSize
+            *
+            0.65
+        );
+
+        ctx.closePath();
+
+        ctx.fill();
+
+
+        ctx.font =
+            (
+                9
+                *
+                compensation
+            )
+            +
+            "px sans-serif";
+
+        ctx.textBaseline =
+            "middle";
+
+        ctx.fillText(
+            hasFixedReference
+                ?
+                "REF FIJA"
+                :
+                "REF AUTO",
+            referenceScreen.x
+            +
+            13
+            *
+            compensation,
+            referenceScreen.y
+            -
+            13
+            *
+            compensation
+        );
+
+
+        ctx.restore();
+    }
+
+
     const robot =
         toScreen(
             progSimulation.pose
@@ -369,9 +673,18 @@ function renderProgSimulation() {
     ctx.closePath();
 
     ctx.fillStyle =
-        "#ffffff";
+        "#f97316";
 
     ctx.fill();
+
+
+    ctx.lineWidth =
+        1.2 * compensation;
+
+    ctx.strokeStyle =
+        "#ffffff";
+
+    ctx.stroke();
 
 
     ctx.restore();
@@ -1609,7 +1922,13 @@ async function executeProgSimulationAction(
         } else {
 
             progSimulation.referenceYaw =
-                null;
+                normalizeProgSimulationAngle(
+                    Number(
+                        progSimulation.pose.yaw
+                        ||
+                        0
+                    )
+                );
         }
 
 
@@ -1662,7 +1981,7 @@ async function executeProgSimulationAction(
         ) {
 
             throw new Error(
-                "orientar() requiere un punto actual con orientación guardada."
+                "orientar() requiere una referencia de orientación disponible."
             );
         }
 
