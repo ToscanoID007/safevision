@@ -49,6 +49,19 @@ def finite_number(
     return number
 
 
+def normalize_yaw(
+    yaw
+):
+    return math.atan2(
+        math.sin(
+            yaw
+        ),
+        math.cos(
+            yaw
+        )
+    )
+
+
 def normalized_point(
     raw
 ):
@@ -219,6 +232,12 @@ def build_execution_plan(
                 )
             )
 
+    reference_point_id = (
+        initial_point_id
+        or
+        None
+    )
+
     actions = []
 
     for index, raw_action in enumerate(
@@ -293,6 +312,10 @@ def build_execution_plan(
                 point
             )
 
+            reference_point_id = (
+                target_id
+            )
+
         elif action_name == "esperar":
             seconds = finite_number(
                 raw_action.get(
@@ -310,19 +333,95 @@ def build_execution_plan(
                 "seconds"
             ] = seconds
 
-        elif action_name in (
-            "orientar",
-            "girar"
-        ):
+        elif action_name == "orientar":
+            angle = finite_number(
+                raw_action.get(
+                    "angle"
+                ),
+                "orientar.angle"
+            )
+
+            if (
+                "velocity"
+                in raw_action
+            ):
+                raise MissionPlanError(
+                    (
+                        "orientar() con velocidad "
+                        "todavía no está habilitado"
+                    )
+                )
+
+            if not reference_point_id:
+                raise MissionPlanError(
+                    (
+                        "orientar() requiere un "
+                        "punto de referencia"
+                    )
+                )
+
+            reference_point = points.get(
+                reference_point_id
+            )
+
+            if reference_point is None:
+                raise MissionPlanError(
+                    (
+                        "El punto de referencia {} "
+                        "no existe"
+                    ).format(
+                        reference_point_id
+                    )
+                )
+
+            reference_yaw = (
+                reference_point.get(
+                    "yaw"
+                )
+            )
+
+            if reference_yaw is None:
+                raise MissionPlanError(
+                    (
+                        "orientar() requiere yaw "
+                        "numérico en el punto {}"
+                    ).format(
+                        reference_point_id
+                    )
+                )
+
+            target_yaw = normalize_yaw(
+                reference_yaw
+                +
+                math.radians(
+                    angle
+                )
+            )
+
+            action[
+                "angle"
+            ] = angle
+
+            action[
+                "reference_id"
+            ] = reference_point_id
+
+            action[
+                "reference_yaw"
+            ] = reference_yaw
+
+            action[
+                "target_yaw"
+            ] = target_yaw
+
+        elif action_name == "girar":
             action[
                 "angle"
             ] = finite_number(
                 raw_action.get(
                     "angle"
                 ),
-                "{}.angle".format(
-                    action_name
-                )
+                "girar.angle"
             )
 
             if (
@@ -335,9 +434,7 @@ def build_execution_plan(
                     raw_action.get(
                         "velocity"
                     ),
-                    "{}.velocity".format(
-                        action_name
-                    )
+                    "girar.velocity"
                 )
 
         actions.append(
