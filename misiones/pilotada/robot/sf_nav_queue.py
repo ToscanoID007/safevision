@@ -36,6 +36,11 @@ class SafeVisionNavQueue:
         self.queue_map = None
         self.current = None
 
+        self.operation = None
+        self.operation_map = None
+        self.request_id = None
+        self.orientation_target = None
+
         self.state = "idle"
         self.message = "Cola vacía"
 
@@ -47,6 +52,13 @@ class SafeVisionNavQueue:
             rospy.get_param(
                 "~goal_timeout",
                 120.0
+            )
+        )
+
+        self.orientation_timeout = float(
+            rospy.get_param(
+                "~orientation_timeout",
+                30.0
             )
         )
 
@@ -158,6 +170,12 @@ class SafeVisionNavQueue:
                 "map": self.queue_map,
                 "active_map": self.active_map(),
                 "running": self.running,
+                "operation": self.operation,
+                "operation_map": self.operation_map,
+                "request_id": self.request_id,
+                "orientation_target": (
+                    self.orientation_target
+                ),
                 "current": (
                     dict(self.current)
                     if self.current
@@ -344,6 +362,11 @@ class SafeVisionNavQueue:
             self.queue_map = queue_map
             self.current = None
 
+            self.operation = "queue"
+            self.operation_map = queue_map
+            self.request_id = None
+            self.orientation_target = None
+
             self.state = "ready"
             self.message = (
                 "Cola cargada"
@@ -366,6 +389,11 @@ class SafeVisionNavQueue:
 
             self.queue_map = None
             self.current = None
+
+            self.operation = None
+            self.operation_map = None
+            self.request_id = None
+            self.orientation_target = None
 
             self.state = "idle"
             self.message = "Cola vacía"
@@ -437,6 +465,11 @@ class SafeVisionNavQueue:
 
             self.running = True
 
+            self.operation = "queue"
+            self.operation_map = self.queue_map
+            self.request_id = None
+            self.orientation_target = None
+
             self.state = "running"
             self.message = (
                 "Iniciando navegación"
@@ -489,6 +522,11 @@ class SafeVisionNavQueue:
         elif command == "start":
             self.start_queue()
 
+        elif command == "orient":
+            self.start_orientation(
+                data
+            )
+
         elif command == "cancel":
             self.cancel_queue()
 
@@ -504,6 +542,117 @@ class SafeVisionNavQueue:
                     command
                 )
             )
+
+    def normalize_yaw(self, yaw):
+        return math.atan2(
+            math.sin(
+                yaw
+            ),
+            math.cos(
+                yaw
+            )
+        )
+
+    def start_orientation(self, data):
+        request_id = str(
+            data.get(
+                "request_id",
+                ""
+            )
+        ).strip()
+
+        if not request_id:
+            self.reject(
+                "Falta request_id de orientación"
+            )
+            return
+
+        operation_map = data.get(
+            "map"
+        )
+
+        if not isinstance(
+            operation_map,
+            str
+        ) or not operation_map:
+            self.reject(
+                "Falta mapa de orientación"
+            )
+            return
+
+        try:
+            target_yaw = float(
+                data.get(
+                    "target_yaw"
+                )
+            )
+
+        except Exception:
+            self.reject(
+                "target_yaw inválido"
+            )
+            return
+
+        if not math.isfinite(
+            target_yaw
+        ):
+            self.reject(
+                "target_yaw no finito"
+            )
+            return
+
+        target_yaw = self.normalize_yaw(
+            target_yaw
+        )
+
+        with self.lock:
+            if self.running:
+                self.reject(
+                    "Hay una operación de navegación en ejecución"
+                )
+                return
+
+            active = self.active_map()
+
+            if active != operation_map:
+                self.operation = "orient"
+                self.operation_map = operation_map
+                self.request_id = request_id
+                self.orientation_target = target_yaw
+
+                self.state = "error"
+                self.message = (
+                    "Mapa activo '{}' distinto de orientación '{}'".format(
+                        active,
+                        operation_map
+                    )
+                )
+
+                self.publish_status()
+                return
+
+            self.operation = "orient"
+            self.operation_map = operation_map
+            self.request_id = request_id
+            self.orientation_target = target_yaw
+
+            self.running = True
+
+            self.state = "orienting"
+            self.message = (
+                "Iniciando orientación"
+            )
+
+            self.cancel_event.clear()
+
+        self.publish_status()
+
+        thread = threading.Thread(
+            target=self.execute_orientation,
+            daemon=True
+        )
+
+        thread.start()
 
     def quaternion_yaw(self, q):
         siny_cosp = 2.0 * (
@@ -582,6 +731,37 @@ class SafeVisionNavQueue:
 
         target.pose.position.x = point["x"]
         target.pose.position.y = point["y"]
+        target.pose.position.z = 0.0
+
+        target.pose.orientation.x = 0.0
+        target.pose.orientation.y = 0.0
+        target.pose.orientation.z = z
+        target.pose.orientation.w = w
+
+        return target
+
+    def build_orientation_pose(
+        self,
+        pose,
+        target_yaw
+    ):
+        z, w = self.yaw_quaternion(
+            target_yaw
+        )
+
+        target = PoseStamped()
+
+        target.header.frame_id = "map"
+        target.header.stamp = rospy.Time.now()
+
+        target.pose.position.x = (
+            pose.position.x
+        )
+
+        target.pose.position.y = (
+            pose.position.y
+        )
+
         target.pose.position.z = 0.0
 
         target.pose.orientation.x = 0.0
@@ -720,6 +900,147 @@ class SafeVisionNavQueue:
         self.publish_status()
 
         return True
+
+    def execute_orientation(self):
+        try:
+            rospy.wait_for_service(
+                "/safevision/set_navigation_mode",
+                timeout=5.0
+            )
+
+            if not self.move_base.wait_for_server(
+                rospy.Duration(5.0)
+            ):
+                raise RuntimeError(
+                    "move_base no disponible"
+                )
+
+            response = self.set_mode(
+                True
+            )
+
+            if not response.success:
+                raise RuntimeError(
+                    response.message
+                )
+
+            with self.lock:
+                operation_map = (
+                    self.operation_map
+                )
+
+                target_yaw = (
+                    self.orientation_target
+                )
+
+            active = self.active_map()
+
+            if active != operation_map:
+                raise RuntimeError(
+                    "El mapa activo cambió durante la orientación"
+                )
+
+            if self.cancel_event.is_set():
+                return
+
+            pose = self.current_pose()
+
+            target = (
+                self.build_orientation_pose(
+                    pose,
+                    target_yaw
+                )
+            )
+
+            goal = MoveBaseGoal()
+
+            goal.target_pose = target
+
+            self.move_base.send_goal(
+                goal
+            )
+
+            finished = (
+                self.move_base.wait_for_result(
+                    rospy.Duration(
+                        self.orientation_timeout
+                    )
+                )
+            )
+
+            if self.cancel_event.is_set():
+                self.move_base.cancel_all_goals()
+                return
+
+            if not finished:
+                self.move_base.cancel_goal()
+
+                raise RuntimeError(
+                    "Timeout durante orientación"
+                )
+
+            state = self.move_base.get_state()
+
+            if state != 3:
+                raise RuntimeError(
+                    (
+                        "move_base falló durante "
+                        "orientación con estado {}"
+                    ).format(
+                        state
+                    )
+                )
+
+            with self.lock:
+                self.state = "completed"
+                self.message = (
+                    "Orientación completada"
+                )
+
+            self.publish_status()
+
+        except Exception as exc:
+            with self.lock:
+                if not self.cancel_event.is_set():
+                    self.state = "error"
+                    self.message = str(
+                        exc
+                    )
+
+            rospy.logerr(
+                "SafeVision orientación: %s",
+                exc
+            )
+
+        finally:
+            self.move_base.cancel_all_goals()
+
+            try:
+                rospy.wait_for_service(
+                    "/safevision/set_navigation_mode",
+                    timeout=2.0
+                )
+
+                self.set_mode(
+                    False
+                )
+
+            except Exception as exc:
+                rospy.logwarn(
+                    "No se pudo volver a MANUAL: %s",
+                    exc
+                )
+
+            with self.lock:
+                self.running = False
+
+                if self.cancel_event.is_set():
+                    self.state = "cancelled"
+                    self.message = (
+                        "Orientación cancelada"
+                    )
+
+            self.publish_status()
 
     def execute_queue(self):
         try:
