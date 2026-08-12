@@ -7685,3 +7685,718 @@ if (safeVisionMapButton) {
     }
 
 })();
+
+
+// =========================================================
+// SAFEVISION MISION AUTOMATICA - SELECTOR
+// =========================================================
+
+(() => {
+
+    const autoMissionState = {
+        loaded:
+            null,
+
+        listLoaded:
+            false
+    };
+
+
+    const pilotButton =
+        document.getElementById(
+            "pilotTabButton"
+        );
+
+    const autoButton =
+        document.getElementById(
+            "autoTabButton"
+        );
+
+    const pilotView =
+        document.getElementById(
+            "pilotModeView"
+        );
+
+    const autoView =
+        document.getElementById(
+            "autoModeView"
+        );
+
+    const subtitle =
+        document.getElementById(
+            "dashboardSubtitle"
+        );
+
+    const missionSelect =
+        document.getElementById(
+            "autoMissionSelect"
+        );
+
+    const refreshButton =
+        document.getElementById(
+            "autoMissionRefresh"
+        );
+
+    const startButton =
+        document.getElementById(
+            "autoMissionStart"
+        );
+
+    const missionMap =
+        document.getElementById(
+            "autoMissionMap"
+        );
+
+    const missionInitial =
+        document.getElementById(
+            "autoMissionInitial"
+        );
+
+    const missionPoints =
+        document.getElementById(
+            "autoMissionPoints"
+        );
+
+    const missionActions =
+        document.getElementById(
+            "autoMissionActions"
+        );
+
+    const missionCode =
+        document.getElementById(
+            "autoMissionCode"
+        );
+
+    const missionStatus =
+        document.getElementById(
+            "autoMissionStatus"
+        );
+
+
+    if (
+        !pilotButton
+        ||
+        !autoButton
+        ||
+        !pilotView
+        ||
+        !autoView
+        ||
+        !missionSelect
+    ) {
+        return;
+    }
+
+
+    function setMissionStatus(
+        message,
+        state=""
+    ) {
+
+        missionStatus.textContent =
+            message;
+
+        missionStatus.className =
+            "auto-mission-status";
+
+        if (state) {
+            missionStatus.classList.add(
+                state
+            );
+        }
+    }
+
+
+    function clearMissionDetails() {
+
+        autoMissionState.loaded =
+            null;
+
+        missionMap.textContent =
+            "—";
+
+        missionInitial.textContent =
+            "—";
+
+        missionPoints.textContent =
+            "—";
+
+        missionActions.textContent =
+            "—";
+
+        missionCode.textContent =
+            "Selecciona una misión.";
+
+        startButton.disabled =
+            true;
+    }
+
+
+    async function requestJson(
+        url,
+        options={}
+    ) {
+
+        const response =
+            await fetch(
+                url,
+                options
+            );
+
+
+        let data = {};
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (error) {
+
+            data = {};
+        }
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.message
+                ||
+                data.error
+                ||
+                `HTTP ${response.status}`
+            );
+        }
+
+
+        return data;
+    }
+
+
+    async function simulateMission(
+        mission
+    ) {
+
+        const result =
+            await requestJson(
+                "/programar/simulate",
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            code:
+                                mission.code
+                                ||
+                                "",
+
+                            points:
+                                Array.isArray(
+                                    mission.points
+                                )
+                                    ?
+                                    mission.points
+                                    :
+                                    []
+                        })
+                }
+            );
+
+
+        if (!result.ok) {
+
+            const errors =
+                Array.isArray(
+                    result.errors
+                )
+                    ?
+                    result.errors
+                    :
+                    [];
+
+
+            throw new Error(
+                errors.length
+                    ?
+                    (
+                        errors[0].message
+                        ||
+                        "La simulación rechazó la misión."
+                    )
+                    :
+                    "La simulación rechazó la misión."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    async function loadMissionDetails(
+        name
+    ) {
+
+        clearMissionDetails();
+
+
+        if (!name) {
+
+            setMissionStatus(
+                "Esperando selección."
+            );
+
+            return;
+        }
+
+
+        setMissionStatus(
+            "Cargando misión...",
+            "loading"
+        );
+
+
+        missionSelect.disabled =
+            true;
+
+
+        try {
+
+            const data =
+                await requestJson(
+                    "/missions/load?name="
+                    +
+                    encodeURIComponent(
+                        name
+                    )
+                );
+
+
+            const mission =
+                data.mission;
+
+
+            if (
+                !mission
+                ||
+                typeof mission
+                !==
+                "object"
+            ) {
+
+                throw new Error(
+                    "El servidor no devolvió una misión válida."
+                );
+            }
+
+
+            const simulation =
+                await simulateMission(
+                    mission
+                );
+
+
+            autoMissionState.loaded =
+                mission;
+
+
+            missionMap.textContent =
+                mission.map
+                ||
+                "—";
+
+
+            missionInitial.textContent =
+                mission.initial_point_id
+                ||
+                "—";
+
+
+            missionPoints.textContent =
+                Array.isArray(
+                    mission.points
+                )
+                    ?
+                    String(
+                        mission.points.length
+                    )
+                    :
+                    "0";
+
+
+            missionActions.textContent =
+                String(
+                    simulation.action_count == null
+                        ?
+                        0
+                        :
+                        simulation.action_count
+                );
+
+
+            missionCode.textContent =
+                (
+                    typeof mission.code
+                    ===
+                    "string"
+                    &&
+                    mission.code.trim()
+                )
+                    ?
+                    mission.code
+                    :
+                    "Sin programa.";
+
+
+            /*
+             * V1 visual:
+             * todavía NO habilitamos ejecución.
+             */
+            startButton.disabled =
+                true;
+
+
+            setMissionStatus(
+                "Misión validada y lista para integrar.",
+                "ready"
+            );
+
+
+            if (
+                typeof log
+                ===
+                "function"
+            ) {
+
+                log(
+                    `Misión automática cargada: ${mission.name}`
+                );
+            }
+
+
+        } catch (error) {
+
+            clearMissionDetails();
+
+            setMissionStatus(
+                error.message
+                ||
+                "No se pudo cargar la misión.",
+                "error"
+            );
+
+        } finally {
+
+            missionSelect.disabled =
+                false;
+        }
+    }
+
+
+    async function loadMissionList() {
+
+        const previous =
+            missionSelect.value;
+
+
+        missionSelect.disabled =
+            true;
+
+        refreshButton.disabled =
+            true;
+
+
+        missionSelect.innerHTML =
+            "";
+
+
+        const loadingOption =
+            document.createElement(
+                "option"
+            );
+
+        loadingOption.value =
+            "";
+
+        loadingOption.textContent =
+            "Cargando misiones...";
+
+        missionSelect.appendChild(
+            loadingOption
+        );
+
+
+        clearMissionDetails();
+
+        setMissionStatus(
+            "Consultando biblioteca...",
+            "loading"
+        );
+
+
+        try {
+
+            const data =
+                await requestJson(
+                    "/missions"
+                );
+
+
+            const missions =
+                Array.isArray(
+                    data.missions
+                )
+                    ?
+                    data.missions
+                    :
+                    [];
+
+
+            missionSelect.innerHTML =
+                "";
+
+
+            if (!missions.length) {
+
+                const emptyOption =
+                    document.createElement(
+                        "option"
+                    );
+
+                emptyOption.value =
+                    "";
+
+                emptyOption.textContent =
+                    "No hay misiones guardadas";
+
+                missionSelect.appendChild(
+                    emptyOption
+                );
+
+
+                setMissionStatus(
+                    "Biblioteca de misiones vacía."
+                );
+
+                autoMissionState.listLoaded =
+                    true;
+
+                return;
+            }
+
+
+            const placeholder =
+                document.createElement(
+                    "option"
+                );
+
+            placeholder.value =
+                "";
+
+            placeholder.textContent =
+                "Seleccionar misión...";
+
+            missionSelect.appendChild(
+                placeholder
+            );
+
+
+            missions.forEach(
+                item => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+
+                    option.value =
+                        item.name;
+
+                    option.textContent =
+                        item.name;
+
+
+                    missionSelect.appendChild(
+                        option
+                    );
+                }
+            );
+
+
+            autoMissionState.listLoaded =
+                true;
+
+
+            const names =
+                missions.map(
+                    item =>
+                        item.name
+                );
+
+
+            if (
+                previous
+                &&
+                names.includes(
+                    previous
+                )
+            ) {
+
+                missionSelect.value =
+                    previous;
+
+                await loadMissionDetails(
+                    previous
+                );
+
+            } else {
+
+                missionSelect.value =
+                    "";
+
+                setMissionStatus(
+                    `${missions.length} misión(es) disponible(s).`
+                );
+            }
+
+
+        } catch (error) {
+
+            missionSelect.innerHTML =
+                "";
+
+
+            const errorOption =
+                document.createElement(
+                    "option"
+                );
+
+            errorOption.value =
+                "";
+
+            errorOption.textContent =
+                "Error al consultar misiones";
+
+            missionSelect.appendChild(
+                errorOption
+            );
+
+
+            setMissionStatus(
+                error.message
+                ||
+                "No se pudieron consultar las misiones.",
+                "error"
+            );
+
+        } finally {
+
+            missionSelect.disabled =
+                false;
+
+            refreshButton.disabled =
+                false;
+        }
+    }
+
+
+    function setDashboardMode(
+        mode
+    ) {
+
+        const automatic =
+            mode ===
+            "automatic";
+
+
+        pilotView.hidden =
+            automatic;
+
+        autoView.hidden =
+            !automatic;
+
+
+        pilotButton.classList.toggle(
+            "is-active",
+            !automatic
+        );
+
+        autoButton.classList.toggle(
+            "is-active",
+            automatic
+        );
+
+
+        if (subtitle) {
+
+            subtitle.textContent =
+                automatic
+                    ?
+                    "Misión Automática · SafeVision"
+                    :
+                    "Misión Pilotada · Nivel 2";
+        }
+
+
+        if (
+            automatic
+            &&
+            !autoMissionState.listLoaded
+        ) {
+
+            loadMissionList();
+        }
+    }
+
+
+    pilotButton.addEventListener(
+        "click",
+        () => {
+
+            setDashboardMode(
+                "pilot"
+            );
+        }
+    );
+
+
+    autoButton.addEventListener(
+        "click",
+        () => {
+
+            setDashboardMode(
+                "automatic"
+            );
+        }
+    );
+
+
+    missionSelect.addEventListener(
+        "change",
+        () => {
+
+            loadMissionDetails(
+                missionSelect.value
+            );
+        }
+    );
+
+
+    refreshButton.addEventListener(
+        "click",
+        loadMissionList
+    );
+
+
+    setDashboardMode(
+        "pilot"
+    );
+
+})();

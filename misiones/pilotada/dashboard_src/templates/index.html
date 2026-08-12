@@ -24,7 +24,7 @@
 
     <div>
         <h1>SafeVision</h1>
-        <span>Misión Pilotada · Nivel 2</span>
+        <span id="dashboardSubtitle">Misión Pilotada · Nivel 2</span>
     </div>
 
     <div
@@ -35,6 +35,35 @@
     </div>
 
 </header>
+
+
+<nav
+    class="dashboard-tabs"
+    aria-label="Modos SafeVision"
+>
+    <button
+        id="pilotTabButton"
+        class="dashboard-tab is-active"
+        type="button"
+    >
+        Misión Pilotada
+    </button>
+
+    <button
+        id="autoTabButton"
+        class="dashboard-tab"
+        type="button"
+    >
+        Misión Automática
+    </button>
+
+    <a
+        class="dashboard-tab dashboard-tab-link"
+        href="/programar"
+    >
+        Programar
+    </a>
+</nav>
 
 
 <main class="layout">
@@ -191,7 +220,10 @@
     <!-- VISUALIZACIÓN                                  -->
     <!-- ============================================== -->
 
-    <section class="workspace">
+    <section
+        id="pilotModeView"
+        class="workspace"
+    >
 
         <div class="view-grid">
 
@@ -387,6 +419,109 @@
         </section>
 
     </section>
+
+
+<!-- ================================================== -->
+<!-- MISIÓN AUTOMÁTICA                                  -->
+<!-- ================================================== -->
+
+<section
+    id="autoModeView"
+    class="workspace auto-layout"
+    hidden
+>
+
+    <section class="panel auto-mission-panel">
+
+        <div class="auto-mission-header">
+
+            <div>
+                <h2>Misión Automática</h2>
+
+                <span>
+                    Selecciona una misión programada.
+                </span>
+            </div>
+
+            <button
+                id="autoMissionRefresh"
+                type="button"
+            >
+                Actualizar
+            </button>
+
+        </div>
+
+
+        <label for="autoMissionSelect">
+            Misión
+        </label>
+
+        <select id="autoMissionSelect">
+            <option value="">
+                Cargando misiones...
+            </option>
+        </select>
+
+
+        <div class="auto-mission-grid">
+
+            <div class="auto-mission-stat">
+                <span>Mapa</span>
+                <strong id="autoMissionMap">—</strong>
+            </div>
+
+            <div class="auto-mission-stat">
+                <span>Punto inicial</span>
+                <strong id="autoMissionInitial">—</strong>
+            </div>
+
+            <div class="auto-mission-stat">
+                <span>Puntos</span>
+                <strong id="autoMissionPoints">—</strong>
+            </div>
+
+            <div class="auto-mission-stat">
+                <span>Acciones</span>
+                <strong id="autoMissionActions">—</strong>
+            </div>
+
+        </div>
+
+
+        <label>
+            Programa
+        </label>
+
+        <pre
+            id="autoMissionCode"
+            class="auto-mission-code"
+        >Selecciona una misión.</pre>
+
+
+        <div class="auto-mission-footer">
+
+            <button
+                id="autoMissionStart"
+                type="button"
+                disabled
+                title="La ejecución real se habilitará en el siguiente bloque."
+            >
+                Iniciar misión
+            </button>
+
+            <span
+                id="autoMissionStatus"
+                class="auto-mission-status"
+            >
+                Esperando selección.
+            </span>
+
+        </div>
+
+    </section>
+
+</section>
 
 </main>
 

@@ -1203,3 +1203,376 @@ button:disabled {
     cursor:
         not-allowed;
 }
+
+
+/* ====================================================== */
+/* SAFEVISION MISION AUTOMATICA - UI                     */
+/* ====================================================== */
+
+.dashboard-tabs {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    max-width: 1600px;
+
+    margin:
+        14px
+        auto
+        0;
+
+    padding:
+        0
+        16px;
+}
+
+
+.dashboard-tab {
+    min-height: 38px;
+
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding:
+        8px
+        15px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        var(--panel);
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.82rem;
+
+    font-weight:
+        700;
+
+    text-decoration:
+        none;
+
+    cursor:
+        pointer;
+}
+
+
+.dashboard-tab:hover {
+    color:
+        var(--text);
+
+    border-color:
+        rgba(
+            59,
+            130,
+            246,
+            0.65
+        );
+}
+
+
+.dashboard-tab.is-active {
+    color:
+        #ffffff;
+
+    border-color:
+        var(--blue);
+
+    background:
+        rgba(
+            59,
+            130,
+            246,
+            0.18
+        );
+}
+
+
+.auto-layout {
+    max-width:
+        1200px;
+
+    margin:
+        16px
+        auto;
+
+    padding:
+        0
+        16px
+        24px;
+}
+
+
+.auto-layout[hidden],
+.workspace[hidden] {
+    display:
+        none !important;
+}
+
+
+.auto-mission-panel {
+    max-width:
+        900px;
+
+    margin:
+        0
+        auto;
+}
+
+
+.auto-mission-header {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        14px;
+
+    margin-bottom:
+        16px;
+}
+
+
+.auto-mission-header h2 {
+    margin-bottom:
+        4px;
+}
+
+
+.auto-mission-header span {
+    color:
+        var(--muted);
+
+    font-size:
+        0.8rem;
+}
+
+
+#autoMissionSelect {
+    width:
+        100%;
+
+    min-height:
+        40px;
+
+    padding:
+        8px
+        10px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        7px;
+
+    background:
+        #0b121c;
+
+    color:
+        var(--text);
+}
+
+
+.auto-mission-grid {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            4,
+            minmax(0, 1fr)
+        );
+
+    gap:
+        10px;
+
+    margin:
+        16px
+        0;
+}
+
+
+.auto-mission-stat {
+    padding:
+        12px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.025
+        );
+}
+
+
+.auto-mission-stat span {
+    display:
+        block;
+
+    margin-bottom:
+        5px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.72rem;
+}
+
+
+.auto-mission-stat strong {
+    display:
+        block;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+
+.auto-mission-code {
+    min-height:
+        140px;
+
+    max-height:
+        300px;
+
+    margin:
+        0;
+
+    padding:
+        14px;
+
+    overflow:
+        auto;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        #070c12;
+
+    color:
+        #dbeafe;
+
+    font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Monaco,
+        Consolas,
+        monospace;
+
+    font-size:
+        0.82rem;
+
+    line-height:
+        1.55;
+
+    white-space:
+        pre-wrap;
+}
+
+
+.auto-mission-footer {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        14px;
+
+    margin-top:
+        16px;
+}
+
+
+.auto-mission-status {
+    color:
+        var(--muted);
+
+    font-size:
+        0.8rem;
+}
+
+
+.auto-mission-status.ready {
+    color:
+        var(--green);
+}
+
+
+.auto-mission-status.error {
+    color:
+        var(--red);
+}
+
+
+.auto-mission-status.loading {
+    color:
+        var(--yellow);
+}
+
+
+@media (max-width: 760px) {
+
+    .dashboard-tabs {
+        flex-wrap:
+            wrap;
+    }
+
+
+    .auto-mission-grid {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+    }
+
+
+    .auto-mission-header,
+    .auto-mission-footer {
+        align-items:
+            stretch;
+
+        flex-direction:
+            column;
+    }
+}
