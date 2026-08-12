@@ -486,6 +486,16 @@
                 <strong id="autoMissionActions">—</strong>
             </div>
 
+            <div class="auto-mission-stat">
+                <span>Progreso</span>
+                <strong id="autoMissionProgress">0 / 0</strong>
+            </div>
+
+            <div class="auto-mission-stat">
+                <span>Acción actual</span>
+                <strong id="autoMissionCurrentAction">—</strong>
+            </div>
+
         </div>
 
 
@@ -505,9 +515,18 @@
                 id="autoMissionStart"
                 type="button"
                 disabled
-                title="La ejecución real se habilitará en el siguiente bloque."
+                title="La misión debe estar preparada antes de iniciar."
             >
                 Iniciar misión
+            </button>
+
+            <button
+                id="autoMissionCancel"
+                type="button"
+                disabled
+                title="No hay una misión en ejecución."
+            >
+                Cancelar
             </button>
 
             <span

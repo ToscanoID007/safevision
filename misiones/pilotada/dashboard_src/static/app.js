@@ -7703,6 +7703,15 @@ if (safeVisionMapButton) {
         prepared:
             false,
 
+        running:
+            false,
+
+        busy:
+            false,
+
+        pollTimer:
+            null,
+
         listLoaded:
             false
     };
@@ -7748,6 +7757,11 @@ if (safeVisionMapButton) {
             "autoMissionStart"
         );
 
+    const cancelButton =
+        document.getElementById(
+            "autoMissionCancel"
+        );
+
     const missionMap =
         document.getElementById(
             "autoMissionMap"
@@ -7766,6 +7780,16 @@ if (safeVisionMapButton) {
     const missionActions =
         document.getElementById(
             "autoMissionActions"
+        );
+
+    const missionProgress =
+        document.getElementById(
+            "autoMissionProgress"
+        );
+
+    const missionCurrentAction =
+        document.getElementById(
+            "autoMissionCurrentAction"
         );
 
     const missionCode =
@@ -7789,6 +7813,14 @@ if (safeVisionMapButton) {
         !autoView
         ||
         !missionSelect
+        ||
+        !startButton
+        ||
+        !cancelButton
+        ||
+        !missionProgress
+        ||
+        !missionCurrentAction
     ) {
         return;
     }
@@ -7813,7 +7845,360 @@ if (safeVisionMapButton) {
     }
 
 
+    function stopMissionPolling() {
+
+        if (
+            autoMissionState.pollTimer
+            !==
+            null
+        ) {
+
+            clearTimeout(
+                autoMissionState.pollTimer
+            );
+
+            autoMissionState.pollTimer =
+                null;
+        }
+    }
+
+
+    function currentActionLabel(
+        action
+    ) {
+
+        if (!action) {
+            return "—";
+        }
+
+
+        if (
+            typeof action
+            ===
+            "string"
+        ) {
+            return action;
+        }
+
+
+        if (
+            typeof action
+            !==
+            "object"
+        ) {
+            return "—";
+        }
+
+
+        const name =
+            action.name
+            ||
+            "acción";
+
+
+        if (
+            action.point
+            &&
+            typeof action.point
+            ===
+            "object"
+            &&
+            action.point.id
+        ) {
+
+            return (
+                name
+                +
+                " "
+                +
+                action.point.id
+            );
+        }
+
+
+        if (action.reference_id) {
+
+            return (
+                name
+                +
+                " "
+                +
+                action.reference_id
+            );
+        }
+
+
+        return name;
+    }
+
+
+    function updateMissionControls() {
+
+        const running =
+            autoMissionState.running;
+
+        const busy =
+            autoMissionState.busy;
+
+        const controlsLocked =
+            (
+                running
+                ||
+                busy
+            );
+
+
+        missionSelect.disabled =
+            controlsLocked;
+
+        refreshButton.disabled =
+            controlsLocked;
+
+
+        startButton.disabled =
+            (
+                controlsLocked
+                ||
+                !autoMissionState.prepared
+            );
+
+
+        cancelButton.disabled =
+            (
+                !running
+                ||
+                busy
+            );
+
+
+        pilotButton.disabled =
+            running;
+
+
+        pilotButton.title =
+            running
+                ?
+                "La misión automática está en ejecución."
+                :
+                "";
+
+
+        startButton.title =
+            running
+                ?
+                "La misión está en ejecución."
+                :
+                (
+                    autoMissionState.prepared
+                        ?
+                        "Iniciar misión preparada."
+                        :
+                        "La misión debe estar preparada antes de iniciar."
+                );
+
+
+        cancelButton.title =
+            running
+                ?
+                "Cancelar la misión en ejecución."
+                :
+                "No hay una misión en ejecución.";
+    }
+
+
+    function applyMissionRuntimeStatus(
+        status
+    ) {
+
+        const count =
+            Number(
+                status.action_count
+            );
+
+        const index =
+            Number(
+                status.action_index
+            );
+
+
+        const safeCount =
+            Number.isFinite(
+                count
+            )
+                ?
+                count
+                :
+                0;
+
+        const safeIndex =
+            Number.isFinite(
+                index
+            )
+                ?
+                index
+                :
+                0;
+
+
+        missionProgress.textContent =
+            (
+                String(safeIndex)
+                +
+                " / "
+                +
+                String(safeCount)
+            );
+
+
+        missionCurrentAction.textContent =
+            currentActionLabel(
+                status.current_action
+            );
+
+
+        autoMissionState.running =
+            Boolean(
+                status.running
+            );
+
+
+        const state =
+            status.state
+            ||
+            "";
+
+
+        const message =
+            status.message
+            ||
+            state
+            ||
+            "Estado desconocido.";
+
+
+        if (state === "completed") {
+
+            autoMissionState.prepared =
+                false;
+
+            setMissionStatus(
+                message,
+                "ready"
+            );
+
+        } else if (
+            state === "error"
+        ) {
+
+            autoMissionState.prepared =
+                false;
+
+            setMissionStatus(
+                message,
+                "error"
+            );
+
+        } else if (
+            state === "cancelled"
+        ) {
+
+            autoMissionState.prepared =
+                false;
+
+            setMissionStatus(
+                message
+            );
+
+        } else if (
+            autoMissionState.running
+        ) {
+
+            setMissionStatus(
+                message,
+                "loading"
+            );
+
+        } else if (
+            state === "ready"
+        ) {
+
+            autoMissionState.prepared =
+                true;
+
+            setMissionStatus(
+                message,
+                "ready"
+            );
+
+        } else {
+
+            setMissionStatus(
+                message
+            );
+        }
+
+
+        updateMissionControls();
+    }
+
+
+    async function pollMissionStatus() {
+
+        stopMissionPolling();
+
+
+        try {
+
+            const status =
+                await requestJson(
+                    "/mission/status"
+                );
+
+
+            applyMissionRuntimeStatus(
+                status
+            );
+
+
+            if (
+                autoMissionState.running
+            ) {
+
+                autoMissionState.pollTimer =
+                    setTimeout(
+                        pollMissionStatus,
+                        250
+                    );
+            }
+
+
+        } catch (error) {
+
+            setMissionStatus(
+                error.message
+                ||
+                "No se pudo consultar el estado de la misión.",
+                "error"
+            );
+
+
+            if (
+                autoMissionState.running
+            ) {
+
+                autoMissionState.pollTimer =
+                    setTimeout(
+                        pollMissionStatus,
+                        1000
+                    );
+            }
+        }
+    }
+
+
     function clearMissionDetails() {
+
+        stopMissionPolling();
 
         autoMissionState.loaded =
             null;
@@ -7822,6 +8207,9 @@ if (safeVisionMapButton) {
             null;
 
         autoMissionState.prepared =
+            false;
+
+        autoMissionState.running =
             false;
 
         missionMap.textContent =
@@ -7836,14 +8224,16 @@ if (safeVisionMapButton) {
         missionActions.textContent =
             "—";
 
+        missionProgress.textContent =
+            "0 / 0";
+
+        missionCurrentAction.textContent =
+            "—";
+
         missionCode.textContent =
             "Selecciona una misión.";
 
-        startButton.disabled =
-            true;
-
-        startButton.title =
-            "La misión debe estar preparada antes de iniciar.";
+        updateMissionControls();
     }
 
 
@@ -7958,10 +8348,18 @@ if (safeVisionMapButton) {
         name
     ) {
 
+        autoMissionState.busy =
+            true;
+
         clearMissionDetails();
 
 
         if (!name) {
+
+            autoMissionState.busy =
+                false;
+
+            updateMissionControls();
 
             setMissionStatus(
                 "Esperando selección."
@@ -8073,6 +8471,24 @@ if (safeVisionMapButton) {
                 );
 
 
+            missionProgress.textContent =
+                (
+                    "0 / "
+                    +
+                    String(
+                        simulation.action_count == null
+                            ?
+                            0
+                            :
+                            simulation.action_count
+                    )
+                );
+
+
+            missionCurrentAction.textContent =
+                "—";
+
+
             missionCode.textContent =
                 (
                     typeof mission.code
@@ -8087,11 +8503,13 @@ if (safeVisionMapButton) {
                     "Sin programa.";
 
 
-            startButton.disabled =
-                true;
+            autoMissionState.prepared =
+                false;
 
-            startButton.title =
-                "Preparando misión en el robot...";
+            autoMissionState.running =
+                false;
+
+            updateMissionControls();
 
 
             setMissionStatus(
@@ -8143,11 +8561,12 @@ if (safeVisionMapButton) {
                 autoMissionState.prepared =
                     true;
 
-                startButton.disabled =
+                autoMissionState.running =
                     false;
 
-                startButton.title =
-                    "Misión preparada. Inicio pendiente de habilitar.";
+                applyMissionRuntimeStatus(
+                    prepared
+                );
 
 
                 setMissionStatus(
@@ -8173,11 +8592,10 @@ if (safeVisionMapButton) {
                 autoMissionState.prepared =
                     false;
 
-                startButton.disabled =
-                    true;
+                autoMissionState.running =
+                    false;
 
-                startButton.title =
-                    "No se pudo preparar la misión.";
+                updateMissionControls();
 
 
                 setMissionStatus(
@@ -8217,8 +8635,10 @@ if (safeVisionMapButton) {
 
         } finally {
 
-            missionSelect.disabled =
+            autoMissionState.busy =
                 false;
+
+            updateMissionControls();
         }
     }
 
@@ -8227,6 +8647,10 @@ if (safeVisionMapButton) {
 
         const previous =
             missionSelect.value;
+
+
+        autoMissionState.busy =
+            true;
 
 
         missionSelect.disabled =
@@ -8422,11 +8846,10 @@ if (safeVisionMapButton) {
 
         } finally {
 
-            missionSelect.disabled =
+            autoMissionState.busy =
                 false;
 
-            refreshButton.disabled =
-                false;
+            updateMissionControls();
         }
     }
 
@@ -8434,6 +8857,21 @@ if (safeVisionMapButton) {
     function setDashboardMode(
         mode
     ) {
+
+        if (
+            mode === "pilot"
+            &&
+            autoMissionState.running
+        ) {
+
+            setMissionStatus(
+                "La misión automática sigue en ejecución. Cancélala o espera a que termine.",
+                "loading"
+            );
+
+            return;
+        }
+
 
         const automatic =
             mode ===
@@ -8473,6 +8911,8 @@ if (safeVisionMapButton) {
             automatic
             &&
             !autoMissionState.listLoaded
+            &&
+            !autoMissionState.busy
         ) {
 
             loadMissionList();
@@ -8509,6 +8949,165 @@ if (safeVisionMapButton) {
             loadMissionDetails(
                 missionSelect.value
             );
+        }
+    );
+
+
+    startButton.addEventListener(
+        "click",
+        async () => {
+
+            if (
+                !autoMissionState.prepared
+                ||
+                autoMissionState.running
+            ) {
+                return;
+            }
+
+
+            autoMissionState.busy =
+                true;
+
+            updateMissionControls();
+
+            setMissionStatus(
+                "Iniciando misión...",
+                "loading"
+            );
+
+
+            try {
+
+                const started =
+                    await requestJson(
+                        "/mission/start",
+                        {
+                            method:
+                                "POST"
+                        }
+                    );
+
+
+                applyMissionRuntimeStatus(
+                    started
+                );
+
+
+                autoMissionState.busy =
+                    false;
+
+                updateMissionControls();
+
+
+                if (
+                    autoMissionState.running
+                ) {
+
+                    pollMissionStatus();
+                }
+
+
+                if (
+                    typeof log
+                    ===
+                    "function"
+                ) {
+
+                    log(
+                        "Misión automática iniciada."
+                    );
+                }
+
+
+            } catch (error) {
+
+                autoMissionState.running =
+                    false;
+
+                autoMissionState.busy =
+                    false;
+
+                setMissionStatus(
+                    error.message
+                    ||
+                    "No se pudo iniciar la misión.",
+                    "error"
+                );
+
+                updateMissionControls();
+            }
+        }
+    );
+
+
+    cancelButton.addEventListener(
+        "click",
+        async () => {
+
+            if (
+                !autoMissionState.running
+            ) {
+                return;
+            }
+
+
+            autoMissionState.busy =
+                true;
+
+            updateMissionControls();
+
+            setMissionStatus(
+                "Cancelando misión...",
+                "loading"
+            );
+
+
+            try {
+
+                const cancelled =
+                    await requestJson(
+                        "/mission/cancel",
+                        {
+                            method:
+                                "POST"
+                        }
+                    );
+
+
+                applyMissionRuntimeStatus(
+                    cancelled
+                );
+
+
+                autoMissionState.busy =
+                    false;
+
+                updateMissionControls();
+
+
+                if (
+                    autoMissionState.running
+                ) {
+
+                    pollMissionStatus();
+                }
+
+
+            } catch (error) {
+
+                autoMissionState.busy =
+                    false;
+
+                setMissionStatus(
+                    error.message
+                    ||
+                    "No se pudo cancelar la misión.",
+                    "error"
+                );
+
+                updateMissionControls();
+            }
         }
     );
 
