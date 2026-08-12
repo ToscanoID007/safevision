@@ -7697,6 +7697,12 @@ if (safeVisionMapButton) {
         loaded:
             null,
 
+        simulation:
+            null,
+
+        prepared:
+            false,
+
         listLoaded:
             false
     };
@@ -7812,6 +7818,12 @@ if (safeVisionMapButton) {
         autoMissionState.loaded =
             null;
 
+        autoMissionState.simulation =
+            null;
+
+        autoMissionState.prepared =
+            false;
+
         missionMap.textContent =
             "—";
 
@@ -7829,6 +7841,9 @@ if (safeVisionMapButton) {
 
         startButton.disabled =
             true;
+
+        startButton.title =
+            "La misión debe estar preparada antes de iniciar.";
     }
 
 
@@ -8002,8 +8017,26 @@ if (safeVisionMapButton) {
                 );
 
 
+            if (
+                !Array.isArray(
+                    simulation.trace
+                )
+            ) {
+
+                throw new Error(
+                    "La simulación no devolvió una traza válida."
+                );
+            }
+
+
             autoMissionState.loaded =
                 mission;
+
+            autoMissionState.simulation =
+                simulation;
+
+            autoMissionState.prepared =
+                false;
 
 
             missionMap.textContent =
@@ -8054,29 +8087,120 @@ if (safeVisionMapButton) {
                     "Sin programa.";
 
 
-            /*
-             * V1 visual:
-             * todavía NO habilitamos ejecución.
-             */
             startButton.disabled =
                 true;
 
+            startButton.title =
+                "Preparando misión en el robot...";
+
 
             setMissionStatus(
-                "Misión validada y lista para integrar.",
-                "ready"
+                "Preparando misión en el robot...",
+                "loading"
             );
 
 
-            if (
-                typeof log
-                ===
-                "function"
-            ) {
+            try {
 
-                log(
-                    `Misión automática cargada: ${mission.name}`
+                const prepared =
+                    await requestJson(
+                        "/mission/prepare",
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    mission:
+                                        mission,
+
+                                    trace:
+                                        simulation.trace
+                                })
+                        }
+                    );
+
+
+                if (
+                    prepared.state
+                    !==
+                    "ready"
+                ) {
+
+                    throw new Error(
+                        prepared.message
+                        ||
+                        "El robot no dejó la misión en estado ready."
+                    );
+                }
+
+
+                autoMissionState.prepared =
+                    true;
+
+                startButton.disabled =
+                    false;
+
+                startButton.title =
+                    "Misión preparada. Inicio pendiente de habilitar.";
+
+
+                setMissionStatus(
+                    "Misión preparada en el robot.",
+                    "ready"
                 );
+
+
+                if (
+                    typeof log
+                    ===
+                    "function"
+                ) {
+
+                    log(
+                        `Misión automática preparada: ${mission.name}`
+                    );
+                }
+
+
+            } catch (prepareError) {
+
+                autoMissionState.prepared =
+                    false;
+
+                startButton.disabled =
+                    true;
+
+                startButton.title =
+                    "No se pudo preparar la misión.";
+
+
+                setMissionStatus(
+                    prepareError.message
+                    ||
+                    "No se pudo preparar la misión en el robot.",
+                    "error"
+                );
+
+
+                if (
+                    typeof log
+                    ===
+                    "function"
+                ) {
+
+                    log(
+                        `Misión automática no preparada: ${mission.name}`
+                    );
+                }
+
+
+                return;
             }
 
 
