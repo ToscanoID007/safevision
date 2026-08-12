@@ -9,6 +9,7 @@ import io
 import os
 import socket
 import subprocess
+import sys
 import time
 import xmlrpc.client
 from pathlib import Path
@@ -19,7 +20,29 @@ from std_msgs.msg import String
 from flask import Flask, Response, jsonify, request
 
 
+AUTOMATIC_ROBOT_DIR = (
+    Path(__file__).resolve().parents[2]
+    /
+    "automatica"
+    /
+    "robot"
+)
+
+if str(AUTOMATIC_ROBOT_DIR) not in sys.path:
+    sys.path.insert(
+        0,
+        str(AUTOMATIC_ROBOT_DIR)
+    )
+
+from sf_mission_executor import (
+    MissionPlanError,
+    MissionRuntime
+)
+
+
 app = Flask(__name__)
+
+MISSION_RUNTIME = MissionRuntime()
 
 CONTROL_MODE = "desconocido"
 
@@ -773,6 +796,100 @@ def robot_mission_delete():
         "ok": True,
         "name": name
     })
+
+
+# =========================================================
+# MISION AUTOMATICA - RUNTIME
+# =========================================================
+
+@app.route(
+    "/mission/prepare",
+    methods=["POST"]
+)
+def mission_prepare():
+    data = request.get_json(
+        silent=True
+    )
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "JSON inválido"
+        }), 400
+
+
+    mission = data.get(
+        "mission"
+    )
+
+    trace = data.get(
+        "trace"
+    )
+
+
+    ok, message = validate_mission_data(
+        mission
+    )
+
+    if not ok:
+        return jsonify({
+            "ok": False,
+            "error": message
+        }), 400
+
+
+    try:
+        status = MISSION_RUNTIME.prepare(
+            mission,
+            trace
+        )
+
+    except MissionPlanError as exc:
+        return jsonify({
+            "ok": False,
+            "error": str(exc)
+        }), 400
+
+
+    response = dict(
+        status
+    )
+
+    response["ok"] = True
+
+    return jsonify(
+        response
+    )
+
+
+@app.route(
+    "/mission/status"
+)
+def mission_status():
+    response = MISSION_RUNTIME.status()
+
+    response["ok"] = True
+
+    return jsonify(
+        response
+    )
+
+
+@app.route(
+    "/mission/cancel",
+    methods=["POST"]
+)
+def mission_cancel():
+    response = MISSION_RUNTIME.cancel()
+
+    response["ok"] = True
+
+    return jsonify(
+        response
+    )
 
 
 # =========================================================

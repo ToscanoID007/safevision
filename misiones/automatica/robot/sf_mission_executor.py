@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import math
+import threading
 
 
 ALLOWED_ACTIONS = {
@@ -360,3 +361,141 @@ def build_execution_plan(
         "points": points,
         "actions": actions
     }
+
+
+class MissionRuntime:
+
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.cancel_event = threading.Event()
+
+        self.plan = None
+
+        self.state = "idle"
+        self.running = False
+
+        self.action_index = 0
+        self.current_action = None
+
+        self.message = "Sin misión preparada"
+
+
+    def status(self):
+        with self.lock:
+            if self.plan is None:
+                mission_name = None
+                map_name = None
+                initial_point_id = None
+                action_count = 0
+
+            else:
+                mission_name = self.plan["name"]
+                map_name = self.plan["map"]
+
+                initial_point_id = (
+                    self.plan["initial_point_id"]
+                )
+
+                action_count = (
+                    self.plan["action_count"]
+                )
+
+
+            current_action = None
+
+            if isinstance(
+                self.current_action,
+                dict
+            ):
+                current_action = dict(
+                    self.current_action
+                )
+
+                if isinstance(
+                    current_action.get("point"),
+                    dict
+                ):
+                    current_action["point"] = dict(
+                        current_action["point"]
+                    )
+
+
+            return {
+                "state": self.state,
+                "running": self.running,
+
+                "mission": mission_name,
+                "map": map_name,
+
+                "initial_point_id":
+                    initial_point_id,
+
+                "action_index":
+                    self.action_index,
+
+                "action_count":
+                    action_count,
+
+                "current_action":
+                    current_action,
+
+                "message":
+                    self.message
+            }
+
+
+    def prepare(
+        self,
+        mission,
+        trace
+    ):
+        plan = build_execution_plan(
+            mission,
+            trace
+        )
+
+        with self.lock:
+            if self.running:
+                raise MissionPlanError(
+                    "Hay una misión en ejecución"
+                )
+
+            self.cancel_event.clear()
+
+            self.plan = plan
+
+            self.state = "ready"
+            self.running = False
+
+            self.action_index = 0
+            self.current_action = None
+
+            self.message = "Misión preparada"
+
+        return self.status()
+
+
+    def cancel(self):
+        with self.lock:
+            self.cancel_event.set()
+
+            if self.running:
+                self.message = (
+                    "Cancelación solicitada"
+                )
+
+            elif self.plan is not None:
+                self.state = "cancelled"
+
+                self.message = (
+                    "Misión cancelada"
+                )
+
+            else:
+                self.state = "idle"
+
+                self.message = (
+                    "Sin misión preparada"
+                )
+
+        return self.status()
