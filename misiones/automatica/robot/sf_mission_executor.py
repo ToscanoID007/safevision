@@ -475,6 +475,138 @@ class MissionRuntime:
         return self.status()
 
 
+    def start(self):
+        with self.lock:
+            if self.running:
+                raise MissionPlanError(
+                    "La misión ya está en ejecución"
+                )
+
+            if self.plan is None:
+                raise MissionPlanError(
+                    "No hay una misión preparada"
+                )
+
+            if self.state != "ready":
+                raise MissionPlanError(
+                    "La misión no está en estado ready"
+                )
+
+
+            unsupported = [
+                action["name"]
+                for action in self.plan["actions"]
+                if action["name"] != "esperar"
+            ]
+
+            if unsupported:
+                raise MissionPlanError(
+                    (
+                        "Runtime de prueba: solo se admite "
+                        "esperar(). Acción no habilitada: {}"
+                    ).format(
+                        unsupported[0]
+                    )
+                )
+
+
+            self.cancel_event.clear()
+
+            self.running = True
+            self.state = "running"
+
+            self.action_index = 0
+            self.current_action = None
+
+            self.message = (
+                "Misión iniciada"
+            )
+
+
+            worker = threading.Thread(
+                target=self._run_wait_only,
+                name="safevision-mission-wait",
+                daemon=True
+            )
+
+            worker.start()
+
+
+        return self.status()
+
+
+    def _run_wait_only(self):
+        try:
+            actions = list(
+                self.plan["actions"]
+            )
+
+            for index, action in enumerate(
+                actions
+            ):
+                if self.cancel_event.is_set():
+                    break
+
+
+                with self.lock:
+                    self.action_index = index
+
+                    self.current_action = dict(
+                        action
+                    )
+
+                    self.state = "waiting"
+
+                    self.message = (
+                        "Esperando {:.3f} s".format(
+                            action["seconds"]
+                        )
+                    )
+
+
+                cancelled = self.cancel_event.wait(
+                    action["seconds"]
+                )
+
+                if cancelled:
+                    break
+
+
+            with self.lock:
+                if self.cancel_event.is_set():
+                    self.state = "cancelled"
+
+                    self.message = (
+                        "Misión cancelada"
+                    )
+
+                else:
+                    self.state = "completed"
+
+                    self.action_index = len(
+                        actions
+                    )
+
+                    self.message = (
+                        "Misión completada"
+                    )
+
+
+        except Exception as exc:
+            with self.lock:
+                self.state = "error"
+
+                self.message = str(
+                    exc
+                )
+
+
+        finally:
+            with self.lock:
+                self.running = False
+                self.current_action = None
+
+
     def cancel(self):
         with self.lock:
             self.cancel_event.set()

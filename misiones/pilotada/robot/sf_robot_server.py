@@ -879,6 +879,32 @@ def mission_status():
 
 
 @app.route(
+    "/mission/start",
+    methods=["POST"]
+)
+def mission_start():
+    try:
+        status = MISSION_RUNTIME.start()
+
+    except MissionPlanError as exc:
+        return jsonify({
+            "ok": False,
+            "error": str(exc)
+        }), 409
+
+
+    response = dict(
+        status
+    )
+
+    response["ok"] = True
+
+    return jsonify(
+        response
+    )
+
+
+@app.route(
     "/mission/cancel",
     methods=["POST"]
 )
