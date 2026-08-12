@@ -48,6 +48,7 @@ CONTROL_MODE = "desconocido"
 
 NAV_COMMAND_PUB = None
 NAV_STATUS_RECEIVED = False
+NAV_STATUS_VERSION = 0
 
 NAV_STATUS = {
     "state": "unavailable",
@@ -878,13 +879,546 @@ def mission_status():
     )
 
 
+MISSION_NAV_LOAD_TIMEOUT = 3.0
+MISSION_NAV_RESULT_TIMEOUT = 180.0
+MISSION_NAV_POLL_INTERVAL = 0.05
+
+MISSION_NAV_POSITION_TOLERANCE = 1e-6
+MISSION_NAV_YAW_TOLERANCE = 1e-6
+
+
+def mission_nav_snapshot():
+    return (
+        dict(NAV_STATUS),
+        bool(NAV_STATUS_RECEIVED),
+        int(NAV_STATUS_VERSION)
+    )
+
+
+def mission_nav_yaw_matches(
+    expected,
+    actual
+):
+    if (
+        expected is None
+        or actual is None
+    ):
+        return (
+            expected is None
+            and actual is None
+        )
+
+    try:
+        expected = float(
+            expected
+        )
+
+        actual = float(
+            actual
+        )
+
+    except Exception:
+        return False
+
+
+    delta = math.atan2(
+        math.sin(
+            actual
+            -
+            expected
+        ),
+        math.cos(
+            actual
+            -
+            expected
+        )
+    )
+
+    return (
+        abs(delta)
+        <=
+        MISSION_NAV_YAW_TOLERANCE
+    )
+
+
+def mission_nav_point_matches(
+    expected,
+    actual
+):
+    if not isinstance(
+        expected,
+        dict
+    ):
+        return False
+
+    if not isinstance(
+        actual,
+        dict
+    ):
+        return False
+
+
+    if str(
+        actual.get("id")
+    ) != str(
+        expected.get("id")
+    ):
+        return False
+
+
+    try:
+        dx = abs(
+            float(actual["x"])
+            -
+            float(expected["x"])
+        )
+
+        dy = abs(
+            float(actual["y"])
+            -
+            float(expected["y"])
+        )
+
+    except Exception:
+        return False
+
+
+    if (
+        dx
+        >
+        MISSION_NAV_POSITION_TOLERANCE
+    ):
+        return False
+
+    if (
+        dy
+        >
+        MISSION_NAV_POSITION_TOLERANCE
+    ):
+        return False
+
+
+    return mission_nav_yaw_matches(
+        expected.get("yaw"),
+        actual.get("yaw")
+    )
+
+
+def mission_nav_ready_matches(
+    status,
+    map_name,
+    point
+):
+    if not isinstance(
+        status,
+        dict
+    ):
+        return False
+
+
+    if status.get(
+        "state"
+    ) != "ready":
+        return False
+
+
+    if bool(
+        status.get(
+            "running"
+        )
+    ):
+        return False
+
+
+    if status.get(
+        "map"
+    ) != map_name:
+        return False
+
+
+    if status.get(
+        "active_map"
+    ) != map_name:
+        return False
+
+
+    remaining = status.get(
+        "remaining"
+    )
+
+    if not isinstance(
+        remaining,
+        list
+    ):
+        return False
+
+    if len(
+        remaining
+    ) != 1:
+        return False
+
+
+    if not mission_nav_point_matches(
+        point,
+        remaining[0]
+    ):
+        return False
+
+
+    if int(
+        status.get(
+            "completed_count",
+            0
+        )
+    ) != 0:
+        return False
+
+
+    return True
+
+
+def mission_execute_nav_action(
+    map_name,
+    action,
+    cancel_event,
+    report
+):
+    if not isinstance(
+        map_name,
+        str
+    ) or not map_name:
+        raise RuntimeError(
+            "La misión no tiene mapa válido"
+        )
+
+
+    point = action.get(
+        "point"
+    )
+
+    if not isinstance(
+        point,
+        dict
+    ):
+        raise RuntimeError(
+            "La acción ir() no contiene punto"
+        )
+
+
+    nav_point = {
+        "id": str(
+            point["id"]
+        ),
+        "x": float(
+            point["x"]
+        ),
+        "y": float(
+            point["y"]
+        ),
+        "yaw": (
+            None
+            if point.get("yaw") is None
+            else float(
+                point["yaw"]
+            )
+        )
+    }
+
+
+    status, available, load_version = (
+        mission_nav_snapshot()
+    )
+
+    if not available:
+        raise RuntimeError(
+            "Cola de navegación no disponible"
+        )
+
+
+    load_command = {
+        "command": "load",
+        "map": map_name,
+        "points": [
+            nav_point
+        ]
+    }
+
+
+    if not publicar_nav_command(
+        load_command
+    ):
+        raise RuntimeError(
+            "No se pudo publicar load"
+        )
+
+
+    report(
+        "navigating",
+        "Preparando navegación hacia {}".format(
+            nav_point["id"]
+        )
+    )
+
+
+    deadline = (
+        time.monotonic()
+        +
+        MISSION_NAV_LOAD_TIMEOUT
+    )
+
+
+    while (
+        time.monotonic()
+        <
+        deadline
+    ):
+        if cancel_event.is_set():
+            publicar_nav_command({
+                "command": "clear"
+            })
+
+            return
+
+
+        status, available, version = (
+            mission_nav_snapshot()
+        )
+
+
+        if (
+            available
+            and
+            version > load_version
+            and
+            mission_nav_ready_matches(
+                status,
+                map_name,
+                nav_point
+            )
+        ):
+            break
+
+
+        if (
+            available
+            and
+            version > load_version
+            and
+            status.get("state") == "error"
+            and
+            status.get("map") == map_name
+        ):
+            raise RuntimeError(
+                status.get(
+                    "message",
+                    "Error cargando navegación"
+                )
+            )
+
+
+        time.sleep(
+            MISSION_NAV_POLL_INTERVAL
+        )
+
+    else:
+        raise RuntimeError(
+            "Timeout confirmando cola de navegación"
+        )
+
+
+    start_version = (
+        mission_nav_snapshot()[2]
+    )
+
+
+    if cancel_event.is_set():
+        publicar_nav_command({
+            "command": "clear"
+        })
+
+        return
+
+
+    if not publicar_nav_command({
+        "command": "start"
+    }):
+        raise RuntimeError(
+            "No se pudo publicar start"
+        )
+
+
+    report(
+        "navigating",
+        "Navegando hacia {}".format(
+            nav_point["id"]
+        )
+    )
+
+
+    deadline = (
+        time.monotonic()
+        +
+        MISSION_NAV_RESULT_TIMEOUT
+    )
+
+
+    while (
+        time.monotonic()
+        <
+        deadline
+    ):
+        if cancel_event.is_set():
+            publicar_nav_command({
+                "command": "cancel"
+            })
+
+            return
+
+
+        status, available, version = (
+            mission_nav_snapshot()
+        )
+
+
+        if (
+            not available
+            or
+            version <= start_version
+        ):
+            time.sleep(
+                MISSION_NAV_POLL_INTERVAL
+            )
+
+            continue
+
+
+        state = status.get(
+            "state"
+        )
+
+        message = status.get(
+            "message",
+            ""
+        )
+
+
+        if state == "completed":
+            completed = status.get(
+                "completed"
+            )
+
+            if not isinstance(
+                completed,
+                list
+            ) or len(
+                completed
+            ) != 1:
+                raise RuntimeError(
+                    "Estado completed sin punto confirmado"
+                )
+
+
+            if not mission_nav_point_matches(
+                nav_point,
+                completed[0]
+            ):
+                raise RuntimeError(
+                    "El punto completado no coincide con ir()"
+                )
+
+
+            if int(
+                status.get(
+                    "remaining_count",
+                    -1
+                )
+            ) != 0:
+                raise RuntimeError(
+                    "Navegación completada con puntos pendientes"
+                )
+
+
+            return
+
+
+        if state == "error":
+            raise RuntimeError(
+                message
+                or
+                "Error de navegación"
+            )
+
+
+        if state == "cancelled":
+            raise RuntimeError(
+                message
+                or
+                "Navegación cancelada"
+            )
+
+
+        if state == "relocalizing":
+            report(
+                "relocalizing",
+                message
+                or
+                "Relocalizando"
+            )
+
+        else:
+            report(
+                "navigating",
+                message
+                or
+                "Navegando"
+            )
+
+
+        time.sleep(
+            MISSION_NAV_POLL_INTERVAL
+        )
+
+
+    publicar_nav_command({
+        "command": "cancel"
+    })
+
+    raise RuntimeError(
+        "Timeout esperando navegación"
+    )
+
+
 @app.route(
     "/mission/start",
     methods=["POST"]
 )
 def mission_start():
+    runtime_status = (
+        MISSION_RUNTIME.status()
+    )
+
+    mission_map = runtime_status.get(
+        "map"
+    )
+
+
+    def action_executor(
+        action,
+        cancel_event,
+        report
+    ):
+        return mission_execute_nav_action(
+            mission_map,
+            action,
+            cancel_event,
+            report
+        )
+
+
     try:
-        status = MISSION_RUNTIME.start()
+        status = MISSION_RUNTIME.start(
+            action_executor
+        )
 
     except MissionPlanError as exc:
         return jsonify({
@@ -1281,6 +1815,7 @@ def safevision_initialpose():
 def nav_status_callback(msg):
     global NAV_STATUS
     global NAV_STATUS_RECEIVED
+    global NAV_STATUS_VERSION
 
     try:
         data = json.loads(
@@ -1293,6 +1828,7 @@ def nav_status_callback(msg):
         ):
             NAV_STATUS = data
             NAV_STATUS_RECEIVED = True
+            NAV_STATUS_VERSION += 1
 
     except Exception:
         pass
