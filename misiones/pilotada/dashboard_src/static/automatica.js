@@ -1052,6 +1052,26 @@
             missionSelect.value;
 
 
+        let storedMission =
+            "";
+
+        try {
+
+            storedMission =
+                sessionStorage.getItem(
+                    "safevision.autoMission.selected"
+                )
+                ||
+                "";
+
+        } catch (error) {
+
+            storedMission =
+                "";
+        }
+
+
+
         autoMissionState.busy =
             true;
 
@@ -1192,30 +1212,58 @@
                 );
 
 
+            const preferredMission =
+            previous
+            ||
+            storedMission;
+
+
+        if (
+            preferredMission
+            &&
+            names.includes(
+                preferredMission
+            )
+        ) {
+
+            missionSelect.value =
+                preferredMission;
+
+            await loadMissionDetails(
+                preferredMission
+            );
+
+        } else {
+
+            missionSelect.value =
+                "";
+
+
             if (
-                previous
+                storedMission
                 &&
-                names.includes(
-                    previous
+                !names.includes(
+                    storedMission
                 )
             ) {
 
-                missionSelect.value =
-                    previous;
+                try {
 
-                await loadMissionDetails(
-                    previous
-                );
+                    sessionStorage.removeItem(
+                        "safevision.autoMission.selected"
+                    );
 
-            } else {
+                } catch (error) {
 
-                missionSelect.value =
-                    "";
-
-                setMissionStatus(
-                    `${missions.length} misión(es) disponible(s).`
-                );
+                    // sessionStorage no disponible.
+                }
             }
+
+
+            setMissionStatus(
+                `${missions.length} misión(es) disponible(s).`
+            );
+        }
 
 
         } catch (error) {
@@ -1261,8 +1309,34 @@
         "change",
         () => {
 
+            const selectedMission =
+                missionSelect.value;
+
+
+            try {
+
+                if (selectedMission) {
+
+                    sessionStorage.setItem(
+                        "safevision.autoMission.selected",
+                        selectedMission
+                    );
+
+                } else {
+
+                    sessionStorage.removeItem(
+                        "safevision.autoMission.selected"
+                    );
+                }
+
+            } catch (error) {
+
+                // sessionStorage no disponible.
+            }
+
+
             loadMissionDetails(
-                missionSelect.value
+                selectedMission
             );
         }
     );
