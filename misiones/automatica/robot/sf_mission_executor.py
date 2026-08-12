@@ -574,7 +574,8 @@ class MissionRuntime:
 
     def start(
         self,
-        action_executor=None
+        action_executor=None,
+        executor_actions=None
     ):
         with self.lock:
             if self.running:
@@ -595,7 +596,8 @@ class MissionRuntime:
 
             supported = {
                 "esperar",
-                "ir"
+                "ir",
+                "orientar"
             }
 
             unsupported = [
@@ -614,21 +616,51 @@ class MissionRuntime:
                 )
 
 
-            needs_executor = any(
-                action["name"] == "ir"
+            external_actions = {
+                action["name"]
                 for action in self.plan["actions"]
-            )
+                if action["name"] in {
+                    "ir",
+                    "orientar"
+                }
+            }
 
-            if (
-                needs_executor
-                and
-                not callable(
+            if external_actions:
+                if not callable(
                     action_executor
+                ):
+                    raise MissionPlanError(
+                        (
+                            "La misión requiere "
+                            "ejecutor de acciones"
+                        )
+                    )
+
+                if executor_actions is None:
+                    declared_actions = {
+                        "ir"
+                    }
+
+                else:
+                    declared_actions = set(
+                        executor_actions
+                    )
+
+                missing_actions = sorted(
+                    external_actions
+                    -
+                    declared_actions
                 )
-            ):
-                raise MissionPlanError(
-                    "ir() requiere ejecutor de navegación"
-                )
+
+                if missing_actions:
+                    raise MissionPlanError(
+                        (
+                            "El ejecutor no soporta "
+                            "la acción: {}"
+                        ).format(
+                            missing_actions[0]
+                        )
+                    )
 
 
             self.cancel_event.clear()
@@ -722,6 +754,51 @@ class MissionRuntime:
                         self.message = (
                             "Navegando hacia {}".format(
                                 target_id
+                            )
+                        )
+
+
+                    def report(
+                        state,
+                        message
+                    ):
+                        with self.lock:
+                            if (
+                                self.cancel_event.is_set()
+                            ):
+                                return
+
+                            self.state = str(
+                                state
+                            )
+
+                            self.message = str(
+                                message
+                            )
+
+
+                    action_executor(
+                        dict(
+                            action
+                        ),
+                        self.cancel_event,
+                        report
+                    )
+
+
+                    if self.cancel_event.is_set():
+                        break
+
+
+                elif action_name == "orientar":
+                    with self.lock:
+                        self.state = "orienting"
+
+                        self.message = (
+                            "Orientando respecto a {}".format(
+                                action[
+                                    "reference_id"
+                                ]
                             )
                         )
 
