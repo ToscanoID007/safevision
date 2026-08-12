@@ -475,7 +475,10 @@ class MissionRuntime:
         return self.status()
 
 
-    def start(self):
+    def start(
+        self,
+        action_executor=None
+    ):
         with self.lock:
             if self.running:
                 raise MissionPlanError(
@@ -493,20 +496,41 @@ class MissionRuntime:
                 )
 
 
+            supported = {
+                "esperar",
+                "ir"
+            }
+
             unsupported = [
                 action["name"]
                 for action in self.plan["actions"]
-                if action["name"] != "esperar"
+                if action["name"] not in supported
             ]
 
             if unsupported:
                 raise MissionPlanError(
                     (
-                        "Runtime de prueba: solo se admite "
-                        "esperar(). Acción no habilitada: {}"
+                        "Acción todavía no habilitada: {}"
                     ).format(
                         unsupported[0]
                     )
+                )
+
+
+            needs_executor = any(
+                action["name"] == "ir"
+                for action in self.plan["actions"]
+            )
+
+            if (
+                needs_executor
+                and
+                not callable(
+                    action_executor
+                )
+            ):
+                raise MissionPlanError(
+                    "ir() requiere ejecutor de navegación"
                 )
 
 
@@ -524,8 +548,11 @@ class MissionRuntime:
 
 
             worker = threading.Thread(
-                target=self._run_wait_only,
-                name="safevision-mission-wait",
+                target=self._run_actions,
+                args=(
+                    action_executor,
+                ),
+                name="safevision-mission",
                 daemon=True
             )
 
@@ -535,17 +562,26 @@ class MissionRuntime:
         return self.status()
 
 
-    def _run_wait_only(self):
+    def _run_actions(
+        self,
+        action_executor
+    ):
         try:
             actions = list(
                 self.plan["actions"]
             )
+
 
             for index, action in enumerate(
                 actions
             ):
                 if self.cancel_event.is_set():
                     break
+
+
+                action_name = action[
+                    "name"
+                ]
 
 
                 with self.lock:
@@ -555,21 +591,85 @@ class MissionRuntime:
                         action
                     )
 
-                    self.state = "waiting"
 
-                    self.message = (
-                        "Esperando {:.3f} s".format(
+                if action_name == "esperar":
+                    with self.lock:
+                        self.state = "waiting"
+
+                        self.message = (
+                            "Esperando {:.3f} s".format(
+                                action["seconds"]
+                            )
+                        )
+
+
+                    cancelled = (
+                        self.cancel_event.wait(
                             action["seconds"]
                         )
                     )
 
+                    if cancelled:
+                        break
 
-                cancelled = self.cancel_event.wait(
-                    action["seconds"]
-                )
 
-                if cancelled:
-                    break
+                elif action_name == "ir":
+                    target_id = action[
+                        "target_id"
+                    ]
+
+
+                    with self.lock:
+                        self.state = "navigating"
+
+                        self.message = (
+                            "Navegando hacia {}".format(
+                                target_id
+                            )
+                        )
+
+
+                    def report(
+                        state,
+                        message
+                    ):
+                        with self.lock:
+                            if (
+                                self.cancel_event.is_set()
+                            ):
+                                return
+
+                            self.state = str(
+                                state
+                            )
+
+                            self.message = str(
+                                message
+                            )
+
+
+                    action_executor(
+                        dict(
+                            action
+                        ),
+                        self.cancel_event,
+                        report
+                    )
+
+
+                    if self.cancel_event.is_set():
+                        break
+
+
+                else:
+                    raise MissionPlanError(
+                        (
+                            "Acción no soportada "
+                            "por runtime: {}"
+                        ).format(
+                            action_name
+                        )
+                    )
 
 
             with self.lock:
@@ -594,11 +694,19 @@ class MissionRuntime:
 
         except Exception as exc:
             with self.lock:
-                self.state = "error"
+                if self.cancel_event.is_set():
+                    self.state = "cancelled"
 
-                self.message = str(
-                    exc
-                )
+                    self.message = (
+                        "Misión cancelada"
+                    )
+
+                else:
+                    self.state = "error"
+
+                    self.message = str(
+                        exc
+                    )
 
 
         finally:
