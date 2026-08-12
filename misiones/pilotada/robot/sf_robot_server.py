@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 import xmlrpc.client
 from pathlib import Path
 
@@ -53,6 +54,10 @@ NAV_STATUS_VERSION = 0
 NAV_STATUS = {
     "state": "unavailable",
     "running": False,
+    "operation": None,
+    "operation_map": None,
+    "request_id": None,
+    "orientation_target": None,
     "remaining": [],
     "remaining_count": 0,
     "completed": [],
@@ -881,6 +886,7 @@ def mission_status():
 
 MISSION_NAV_LOAD_TIMEOUT = 3.0
 MISSION_NAV_RESULT_TIMEOUT = 180.0
+MISSION_NAV_ORIENTATION_TIMEOUT = 40.0
 MISSION_NAV_POLL_INTERVAL = 0.05
 
 MISSION_NAV_POSITION_TOLERANCE = 1e-6
@@ -1075,6 +1081,225 @@ def mission_nav_ready_matches(
 
 
     return True
+
+
+def mission_orientation_status_matches(
+    status,
+    map_name,
+    request_id,
+    target_yaw
+):
+    if not isinstance(
+        status,
+        dict
+    ):
+        return False
+
+    if status.get(
+        "operation"
+    ) != "orient":
+        return False
+
+    if status.get(
+        "operation_map"
+    ) != map_name:
+        return False
+
+    if str(
+        status.get(
+            "request_id",
+            ""
+        )
+    ) != str(
+        request_id
+    ):
+        return False
+
+    return mission_nav_yaw_matches(
+        target_yaw,
+        status.get(
+            "orientation_target"
+        )
+    )
+
+
+def mission_execute_orientation_action(
+    map_name,
+    action,
+    cancel_event,
+    report
+):
+    if not isinstance(
+        map_name,
+        str
+    ) or not map_name:
+        raise RuntimeError(
+            "La misión no tiene mapa válido"
+        )
+
+    try:
+        target_yaw = float(
+            action.get(
+                "target_yaw"
+            )
+        )
+
+    except Exception:
+        raise RuntimeError(
+            "orientar() no contiene target_yaw válido"
+        )
+
+    if not math.isfinite(
+        target_yaw
+    ):
+        raise RuntimeError(
+            "orientar() contiene target_yaw no finito"
+        )
+
+    target_yaw = math.atan2(
+        math.sin(
+            target_yaw
+        ),
+        math.cos(
+            target_yaw
+        )
+    )
+
+    if cancel_event.is_set():
+        return
+
+    status, available, command_version = (
+        mission_nav_snapshot()
+    )
+
+    if not available:
+        raise RuntimeError(
+            "Cola de navegación no disponible"
+        )
+
+    request_id = (
+        "mission-orient-{}"
+        .format(
+            uuid.uuid4().hex
+        )
+    )
+
+    command = {
+        "command": "orient",
+        "map": map_name,
+        "request_id": request_id,
+        "target_yaw": target_yaw
+    }
+
+    if not publicar_nav_command(
+        command
+    ):
+        raise RuntimeError(
+            "No se pudo publicar orient"
+        )
+
+    report(
+        "orienting",
+        "Iniciando orientación"
+    )
+
+    deadline = (
+        time.monotonic()
+        +
+        MISSION_NAV_ORIENTATION_TIMEOUT
+    )
+
+    while (
+        time.monotonic()
+        <
+        deadline
+    ):
+        if cancel_event.is_set():
+            publicar_nav_command({
+                "command": "cancel"
+            })
+
+            return
+
+        status, available, version = (
+            mission_nav_snapshot()
+        )
+
+        if (
+            not available
+            or
+            version <= command_version
+        ):
+            time.sleep(
+                MISSION_NAV_POLL_INTERVAL
+            )
+
+            continue
+
+        if not mission_orientation_status_matches(
+            status,
+            map_name,
+            request_id,
+            target_yaw
+        ):
+            time.sleep(
+                MISSION_NAV_POLL_INTERVAL
+            )
+
+            continue
+
+        state = status.get(
+            "state"
+        )
+
+        message = status.get(
+            "message",
+            ""
+        )
+
+        if (
+            state == "completed"
+            and
+            not bool(
+                status.get(
+                    "running"
+                )
+            )
+        ):
+            return
+
+        if state == "error":
+            raise RuntimeError(
+                message
+                or
+                "Error durante orientación"
+            )
+
+        if state == "cancelled":
+            raise RuntimeError(
+                message
+                or
+                "Orientación cancelada"
+            )
+
+        report(
+            "orienting",
+            message
+            or
+            "Orientando"
+        )
+
+        time.sleep(
+            MISSION_NAV_POLL_INTERVAL
+        )
+
+    publicar_nav_command({
+        "command": "cancel"
+    })
+
+    raise RuntimeError(
+        "Timeout esperando orientación"
+    )
 
 
 def mission_execute_nav_action(
@@ -1407,17 +1632,40 @@ def mission_start():
         cancel_event,
         report
     ):
-        return mission_execute_nav_action(
-            mission_map,
-            action,
-            cancel_event,
-            report
+        action_name = action.get(
+            "name"
+        )
+
+        if action_name == "ir":
+            return mission_execute_nav_action(
+                mission_map,
+                action,
+                cancel_event,
+                report
+            )
+
+        if action_name == "orientar":
+            return mission_execute_orientation_action(
+                mission_map,
+                action,
+                cancel_event,
+                report
+            )
+
+        raise RuntimeError(
+            "Acción sin adapter: {}".format(
+                action_name
+            )
         )
 
 
     try:
         status = MISSION_RUNTIME.start(
-            action_executor
+            action_executor,
+            executor_actions={
+                "ir",
+                "orientar"
+            }
         )
 
     except MissionPlanError as exc:
