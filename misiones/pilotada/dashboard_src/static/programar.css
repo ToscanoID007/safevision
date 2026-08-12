@@ -672,3 +672,56 @@ button:hover {
     padding: 4px 7px;
     font-size: 10px;
 }
+
+
+/* =========================================================
+   SAFEVISION - CONTROLES DE PRUEBA / SIMULACION
+   ========================================================= */
+
+.prog-run-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: #0b1420;
+}
+
+.prog-run-actions-label {
+    margin-right: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.prog-run-actions-separator {
+    width: 1px;
+    height: 24px;
+    margin: 0 3px;
+    background: var(--border);
+}
+
+.prog-run-actions button {
+    padding: 6px 9px;
+    white-space: nowrap;
+}
+
+#progStopSimulationButton:not(:disabled) {
+    border-color: #ef4444;
+}
+
+@media (max-width: 760px) {
+
+    .prog-run-actions-label {
+        flex-basis: 100%;
+    }
+
+    .prog-run-actions-separator {
+        display: none;
+    }
+}

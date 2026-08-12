@@ -7,12 +7,24 @@
 
 const progSimulation = {
     running: false,
+    paused: false,
+    actionActive: false,
+
     token: 0,
+
     trace: [],
     index: 0,
+
+    stepBudget: 0,
+    gateWaiters: [],
+
+    history: [],
+
     pose: null,
     path: [],
+
     pointMap: new Map(),
+
     currentPointId: null,
     referenceYaw: null
 };
@@ -371,6 +383,18 @@ function updateProgSimulationButtons() {
     const simulate =
         $p("progSimulateButton");
 
+    const restart =
+        $p("progRestartSimulationButton");
+
+    const previous =
+        $p("progPreviousSimulationButton");
+
+    const pause =
+        $p("progPauseSimulationButton");
+
+    const step =
+        $p("progStepSimulationButton");
+
     const stop =
         $p("progStopSimulationButton");
 
@@ -378,14 +402,65 @@ function updateProgSimulationButtons() {
     if (simulate) {
 
         simulate.disabled =
-            progSimulation.running;
+            (
+                progSimulation.running
+                &&
+                !progSimulation.paused
+            );
 
         simulate.textContent =
-            progSimulation.running
+            (
+                progSimulation.running
+                &&
+                !progSimulation.paused
+            )
                 ?
                 "Simulando..."
                 :
                 "Simular";
+    }
+
+
+    if (restart) {
+
+        restart.disabled =
+            progSimulation.actionActive;
+    }
+
+
+    if (previous) {
+
+        previous.disabled =
+            progSimulation.actionActive;
+    }
+
+
+    if (pause) {
+
+        pause.disabled =
+            !progSimulation.running;
+
+        pause.textContent =
+            progSimulation.paused
+                ?
+                "Reanudar"
+                :
+                "Pausar";
+    }
+
+
+    if (step) {
+
+        step.disabled =
+            (
+                progSimulation.actionActive
+                ||
+                (
+                    progSimulation.running
+                    &&
+                    !progSimulation.paused
+                )
+            );
     }
 
 
@@ -395,6 +470,479 @@ function updateProgSimulationButtons() {
             !progSimulation.running;
     }
 }
+
+
+function wakeProgSimulationGate() {
+
+    const waiters =
+        progSimulation.gateWaiters.splice(
+            0,
+            progSimulation.gateWaiters.length
+        );
+
+
+    waiters.forEach(
+        resolve => {
+            resolve();
+        }
+    );
+}
+
+
+async function waitProgSimulationPermission(
+    token
+) {
+
+    while (
+        progSimulation.running
+        &&
+        progSimulation.token === token
+    ) {
+
+        if (!progSimulation.paused) {
+
+            return {
+                ok: true,
+                stepped: false
+            };
+        }
+
+
+        if (
+            progSimulation.stepBudget > 0
+        ) {
+
+            progSimulation.stepBudget -= 1;
+
+
+            updateProgSimulationButtons();
+
+
+            return {
+                ok: true,
+                stepped: true
+            };
+        }
+
+
+        await new Promise(
+            resolve => {
+
+                progSimulation.gateWaiters.push(
+                    resolve
+                );
+            }
+        );
+    }
+
+
+    return {
+        ok: false,
+        stepped: false
+    };
+}
+
+
+function toggleProgSimulationPause() {
+
+    if (!progSimulation.running) {
+        return;
+    }
+
+
+    if (progSimulation.paused) {
+
+        progSimulation.paused =
+            false;
+
+        progSimulation.stepBudget =
+            0;
+
+
+        wakeProgSimulationGate();
+
+        updateProgSimulationButtons();
+
+
+        progLog(
+            "▶ Simulación reanudada."
+        );
+
+        return;
+    }
+
+
+    progSimulation.paused =
+        true;
+
+    progSimulation.stepBudget =
+        0;
+
+
+    updateProgSimulationButtons();
+
+
+    progLog(
+        "⏸ Pausa solicitada · se aplicará al terminar la acción actual."
+    );
+}
+
+
+async function stepProgSimulation() {
+
+    if (progSimulation.actionActive) {
+
+        progLog(
+            "✗ Paso no disponible: hay una acción en ejecución."
+        );
+
+        return;
+    }
+
+
+    if (!progSimulation.running) {
+
+        await startProgSimulation(
+            true,
+            true,
+            "step"
+        );
+
+        return;
+    }
+
+
+    if (!progSimulation.paused) {
+
+        progLog(
+            "✗ Paso no disponible: pausa primero la simulación."
+        );
+
+        return;
+    }
+
+
+    progSimulation.stepBudget +=
+        1;
+
+
+    wakeProgSimulationGate();
+
+    updateProgSimulationButtons();
+}
+
+
+function progSimulationActionDescription(
+    action
+) {
+
+    if (!action) {
+        return "acción";
+    }
+
+
+    if (action.name === "ir") {
+
+        return (
+            "ir → "
+            +
+            (
+                action.target_id
+                ||
+                action.target
+                ||
+                "?"
+            )
+        );
+    }
+
+
+    if (action.name === "girar") {
+
+        return (
+            "girar "
+            +
+            action.angle
+            +
+            "°"
+        );
+    }
+
+
+    if (action.name === "orientar") {
+
+        return (
+            "orientar "
+            +
+            action.angle
+            +
+            "°"
+        );
+    }
+
+
+    if (action.name === "esperar") {
+
+        return (
+            "esperar "
+            +
+            action.seconds
+            +
+            " s"
+        );
+    }
+
+
+    if (action.name === "relocalizar") {
+
+        return "relocalizar";
+    }
+
+
+    return String(
+        action.name
+        ||
+        "acción"
+    );
+}
+
+
+function logProgSimulationAction(
+    action,
+    index,
+    stepped
+) {
+
+    const line =
+        Number(
+            action.line
+        );
+
+
+    progLog(
+        (
+            stepped
+                ?
+                "▶ Paso "
+                :
+                "▶ Acción "
+        )
+        +
+        (
+            index + 1
+        )
+        +
+        "/"
+        +
+        progSimulation.trace.length
+        +
+        (
+            Number.isFinite(line)
+            &&
+            line > 0
+                ?
+                " · línea "
+                +
+                line
+                :
+                ""
+        )
+        +
+        " · "
+        +
+        progSimulationActionDescription(
+            action
+        )
+    );
+}
+
+
+function captureProgSimulationState(
+    index
+) {
+
+    return {
+        index:
+            index,
+
+        pose:
+            progSimulation.pose
+                ?
+                {
+                    ...progSimulation.pose
+                }
+                :
+                null,
+
+        path:
+            progSimulation.path.map(
+                point => ({
+                    ...point
+                })
+            ),
+
+        currentPointId:
+            progSimulation.currentPointId,
+
+        referenceYaw:
+            progSimulation.referenceYaw
+    };
+}
+
+
+function restoreProgSimulationState(
+    snapshot
+) {
+
+    progSimulation.pose =
+        snapshot.pose
+            ?
+            {
+                ...snapshot.pose
+            }
+            :
+            null;
+
+
+    progSimulation.path =
+        snapshot.path.map(
+            point => ({
+                ...point
+            })
+        );
+
+
+    progSimulation.currentPointId =
+        snapshot.currentPointId;
+
+    progSimulation.referenceYaw =
+        snapshot.referenceYaw;
+
+    progSimulation.index =
+        snapshot.index;
+
+
+    renderProgSimulation();
+
+    updateProgSimulationButtons();
+}
+
+
+function previousProgSimulationStep() {
+
+    if (progSimulation.actionActive) {
+
+        progLog(
+            "✗ Paso anterior no disponible: hay una acción en ejecución."
+        );
+
+        return;
+    }
+
+
+    if (
+        !progSimulation.running
+        ||
+        !progSimulation.paused
+    ) {
+
+        if (
+            progSimulation.history.length === 0
+        ) {
+
+            progLog(
+                "✗ Paso anterior: ya estás en el inicio de la simulación."
+            );
+
+            return;
+        }
+
+
+        progLog(
+            "✗ Paso anterior: pausa primero la simulación."
+        );
+
+        return;
+    }
+
+
+    if (
+        progSimulation.history.length === 0
+    ) {
+
+        progLog(
+            "✗ Paso anterior: ya estás en el inicio de la simulación."
+        );
+
+        return;
+    }
+
+
+    progSimulation.stepBudget =
+        0;
+
+
+    const snapshot =
+        progSimulation.history.pop();
+
+
+    restoreProgSimulationState(
+        snapshot
+    );
+
+
+    progLog(
+        "◀ Paso anterior · acción "
+        +
+        (
+            snapshot.index + 1
+        )
+        +
+        "/"
+        +
+        progSimulation.trace.length
+        +
+        " deshecha."
+    );
+}
+
+
+async function restartProgSimulation() {
+
+    if (progSimulation.actionActive) {
+
+        progLog(
+            "✗ Reiniciar no disponible: espera a que termine la acción actual."
+        );
+
+        return;
+    }
+
+
+    stopProgSimulation(
+        true
+    );
+
+
+    await new Promise(
+        resolve => {
+
+            window.setTimeout(
+                resolve,
+                20
+            );
+        }
+    );
+
+
+    await startProgSimulation(
+        true,
+        false,
+        "restart"
+    );
+}
+
+
 
 
 function normalizeProgSimulationAngle(
@@ -845,6 +1393,18 @@ function stopProgSimulation(
     progSimulation.running =
         false;
 
+    progSimulation.paused =
+        false;
+
+    progSimulation.actionActive =
+        false;
+
+    progSimulation.stepBudget =
+        0;
+
+
+    wakeProgSimulationGate();
+
 
     updateProgSimulationButtons();
 
@@ -877,6 +1437,21 @@ function clearProgSimulation(
 
     progSimulation.index = 0;
 
+    progSimulation.paused =
+        false;
+
+    progSimulation.actionActive =
+        false;
+
+    progSimulation.stepBudget =
+        0;
+
+    progSimulation.gateWaiters =
+        [];
+
+    progSimulation.history =
+        [];
+
     progSimulation.pose = null;
 
     progSimulation.path = [];
@@ -892,6 +1467,8 @@ function clearProgSimulation(
 
 
     renderProgSimulation();
+
+    updateProgSimulationButtons();
 }
 
 
@@ -1158,7 +1735,54 @@ async function executeProgSimulationAction(
 }
 
 
-async function startProgSimulation() {
+function simulateProgSimulation() {
+
+    if (
+        progSimulation.running
+        &&
+        progSimulation.paused
+        &&
+        !progSimulation.actionActive
+    ) {
+
+        progSimulation.paused =
+            false;
+
+        progSimulation.stepBudget =
+            0;
+
+
+        wakeProgSimulationGate();
+
+        updateProgSimulationButtons();
+
+
+        progLog(
+            "▶ Simulación automática iniciada desde el paso actual."
+        );
+
+        return;
+    }
+
+
+    if (progSimulation.running) {
+        return;
+    }
+
+
+    startProgSimulation(
+        false,
+        false,
+        "simulate"
+    );
+}
+
+
+async function startProgSimulation(
+    startPaused = false,
+    initialStep = false,
+    startMode = "simulate"
+) {
 
     if (
         progSimulation.running
@@ -1418,6 +2042,27 @@ async function startProgSimulation() {
 
         progSimulation.running = true;
 
+        progSimulation.paused =
+            Boolean(
+                startPaused
+            );
+
+        progSimulation.actionActive =
+            false;
+
+        progSimulation.stepBudget =
+            initialStep
+                ?
+                1
+                :
+                0;
+
+        progSimulation.gateWaiters =
+            [];
+
+        progSimulation.history =
+            [];
+
         progSimulation.token += 1;
 
 
@@ -1430,19 +2075,42 @@ async function startProgSimulation() {
         renderProgSimulation();
 
 
-        progLog(
-            "Simulación local iniciada · "
-            +
+        if (startMode === "restart") {
+
+            progLog(
+                "↺ Simulación reiniciada · "
+                +
+                progSimulation.trace.length
+                +
+                " acciones · detenida en el inicio."
+            );
+
+        } else if (startMode === "step") {
+
+            progLog(
+                "Simulación preparada paso a paso · "
+                +
+                progSimulation.trace.length
+                +
+                " acciones."
+            );
+
+        } else {
+
+            progLog(
+                "Simulación automática iniciada · "
+                +
+                progSimulation.trace.length
+                +
+                " acciones. Sin comandos al robot."
+            );
+        }
+
+
+        while (
+            progSimulation.index
+            <
             progSimulation.trace.length
-            +
-            " acciones. Sin comandos al robot."
-        );
-
-
-        for (
-            let index = 0;
-            index < progSimulation.trace.length;
-            index += 1
         ) {
 
             if (
@@ -1454,22 +2122,74 @@ async function startProgSimulation() {
             }
 
 
-            progSimulation.index =
-                index;
-
-
-            const completed =
-                await executeProgSimulationAction(
-                    progSimulation.trace[
-                        index
-                    ],
+            const permission =
+                await waitProgSimulationPermission(
                     token
                 );
 
 
-            if (!completed) {
+            if (!permission.ok) {
                 return;
             }
+
+
+            const index =
+                progSimulation.index;
+
+            const action =
+                progSimulation.trace[
+                    index
+                ];
+
+
+            const snapshot =
+                captureProgSimulationState(
+                    index
+                );
+
+
+            logProgSimulationAction(
+                action,
+                index,
+                permission.stepped
+            );
+
+
+            progSimulation.actionActive =
+                true;
+
+            updateProgSimulationButtons();
+
+
+            const completed =
+                await executeProgSimulationAction(
+                    action,
+                    token
+                );
+
+
+            progSimulation.actionActive =
+                false;
+
+
+            if (!completed) {
+
+                updateProgSimulationButtons();
+
+                return;
+            }
+
+
+            progSimulation.history.push(
+                snapshot
+            );
+
+
+            progSimulation.index =
+                index + 1;
+
+
+            updateProgSimulationButtons();
         }
 
 
@@ -1480,6 +2200,18 @@ async function startProgSimulation() {
         ) {
 
             progSimulation.running = false;
+
+            progSimulation.paused =
+                false;
+
+            progSimulation.actionActive =
+                false;
+
+            progSimulation.stepBudget =
+                0;
+
+            wakeProgSimulationGate();
+
 
             progSimulation.index =
                 progSimulation.trace.length;
@@ -1608,6 +2340,18 @@ document.addEventListener(
         const simulate =
             $p("progSimulateButton");
 
+        const restart =
+            $p("progRestartSimulationButton");
+
+        const previous =
+            $p("progPreviousSimulationButton");
+
+        const pause =
+            $p("progPauseSimulationButton");
+
+        const step =
+            $p("progStepSimulationButton");
+
         const stop =
             $p("progStopSimulationButton");
 
@@ -1616,7 +2360,43 @@ document.addEventListener(
 
             simulate.addEventListener(
                 "click",
-                startProgSimulation
+                simulateProgSimulation
+            );
+        }
+
+
+        if (restart) {
+
+            restart.addEventListener(
+                "click",
+                restartProgSimulation
+            );
+        }
+
+
+        if (previous) {
+
+            previous.addEventListener(
+                "click",
+                previousProgSimulationStep
+            );
+        }
+
+
+        if (pause) {
+
+            pause.addEventListener(
+                "click",
+                toggleProgSimulationPause
+            );
+        }
+
+
+        if (step) {
+
+            step.addEventListener(
+                "click",
+                stepProgSimulation
             );
         }
 

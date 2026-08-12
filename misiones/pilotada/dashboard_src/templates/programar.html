@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='programar.css', v='programacion-v1j') }}"
+        href="{{ url_for('static', filename='programar.css', v='programacion-v1m') }}"
     >
 </head>
 
@@ -129,13 +129,73 @@ orientar(0)
             <button id="progExportButton" type="button">
                 Exportar
             </button>
+            <input
+                id="progImportFile"
+                type="file"
+                accept=".sfmision"
+                hidden
+            >
 
-            <button id="progValidateButton" type="button">
+        </div>
+
+
+
+        <div class="prog-run-actions">
+
+            <span class="prog-run-actions-label">
+                Prueba de programa
+            </span>
+
+            <button
+                id="progValidateButton"
+                type="button"
+            >
                 Validar
             </button>
 
-            <button id="progSimulateButton" type="button">
+            <span
+                class="prog-run-actions-separator"
+                aria-hidden="true"
+            ></span>
+
+            <button
+                id="progSimulateButton"
+                type="button"
+            >
                 Simular
+            </button>
+
+            <button
+                id="progRestartSimulationButton"
+                type="button"
+                title="Reiniciar la simulación desde el punto inicial"
+            >
+                Reiniciar
+            </button>
+
+            <button
+                id="progPreviousSimulationButton"
+                type="button"
+                title="Volver al estado anterior de la simulación"
+                disabled
+            >
+                ◀ Paso anterior
+            </button>
+
+            <button
+                id="progPauseSimulationButton"
+                type="button"
+                disabled
+            >
+                Pausar
+            </button>
+
+            <button
+                id="progStepSimulationButton"
+                type="button"
+                disabled
+            >
+                Paso ▶
             </button>
 
             <button
@@ -145,13 +205,6 @@ orientar(0)
             >
                 Detener
             </button>
-
-            <input
-                id="progImportFile"
-                type="file"
-                accept=".sfmision"
-                hidden
-            >
 
         </div>
 
@@ -440,11 +493,11 @@ orientar(0)
 
 
 <script
-    src="{{ url_for('static', filename='programar.js', v='programacion-v1j') }}"
+    src="{{ url_for('static', filename='programar.js', v='programacion-v1m') }}"
 ></script>
 
     <script
-        src="{{ url_for('static', filename='programar_sim.js', v='programacion-v1j') }}"
+        src="{{ url_for('static', filename='programar_sim.js', v='programacion-v1m') }}"
     ></script>
 
 </body>
