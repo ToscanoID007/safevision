@@ -1750,6 +1750,163 @@ def dashboard_initialpose():
 
 
 # =========================================================
+# SAFEVISION MISION AUTOMATICA - PROXY
+# =========================================================
+
+def mission_proxy_response(
+    respuesta
+):
+    try:
+        contenido = respuesta.json()
+
+    except Exception:
+        contenido = {
+            "ok": False,
+            "error": (
+                "Respuesta de misión inválida."
+            )
+        }
+
+    return jsonify(
+        contenido
+    ), respuesta.status_code
+
+
+@app.route(
+    "/mission/prepare",
+    methods=["POST"]
+)
+def dashboard_mission_prepare():
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    datos = request.get_json(
+        silent=True
+    )
+
+    if not isinstance(
+        datos,
+        dict
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "JSON inválido."
+        }), 400
+
+    try:
+        respuesta = requests.post(
+            "http://{}:8091/mission/prepare".format(
+                robot_ip
+            ),
+            json=datos,
+            timeout=4
+        )
+
+        return mission_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo preparar la misión: {}"
+                .format(exc)
+            )
+        }), 502
+
+
+@app.route(
+    "/mission/status"
+)
+def dashboard_mission_status():
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.get(
+            "http://{}:8091/mission/status".format(
+                robot_ip
+            ),
+            timeout=2
+        )
+
+        return mission_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo consultar la misión: {}"
+                .format(exc)
+            )
+        }), 502
+
+
+def dashboard_mission_simple(
+    comando
+):
+    if not robot_ip:
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    try:
+        respuesta = requests.post(
+            "http://{}:8091/mission/{}".format(
+                robot_ip,
+                comando
+            ),
+            timeout=3
+        )
+
+        return mission_proxy_response(
+            respuesta
+        )
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo ejecutar misión {}: {}"
+                .format(
+                    comando,
+                    exc
+                )
+            )
+        }), 502
+
+
+@app.route(
+    "/mission/start",
+    methods=["POST"]
+)
+def dashboard_mission_start():
+    return dashboard_mission_simple(
+        "start"
+    )
+
+
+@app.route(
+    "/mission/cancel",
+    methods=["POST"]
+)
+def dashboard_mission_cancel():
+    return dashboard_mission_simple(
+        "cancel"
+    )
+
+
+# =========================================================
 # SAFEVISION NIVEL 3C - NAV PROXY
 # =========================================================
 
