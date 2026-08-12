@@ -4827,6 +4827,70 @@ if (safeVisionMapButton) {
     }
 
 
+    function navYawMatches(
+        localYaw,
+        remoteYaw
+    ) {
+
+        const localAuto =
+            localYaw === null
+            ||
+            localYaw === undefined;
+
+        const remoteAuto =
+            remoteYaw === null
+            ||
+            remoteYaw === undefined;
+
+
+        if (
+            localAuto
+            ||
+            remoteAuto
+        ) {
+            return (
+                localAuto
+                &&
+                remoteAuto
+            );
+        }
+
+
+        const local =
+            Number(localYaw);
+
+        const remote =
+            Number(remoteYaw);
+
+
+        if (
+            !Number.isFinite(local)
+            ||
+            !Number.isFinite(remote)
+        ) {
+            return false;
+        }
+
+
+        const difference =
+            Math.atan2(
+                Math.sin(
+                    remote - local
+                ),
+                Math.cos(
+                    remote - local
+                )
+            );
+
+
+        return (
+            Math.abs(difference)
+            <
+            0.001
+        );
+    }
+
+
     function navStatusMatchesCurrentQueue(
         status
     ) {
@@ -4906,6 +4970,11 @@ if (safeVisionMapButton) {
                     )
                     <
                     0.000001
+                    &&
+                    navYawMatches(
+                        point.yaw,
+                        remote.yaw
+                    )
                 );
             }
         );
@@ -6763,6 +6832,10 @@ if (safeVisionMapButton) {
                 status.remaining_count
                 ===
                 expectedCount
+                &&
+                navStatusMatchesCurrentQueue(
+                    status
+                )
             ) {
                 return;
             }
