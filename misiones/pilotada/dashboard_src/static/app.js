@@ -199,6 +199,86 @@ async function connectRobot() {
 }
 
 
+async function restoreRobotSession() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/robot_status"
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        if (
+            !data.robot
+            ||
+            typeof data.robot
+            !==
+            "object"
+        ) {
+            return;
+        }
+
+
+        state.connected =
+            true;
+
+
+        if (
+            typeof data.robot.ip
+            ===
+            "string"
+            &&
+            data.robot.ip.trim()
+        ) {
+
+            $("robotIp").value =
+                data.robot.ip.trim();
+        }
+
+
+        $("connectionBadge")
+            .textContent =
+            "CONECTADO";
+
+
+        $("connectionBadge")
+            .className =
+            "badge badge-on";
+
+
+        renderRobot(
+            data.robot
+        );
+
+
+        startVideo();
+
+        await loadMaps();
+
+
+        log(
+            "Sesión del robot restaurada."
+        );
+
+
+    } catch (error) {
+
+        // No existe una sesión previa.
+        // El usuario puede conectar normalmente.
+    }
+}
+
+
 async function uploadModel(event) {
     event.preventDefault();
 
@@ -450,6 +530,9 @@ $("connectButton")
         "click",
         connectRobot
     );
+
+
+restoreRobotSession();
 
 
 $("modelForm")

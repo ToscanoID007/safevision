@@ -543,6 +543,17 @@ def index():
 
 
 # =========================================================
+# SAFEVISION MISION AUTOMATICA - PAGINA
+# =========================================================
+
+@app.route("/automatica")
+def automatica_mision():
+    return render_template(
+        "automatica.html"
+    )
+
+
+# =========================================================
 # SAFEVISION PROGRAMACION V1
 # =========================================================
 
@@ -1234,6 +1245,12 @@ def mission_files_page():
 def connect():
     global robot_ip
     global robot_estado
+
+
+    # Un intento explícito de conexión reemplaza
+    # cualquier sesión anterior.
+    robot_ip = None
+    robot_estado = {}
 
 
     data = request.get_json(
