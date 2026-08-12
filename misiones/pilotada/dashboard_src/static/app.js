@@ -6898,7 +6898,7 @@ if (safeVisionMapButton) {
                                         y:
                                             point.y,
                                         yaw:
-                                            null
+                                            point.yaw
                                     })
                                 )
                         })
