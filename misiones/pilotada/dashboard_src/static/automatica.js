@@ -418,6 +418,8 @@
 
 
         renderAutomaticMissionMarkers();
+
+        renderAutomaticExecution();
     }
 
 
@@ -1471,6 +1473,1365 @@
     }
 
 
+    // =====================================================
+    // CAPA DE EJECUCION REAL
+    // Misma representacion visual del simulador.
+    // =====================================================
+
+    const autoExecution = {
+
+        pose:
+            null,
+
+        timer:
+            null,
+
+        busy:
+            false,
+
+        token:
+            0,
+
+        /*
+         * Recorrido REAL de la misión.
+         *
+         * No se llena mientras el robot está simplemente
+         * localizado: solamente durante mission.running.
+         */
+        path:
+            [],
+
+        recording:
+            false,
+
+        /*
+         * Ignora ruido pequeño de AMCL y evita guardar
+         * cinco muestras iguales por segundo.
+         */
+        sampleDistanceM:
+            0.06,
+
+        /*
+         * Flechas direccionales aproximadamente
+         * cada 25 cm de recorrido.
+         */
+        arrowSpacingM:
+            0.25,
+
+        /*
+         * 5000 muestras x 6 cm ~= 300 m.
+         */
+        maxPathPoints:
+            5000
+    };
+
+
+    function ensureAutomaticExecutionCanvas() {
+
+        if (!mapScene) {
+            return null;
+        }
+
+
+        let canvas =
+            document.getElementById(
+                "autoExecutionCanvas"
+            );
+
+
+        if (!canvas) {
+
+            canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.id =
+                "autoExecutionCanvas";
+
+            canvas.style.position =
+                "absolute";
+
+            canvas.style.inset =
+                "0";
+
+            canvas.style.zIndex =
+                "28";
+
+            canvas.style.width =
+                "100%";
+
+            canvas.style.height =
+                "100%";
+
+            canvas.style.pointerEvents =
+                "none";
+
+            canvas.style.userSelect =
+                "none";
+
+
+            mapScene.appendChild(
+                canvas
+            );
+        }
+
+
+        return canvas;
+    }
+
+
+    // =====================================================
+    // TRAYECTORIA REAL
+    // =====================================================
+
+    function clearAutomaticExecutionPath() {
+
+        autoExecution.path =
+            [];
+
+
+        renderAutomaticExecution();
+    }
+
+
+    function appendAutomaticExecutionPose(
+        pose
+    ) {
+
+        if (
+            !autoExecution.recording
+            ||
+            !pose
+        ) {
+            return;
+        }
+
+
+        const x =
+            Number(
+                pose.x
+            );
+
+        const y =
+            Number(
+                pose.y
+            );
+
+        const u =
+            Number(
+                pose.u
+            );
+
+        const v =
+            Number(
+                pose.v
+            );
+
+
+        if (
+            !Number.isFinite(x)
+            ||
+            !Number.isFinite(y)
+            ||
+            !Number.isFinite(u)
+            ||
+            !Number.isFinite(v)
+        ) {
+            return;
+        }
+
+
+        const last =
+            autoExecution.path.length
+                ?
+                autoExecution.path[
+                    autoExecution.path.length
+                    -
+                    1
+                ]
+                :
+                null;
+
+
+        /*
+         * Solo guardar una nueva muestra si realmente
+         * avanzó aproximadamente 6 cm.
+         */
+        if (last) {
+
+            const distance =
+                Math.hypot(
+                    x
+                    -
+                    last.x,
+
+                    y
+                    -
+                    last.y
+                );
+
+
+            if (
+                distance
+                <
+                autoExecution.sampleDistanceM
+            ) {
+                return;
+            }
+        }
+
+
+        autoExecution.path.push({
+
+            x:
+                x,
+
+            y:
+                y,
+
+            u:
+                u,
+
+            v:
+                v
+        });
+
+
+        const overflow =
+            autoExecution.path.length
+            -
+            autoExecution.maxPathPoints;
+
+
+        if (overflow > 0) {
+
+            autoExecution.path.splice(
+                0,
+                overflow
+            );
+        }
+    }
+
+
+    function setAutomaticExecutionRunning(
+        running
+    ) {
+
+        const next =
+            Boolean(
+                running
+            );
+
+
+        if (
+            next
+            ===
+            autoExecution.recording
+        ) {
+            return;
+        }
+
+
+        if (next) {
+
+            /*
+             * Cada ejecución comienza con una trayectoria
+             * limpia. Una misión anterior no se mezcla.
+             */
+            autoExecution.path =
+                [];
+
+            autoExecution.recording =
+                true;
+
+
+            /*
+             * La pose actual será el primer punto.
+             */
+            if (autoExecution.pose) {
+
+                appendAutomaticExecutionPose(
+                    autoExecution.pose
+                );
+            }
+
+        } else {
+
+            /*
+             * Al finalizar/cancelar dejamos la trayectoria
+             * dibujada para poder revisarla.
+             */
+            autoExecution.recording =
+                false;
+        }
+
+
+        renderAutomaticExecution();
+    }
+
+
+    // =====================================================
+    // ROSMASTER X3 · HUELLA REAL
+    //
+    // Recurso reciclado directamente de Misión Pilotada.
+    // =====================================================
+
+    const ROSMASTER_X3_LENGTH_M =
+        0.24;
+
+    const ROSMASTER_X3_WIDTH_M =
+        0.20;
+
+
+    function hideAutomaticRobotMarker() {
+
+        const marker =
+            document.getElementById(
+                "robotMarker"
+            );
+
+
+        if (marker) {
+
+            marker.hidden =
+                true;
+        }
+    }
+
+
+    function renderAutomaticRobotMarker() {
+
+        const marker =
+            document.getElementById(
+                "robotMarker"
+            );
+
+        const pose =
+            autoExecution.pose;
+
+        const meta =
+            autoMapData.meta;
+
+
+        if (
+            !marker
+            ||
+            !pose
+            ||
+            !meta
+        ) {
+
+            hideAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
+
+        const u =
+            Number(
+                pose.u
+            );
+
+        const v =
+            Number(
+                pose.v
+            );
+
+        const yawRel =
+            Number(
+                pose.visualYaw
+            );
+
+
+        if (
+            !Number.isFinite(
+                resolution
+            )
+            ||
+            resolution <= 0
+            ||
+            !Number.isFinite(
+                width
+            )
+            ||
+            width <= 0
+            ||
+            !Number.isFinite(
+                height
+            )
+            ||
+            height <= 0
+            ||
+            !Number.isFinite(
+                u
+            )
+            ||
+            !Number.isFinite(
+                v
+            )
+            ||
+            !Number.isFinite(
+                yawRel
+            )
+        ) {
+
+            hideAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        if (
+            u < 0
+            ||
+            u > 1
+            ||
+            v < 0
+            ||
+            v > 1
+        ) {
+
+            hideAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        /*
+         * Igual que Pilotada:
+         * posición normalizada dentro del mapa.
+         */
+        const leftPct =
+            u
+            *
+            100;
+
+        const topPct =
+            v
+            *
+            100;
+
+
+        /*
+         * Dimensiones físicas completas del mapa.
+         */
+        const mapWidthMeters =
+            width
+            *
+            resolution;
+
+        const mapHeightMeters =
+            height
+            *
+            resolution;
+
+
+        /*
+         * Huella física ROSMASTER X3:
+         *
+         * longitud = 0.24 m
+         * ancho    = 0.20 m
+         */
+        const robotLengthPct =
+            (
+                ROSMASTER_X3_LENGTH_M
+                /
+                mapWidthMeters
+            )
+            *
+            100;
+
+        const robotWidthPct =
+            (
+                ROSMASTER_X3_WIDTH_M
+                /
+                mapHeightMeters
+            )
+            *
+            100;
+
+
+        marker.style.left =
+            `${leftPct}%`;
+
+        marker.style.top =
+            `${topPct}%`;
+
+        marker.style.width =
+            `${robotLengthPct}%`;
+
+        marker.style.height =
+            `${robotWidthPct}%`;
+
+
+        /*
+         * MISMA ORIENTACIÓN DE PILOTADA.
+         *
+         * Frente físico = +X.
+         * Y de imagen crece hacia abajo.
+         */
+        const yawDeg =
+            yawRel
+            *
+            180
+            /
+            Math.PI;
+
+
+        marker.style.transform =
+            (
+                "translate(-50%, -50%) "
+                +
+                `rotate(${-yawDeg}deg)`
+            );
+
+
+        const x =
+            Number(
+                pose.x
+            );
+
+        const y =
+            Number(
+                pose.y
+            );
+
+        const rawYaw =
+            Number(
+                pose.yaw
+            );
+
+
+        marker.title =
+            (
+                "Robot"
+                +
+                (
+                    Number.isFinite(x)
+                        ?
+                        ` | X ${x.toFixed(2)} m`
+                        :
+                        ""
+                )
+                +
+                (
+                    Number.isFinite(y)
+                        ?
+                        ` | Y ${y.toFixed(2)} m`
+                        :
+                        ""
+                )
+                +
+                (
+                    Number.isFinite(rawYaw)
+                        ?
+                        (
+                            " | "
+                            +
+                            (
+                                rawYaw
+                                *
+                                180
+                                /
+                                Math.PI
+                            ).toFixed(1)
+                            +
+                            "°"
+                        )
+                        :
+                        ""
+                )
+            );
+
+
+        marker.hidden =
+            false;
+    }
+
+
+    function renderAutomaticExecution() {
+
+        const canvas =
+            ensureAutomaticExecutionCanvas();
+
+        const layout =
+            getAutomaticImageLayout();
+
+
+        if (
+            !canvas
+            ||
+            !mapScene
+        ) {
+
+            renderAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        const width =
+            mapScene.clientWidth;
+
+        const height =
+            mapScene.clientHeight;
+
+
+        if (
+            width <= 0
+            ||
+            height <= 0
+        ) {
+
+            renderAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        /*
+         * Misma estrategia de compensación visual que
+         * usamos en las demás capas del mapa.
+         */
+        const zoomScale =
+            Math.max(
+                1,
+                Number(
+                    autoMapView.scale
+                    ||
+                    1
+                )
+            );
+
+        const deviceScale =
+            Math.max(
+                1,
+                window.devicePixelRatio
+                ||
+                1
+            );
+
+        const renderScale =
+            Math.min(
+                5,
+                zoomScale
+                *
+                deviceScale
+            );
+
+
+        const targetWidth =
+            Math.max(
+                1,
+                Math.round(
+                    width
+                    *
+                    renderScale
+                )
+            );
+
+        const targetHeight =
+            Math.max(
+                1,
+                Math.round(
+                    height
+                    *
+                    renderScale
+                )
+            );
+
+
+        if (
+            canvas.width
+            !==
+            targetWidth
+        ) {
+
+            canvas.width =
+                targetWidth;
+        }
+
+
+        if (
+            canvas.height
+            !==
+            targetHeight
+        ) {
+
+            canvas.height =
+                targetHeight;
+        }
+
+
+        const ctx =
+            canvas.getContext(
+                "2d"
+            );
+
+
+        if (!ctx) {
+
+            renderAutomaticRobotMarker();
+
+            return;
+        }
+
+
+        ctx.setTransform(
+            renderScale,
+            0,
+            0,
+            renderScale,
+            0,
+            0
+        );
+
+
+        ctx.clearRect(
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        const path =
+            autoExecution.path;
+
+
+        if (
+            layout
+            &&
+            path.length >= 2
+        ) {
+
+            const compensation =
+                1
+                /
+                Math.max(
+                    0.01,
+                    Number(
+                        autoMapView.scale
+                        ||
+                        1
+                    )
+                );
+
+
+            function toScreen(
+                point
+            ) {
+
+                return {
+
+                    x:
+                        layout.left
+                        +
+                        Number(
+                            point.u
+                        )
+                        *
+                        layout.width,
+
+                    y:
+                        layout.top
+                        +
+                        Number(
+                            point.v
+                        )
+                        *
+                        layout.height
+                };
+            }
+
+
+            // =============================================
+            // LÍNEA AZUL PUNTEADA
+            // Recurso visual reciclado de Simulación.
+            // =============================================
+
+            ctx.save();
+
+            ctx.beginPath();
+
+
+            const first =
+                toScreen(
+                    path[0]
+                );
+
+
+            ctx.moveTo(
+                first.x,
+                first.y
+            );
+
+
+            for (
+                let index = 1;
+                index < path.length;
+                index += 1
+            ) {
+
+                const current =
+                    toScreen(
+                        path[index]
+                    );
+
+
+                ctx.lineTo(
+                    current.x,
+                    current.y
+                );
+            }
+
+
+            ctx.strokeStyle =
+                "#60a5fa";
+
+            ctx.lineWidth =
+                2
+                *
+                compensation;
+
+            ctx.lineCap =
+                "round";
+
+            ctx.lineJoin =
+                "round";
+
+            ctx.setLineDash([
+                6
+                *
+                compensation,
+
+                4
+                *
+                compensation
+            ]);
+
+
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+
+            ctx.restore();
+
+
+            // =============================================
+            // FLECHAS DE SENTIDO
+            //
+            // No usamos cientos de DOM nodes.
+            // Son triángulos pequeños en el mismo canvas.
+            // =============================================
+
+            let traveled =
+                0;
+
+            let nextArrow =
+                autoExecution.arrowSpacingM;
+
+
+            for (
+                let index = 1;
+                index < path.length;
+                index += 1
+            ) {
+
+                const previousPose =
+                    path[
+                        index
+                        -
+                        1
+                    ];
+
+                const currentPose =
+                    path[index];
+
+
+                const segmentMeters =
+                    Math.hypot(
+                        currentPose.x
+                        -
+                        previousPose.x,
+
+                        currentPose.y
+                        -
+                        previousPose.y
+                    );
+
+
+                traveled +=
+                    segmentMeters;
+
+
+                if (
+                    traveled
+                    <
+                    nextArrow
+                ) {
+                    continue;
+                }
+
+
+                const previous =
+                    toScreen(
+                        previousPose
+                    );
+
+                const current =
+                    toScreen(
+                        currentPose
+                    );
+
+
+                const angle =
+                    Math.atan2(
+                        current.y
+                        -
+                        previous.y,
+
+                        current.x
+                        -
+                        previous.x
+                    );
+
+
+                const size =
+                    4.5
+                    *
+                    compensation;
+
+
+                ctx.save();
+
+                ctx.translate(
+                    current.x,
+                    current.y
+                );
+
+                ctx.rotate(
+                    angle
+                );
+
+
+                ctx.beginPath();
+
+                ctx.moveTo(
+                    size,
+                    0
+                );
+
+                ctx.lineTo(
+                    -size
+                    *
+                    0.8,
+                    -size
+                    *
+                    0.65
+                );
+
+                ctx.lineTo(
+                    -size
+                    *
+                    0.8,
+                    size
+                    *
+                    0.65
+                );
+
+                ctx.closePath();
+
+
+                ctx.fillStyle =
+                    "#60a5fa";
+
+                ctx.fill();
+
+
+                ctx.lineWidth =
+                    0.8
+                    *
+                    compensation;
+
+                ctx.strokeStyle =
+                    "#ffffff";
+
+                ctx.stroke();
+
+
+                ctx.restore();
+
+
+                nextArrow +=
+                    autoExecution.arrowSpacingM;
+            }
+        }
+
+
+        /*
+         * El footprint no pertenece al canvas.
+         * Sigue usando #robotMarker z=30.
+         */
+        renderAutomaticRobotMarker();
+    }
+
+
+    function stopAutomaticPoseTracking() {
+
+        autoExecution.token +=
+            1;
+
+
+        if (
+            autoExecution.timer
+            !==
+            null
+        ) {
+
+            clearInterval(
+                autoExecution.timer
+            );
+
+            autoExecution.timer =
+                null;
+        }
+
+
+        autoExecution.busy =
+            false;
+
+        autoExecution.pose =
+            null;
+
+
+        renderAutomaticExecution();
+    }
+
+
+    async function updateAutomaticRealPose(
+        token
+    ) {
+
+        if (
+            token
+            !==
+            autoExecution.token
+            ||
+            autoExecution.busy
+            ||
+            !autoMapData.meta
+        ) {
+            return;
+        }
+
+
+        autoExecution.busy =
+            true;
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/map_pose",
+                    {
+                        cache:
+                            "no-store"
+                    }
+                );
+
+
+            let pose = {};
+
+
+            try {
+
+                pose =
+                    await response.json();
+
+            } catch (error) {
+
+                pose = {};
+            }
+
+
+            /*
+             * Evita que una respuesta antigua de un
+             * mapa anterior vuelva a pintar el robot.
+             */
+            if (
+                token
+                !==
+                autoExecution.token
+            ) {
+                return;
+            }
+
+
+            if (
+                !response.ok
+                ||
+                !pose.ok
+                ||
+                !pose.localized
+            ) {
+
+                autoExecution.pose =
+                    null;
+
+                renderAutomaticExecution();
+
+                return;
+            }
+
+
+            const x =
+                Number(
+                    pose.x
+                );
+
+            const y =
+                Number(
+                    pose.y
+                );
+
+            const yaw =
+                Number(
+                    pose.yaw
+                );
+
+
+            if (
+                !Number.isFinite(x)
+                ||
+                !Number.isFinite(y)
+                ||
+                !Number.isFinite(yaw)
+            ) {
+
+                autoExecution.pose =
+                    null;
+
+                renderAutomaticExecution();
+
+                return;
+            }
+
+
+            /*
+             * Reutilizamos exactamente la conversion
+             * x/y -> u/v que ya usa Automatica para
+             * colocar los waypoints.
+             */
+            const uv =
+                automaticPointUV({
+                    x:
+                        x,
+
+                    y:
+                        y
+                });
+
+
+            if (
+                !uv
+                ||
+                !Number.isFinite(
+                    Number(
+                        uv.u
+                    )
+                )
+                ||
+                !Number.isFinite(
+                    Number(
+                        uv.v
+                    )
+                )
+            ) {
+
+                autoExecution.pose =
+                    null;
+
+                renderAutomaticExecution();
+
+                return;
+            }
+
+
+            const u =
+                Number(
+                    uv.u
+                );
+
+            const v =
+                Number(
+                    uv.v
+                );
+
+
+            /*
+             * Pose fuera de los limites del mapa:
+             * no dibujar marcador.
+             */
+            if (
+                u < 0
+                ||
+                u > 1
+                ||
+                v < 0
+                ||
+                v > 1
+            ) {
+
+                autoExecution.pose =
+                    null;
+
+                renderAutomaticExecution();
+
+                return;
+            }
+
+
+            const originYaw =
+                Number(
+                    (
+                        autoMapData.meta
+                        &&
+                        autoMapData.meta.origin
+                        &&
+                        autoMapData.meta.origin.yaw
+                    )
+                    ||
+                    0
+                );
+
+
+            autoExecution.pose = {
+
+                x:
+                    x,
+
+                y:
+                    y,
+
+                yaw:
+                    yaw,
+
+                u:
+                    u,
+
+                v:
+                    v,
+
+                /*
+                 * Igual que los yaw de los waypoints:
+                 * orientación relativa al mapa.
+                 *
+                 * NO hay offsets +pi, 90 o 180 grados.
+                 */
+                visualYaw:
+                    yaw
+                    -
+                    originYaw
+            };
+
+
+            appendAutomaticExecutionPose(
+                autoExecution.pose
+            );
+
+
+            renderAutomaticExecution();
+
+
+        } catch (error) {
+
+            if (
+                token
+                ===
+                autoExecution.token
+            ) {
+
+                autoExecution.pose =
+                    null;
+
+                renderAutomaticExecution();
+            }
+
+
+        } finally {
+
+            if (
+                token
+                ===
+                autoExecution.token
+            ) {
+
+                autoExecution.busy =
+                    false;
+            }
+        }
+    }
+
+
+    function startAutomaticPoseTracking() {
+
+        stopAutomaticPoseTracking();
+
+
+        /*
+         * stopAutomaticPoseTracking incrementa el token.
+         * Generamos uno nuevo para esta sesion.
+         */
+        autoExecution.token +=
+            1;
+
+
+        const token =
+            autoExecution.token;
+
+
+        updateAutomaticRealPose(
+            token
+        );
+
+
+        /*
+         * 5 Hz:
+         * suficientemente fluido para visualización y
+         * muy inferior al ritmo del sistema ROS.
+         */
+        autoExecution.timer =
+            setInterval(
+                () => {
+
+                    updateAutomaticRealPose(
+                        token
+                    );
+                },
+                200
+            );
+    }
+
+
     async function loadAutomaticMapMeta(
         name
     ) {
@@ -1506,6 +2867,9 @@
 
                 autoMapData.meta =
                     meta;
+
+
+                startAutomaticPoseTracking();
             }
 
         } catch (error) {
@@ -1526,6 +2890,15 @@
 
         autoMapData.meta =
             null;
+
+
+        stopAutomaticPoseTracking();
+
+
+        autoExecution.recording =
+            false;
+
+        clearAutomaticExecutionPath();
 
 
         if (mapScene) {
@@ -1646,9 +3019,15 @@
 
                 ensureAutomaticWaypointCanvas();
 
+
+                ensureAutomaticExecutionCanvas();
+
                 focusAutomaticMap();
 
                 renderAutomaticMissionMarkers();
+
+
+                renderAutomaticExecution();
             };
 
 
@@ -2062,6 +3441,24 @@
     }
 
 
+    const mapClearPathButton =
+        document.getElementById(
+            "mapClearPath"
+        );
+
+
+    if (mapClearPathButton) {
+
+        mapClearPathButton.addEventListener(
+            "click",
+            () => {
+
+                clearAutomaticExecutionPath();
+            }
+        );
+    }
+
+
     if (mapToggleLabels) {
 
         mapToggleLabels.addEventListener(
@@ -2383,6 +3780,12 @@
     );
 
 
+    window.addEventListener(
+        "resize",
+        renderAutomaticExecution
+    );
+
+
     async function initializeAutomaticPage() {
 
         missionSelect.innerHTML =
@@ -2656,6 +4059,11 @@
             Boolean(
                 status.running
             );
+
+
+        setAutomaticExecutionRunning(
+            autoMissionState.running
+        );
 
 
         const state =
