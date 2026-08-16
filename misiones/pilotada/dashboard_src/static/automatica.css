@@ -1,0 +1,295 @@
+/* =========================================================
+   SAFEVISION · MISION AUTOMATICA V2
+   ========================================================= */
+
+body {
+    overflow-x: hidden;
+}
+
+
+.auto-topbar {
+    gap: 16px;
+}
+
+
+.auto-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+.auto-robot-label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   TRES COLUMNAS
+   ========================================================= */
+
+.auto-dashboard-grid {
+    width: calc(100% - 24px);
+    max-width: 1900px;
+
+    min-height: calc(100vh - 88px);
+
+    margin: 12px auto;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(300px, 0.85fr)
+        minmax(460px, 1.35fr)
+        minmax(420px, 1.15fr);
+
+    gap: 12px;
+
+    align-items: stretch;
+}
+
+
+.auto-column-panel {
+    min-width: 0;
+    min-height: 0;
+
+    height: calc(100vh - 100px);
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+
+.auto-dashboard-grid .auto-mission-panel {
+    max-width: none;
+    margin: 0;
+}
+
+
+.auto-mission-column {
+    padding: 14px;
+
+    overflow-y: auto;
+}
+
+
+.auto-mission-code-grow {
+    flex: 1;
+
+    min-height: 170px;
+
+    max-height: none;
+
+    overflow: auto;
+}
+
+
+/* =========================================================
+   CAMARA
+   ========================================================= */
+
+.auto-camera-column .viewer-title,
+.auto-map-column .viewer-title {
+    flex: 0 0 auto;
+}
+
+
+.auto-camera-viewer {
+    flex: 1;
+
+    min-height: 0;
+}
+
+
+.auto-camera-viewer #videoFeed {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+}
+
+
+/* =========================================================
+   MAPA
+   ========================================================= */
+
+.auto-map-name {
+    padding: 5px 9px;
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    color: #bfdbfe;
+
+    font-size: 12px;
+}
+
+
+.auto-map-toolbar {
+    flex: 0 0 auto;
+
+    display: flex;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: 6px;
+
+    padding: 8px;
+}
+
+
+.auto-map-viewport {
+    flex: 1;
+
+    min-height: 0;
+
+    position: relative;
+}
+
+
+.auto-map-viewport .map-scene {
+    transform-origin: center center;
+}
+
+
+.auto-map-viewport #mapImage {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    pointer-events: none;
+
+    user-select: none;
+}
+
+
+/* =========================================================
+   ROTACION
+   ========================================================= */
+
+.auto-rotation-control {
+    flex: 1 1 190px;
+
+    min-width: 180px;
+
+    display: grid;
+
+    grid-template-columns:
+        auto
+        minmax(90px, 1fr)
+        42px;
+
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 0 5px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+.auto-rotation-control input {
+    width: 100%;
+
+    margin: 0;
+}
+
+
+.auto-rotation-control output {
+    text-align: right;
+
+    color: #dbeafe;
+
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* =========================================================
+   CANVAS DE RUTA
+   ========================================================= */
+
+#autoWaypointCanvas {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 25;
+
+    pointer-events: none;
+
+    user-select: none;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1280px) {
+
+    .auto-dashboard-grid {
+        grid-template-columns:
+            minmax(290px, 0.85fr)
+            minmax(400px, 1.15fr);
+
+        grid-template-areas:
+            "mission camera"
+            "map map";
+    }
+
+
+    .auto-mission-column {
+        grid-area: mission;
+    }
+
+
+    .auto-camera-column {
+        grid-area: camera;
+    }
+
+
+    .auto-map-column {
+        grid-area: map;
+    }
+
+
+    .auto-column-panel {
+        height: 650px;
+    }
+}
+
+
+@media (max-width: 820px) {
+
+    .auto-dashboard-grid {
+        display: flex;
+
+        flex-direction: column;
+    }
+
+
+    .auto-column-panel {
+        height: auto;
+
+        min-height: 600px;
+    }
+
+
+    .auto-top-actions {
+        flex-wrap: wrap;
+
+        justify-content: flex-end;
+    }
+}

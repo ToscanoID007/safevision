@@ -15,12 +15,17 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css', v='automatica-v1') }}"
     >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='automatica.css', v='automatica-v2') }}"
+    >
 </head>
 
 
 <body>
 
-<header class="topbar">
+<header class="topbar auto-topbar">
 
     <div>
         <h1>SafeVision</h1>
@@ -30,50 +35,43 @@
         </span>
     </div>
 
-    <a
-        class="dashboard-tab dashboard-tab-link"
-        href="/"
-    >
-        ← Menú
-    </a>
+
+    <div class="auto-top-actions">
+
+        <span class="auto-robot-label">
+            Robot
+        </span>
+
+        <span
+            id="autoConnectionBadge"
+            class="badge badge-off"
+        >
+            DESCONECTADO
+        </span>
+
+        <a
+            class="dashboard-tab dashboard-tab-link"
+            href="/"
+        >
+            ← Menú
+        </a>
+
+    </div>
 
 </header>
 
 
-<section class="auto-layout">
-
-    <section class="panel auto-mission-panel">
-
-        <div class="auto-mission-header">
-
-            <div>
-                <h2>Robot</h2>
-
-                <span>
-                    La conexión se administra desde Misión Pilotada.
-                </span>
-            </div>
-
-            <span
-                id="autoConnectionBadge"
-                class="badge badge-off"
-            >
-                DESCONECTADO
-            </span>
-
-        </div>
-
-    </section>
-
-</section>
+<main class="auto-dashboard-grid">
 
 
-<section
-    id="autoModeView"
-    class="workspace auto-layout"
->
+    <!-- ================================================= -->
+    <!-- IZQUIERDA · MISION                                -->
+    <!-- ================================================= -->
 
-    <section class="panel auto-mission-panel">
+    <section
+        id="autoModeView"
+        class="panel auto-mission-panel auto-column-panel auto-mission-column"
+    >
 
         <div class="auto-mission-header">
 
@@ -100,9 +98,11 @@
         </label>
 
         <select id="autoMissionSelect">
+
             <option value="">
                 Cargando misiones...
             </option>
+
         </select>
 
 
@@ -147,7 +147,7 @@
 
         <pre
             id="autoMissionCode"
-            class="auto-mission-code"
+            class="auto-mission-code auto-mission-code-grow"
         >Selecciona una misión.</pre>
 
 
@@ -182,12 +182,193 @@
 
     </section>
 
-</section>
 
+    <!-- ================================================= -->
+    <!-- CENTRO · CAMARA                                   -->
+    <!-- ================================================= -->
+
+    <section
+        class="panel viewer-panel auto-column-panel auto-camera-column"
+    >
+
+        <div class="viewer-title">
+
+            <div>
+                <h2>Cámara + IA</h2>
+
+                <span>
+                    Procesamiento en PC
+                </span>
+            </div>
+
+        </div>
+
+
+        <div class="viewer auto-camera-viewer">
+
+            <div
+                id="videoPlaceholder"
+                class="placeholder"
+            >
+                Conecta el robot para mostrar video.
+            </div>
+
+            <img
+                id="videoFeed"
+                alt="SafeVision Video"
+                hidden
+            >
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- DERECHA · MAPA                                    -->
+    <!-- ================================================= -->
+
+    <section
+        class="panel viewer-panel auto-column-panel auto-map-column"
+    >
+
+        <div class="viewer-title">
+
+            <div>
+                <h2>Mapa</h2>
+
+                <span>
+                    Ruta de la misión
+                </span>
+            </div>
+
+            <strong
+                id="autoMapName"
+                class="auto-map-name"
+            >
+                Sin mapa
+            </strong>
+
+        </div>
+
+
+        <div class="map-toolbar auto-map-toolbar">
+
+            <button
+                id="mapZoomOut"
+                type="button"
+                title="Alejar"
+            >
+                −
+            </button>
+
+            <button
+                id="mapZoomIn"
+                type="button"
+                title="Acercar"
+            >
+                +
+            </button>
+
+
+            <div class="auto-rotation-control">
+
+                <span>
+                    Rotar
+                </span>
+
+                <input
+                    id="mapRotationSlider"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value="0"
+                >
+
+                <output id="mapRotationValue">
+                    0°
+                </output>
+
+            </div>
+
+
+            <button
+                id="mapAreaZoom"
+                type="button"
+            >
+                Zoom área
+            </button>
+
+            <button
+                id="mapLock"
+                type="button"
+            >
+                Bloquear
+            </button>
+
+            <button
+                id="mapToggleLabels"
+                type="button"
+            >
+                Ocultar etiquetas
+            </button>
+
+            <button
+                id="mapReset"
+                type="button"
+            >
+                Ajustar
+            </button>
+
+        </div>
+
+
+        <div
+            id="mapViewport"
+            class="viewer map auto-map-viewport"
+        >
+
+            <div
+                id="mapPlaceholder"
+                class="placeholder"
+            >
+                Selecciona una misión para mostrar su mapa.
+            </div>
+
+
+            <div
+                id="mapScene"
+                class="map-scene"
+                hidden
+            >
+
+                <img
+                    id="mapImage"
+                    alt="Mapa SafeVision"
+                    draggable="false"
+                >
+
+                <div
+                    id="robotMarker"
+                    class="robot-marker"
+                    hidden
+                >
+                    ▲
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+</main>
 
 
 <script
-    src="{{ url_for('static', filename='automatica.js', v='automatica-v1') }}"
+    src="{{ url_for('static', filename='automatica.js', v='automatica-v2') }}"
 ></script>
 
 </body>
