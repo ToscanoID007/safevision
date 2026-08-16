@@ -4061,15 +4061,27 @@
             );
 
 
-        setAutomaticExecutionRunning(
-            autoMissionState.running
-        );
-
-
         const state =
             status.state
             ||
             "";
+
+
+        /*
+         * running=true también incluye el traslado previo
+         * hasta la estrella.
+         *
+         * Ese traslado NO pertenece al código programado.
+         */
+        setAutomaticExecutionRunning(
+            (
+                autoMissionState.running
+                &&
+                state
+                !==
+                "positioning_initial"
+            )
+        );
 
 
         const message =

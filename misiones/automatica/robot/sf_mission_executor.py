@@ -625,6 +625,17 @@ class MissionRuntime:
                 }
             }
 
+
+            #
+            # El punto inicial es una fase previa,
+            # pero físicamente utiliza el mismo ir().
+            #/
+            if self.plan["initial_point_id"]:
+                external_actions.add(
+                    "ir"
+                )
+
+
             if external_actions:
                 if not callable(
                     action_executor
@@ -665,15 +676,36 @@ class MissionRuntime:
 
             self.cancel_event.clear()
 
+            initial_point_id = (
+                self.plan[
+                    "initial_point_id"
+                ]
+            )
+
+
             self.running = True
-            self.state = "running"
 
             self.action_index = 0
             self.current_action = None
 
-            self.message = (
-                "Misión iniciada"
-            )
+
+            if initial_point_id:
+                self.state = (
+                    "positioning_initial"
+                )
+
+                self.message = (
+                    "Posicionando en punto inicial {}".format(
+                        initial_point_id
+                    )
+                )
+
+            else:
+                self.state = "running"
+
+                self.message = (
+                    "Misión iniciada"
+                )
 
 
             worker = threading.Thread(
@@ -700,6 +732,136 @@ class MissionRuntime:
                 self.plan["actions"]
             )
 
+
+            initial_point_id = (
+                self.plan[
+                    "initial_point_id"
+                ]
+            )
+
+
+            # =================================================
+            # FASE PREVIA OBLIGATORIA
+            # =================================================
+
+            if initial_point_id:
+
+                initial_point = (
+                    self.plan[
+                        "points"
+                    ].get(
+                        initial_point_id
+                    )
+                )
+
+
+                if initial_point is None:
+                    raise MissionPlanError(
+                        (
+                            "El punto inicial {} "
+                            "no existe"
+                        ).format(
+                            initial_point_id
+                        )
+                    )
+
+
+                initial_action = {
+                    "index": -1,
+                    "name": "ir",
+                    "line": 0,
+                    "target_id":
+                        initial_point_id,
+                    "point": dict(
+                        initial_point
+                    ),
+                    "phase": "initial"
+                }
+
+
+                with self.lock:
+                    self.action_index = 0
+                    self.current_action = None
+
+                    self.state = (
+                        "positioning_initial"
+                    )
+
+                    self.message = (
+                        "Posicionando en punto inicial {}".format(
+                            initial_point_id
+                        )
+                    )
+
+
+                def report_initial(
+                    _state,
+                    message
+                ):
+                    with self.lock:
+                        if (
+                            self.cancel_event.is_set()
+                        ):
+                            return
+
+                        #
+                        # Durante toda esta navegación
+                        # conservamos un estado distinto
+                        # de las acciones del programa.
+                        #/
+                        self.state = (
+                            "positioning_initial"
+                        )
+
+                        self.message = (
+                            "Punto inicial {}: {}".format(
+                                initial_point_id,
+                                str(
+                                    message
+                                )
+                            )
+                        )
+
+
+                action_executor(
+                    dict(
+                        initial_action
+                    ),
+                    self.cancel_event,
+                    report_initial
+                )
+
+
+                if self.cancel_event.is_set():
+
+                    with self.lock:
+                        self.state = (
+                            "cancelled"
+                        )
+
+                        self.message = (
+                            "Misión cancelada"
+                        )
+
+                    return
+
+
+                with self.lock:
+                    self.state = "running"
+
+                    self.message = (
+                        (
+                            "Punto inicial {} alcanzado. "
+                            "Ejecutando misión"
+                        ).format(
+                            initial_point_id
+                        )
+                    )
+
+
+            # =================================================
+            # CÓDIGO DE LA MISIÓN
+            # =================================================
 
             for index, action in enumerate(
                 actions
