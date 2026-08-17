@@ -35,6 +35,11 @@ RESTORE_LAUNCH = (
 MAPS_DIR = None
 CANCEL_NAVIGATION = None
 
+NORMALIZE_MAP_NAME = None
+MAP_NAME_OCCUPIED = None
+MAP_COMPLETE = None
+MAP_PATHS = None
+
 GMAPPING_PROCESS = None
 RESTORE_PROCESS = None
 
@@ -50,10 +55,18 @@ STATE = {
 
 def configure(
     maps_dir,
-    cancel_navigation
+    cancel_navigation,
+    normalize_map_name,
+    map_name_occupied,
+    map_complete,
+    map_paths
 ):
     global MAPS_DIR
     global CANCEL_NAVIGATION
+    global NORMALIZE_MAP_NAME
+    global MAP_NAME_OCCUPIED
+    global MAP_COMPLETE
+    global MAP_PATHS
 
     MAPS_DIR = Path(
         maps_dir
@@ -61,6 +74,22 @@ def configure(
 
     CANCEL_NAVIGATION = (
         cancel_navigation
+    )
+
+    NORMALIZE_MAP_NAME = (
+        normalize_map_name
+    )
+
+    MAP_NAME_OCCUPIED = (
+        map_name_occupied
+    )
+
+    MAP_COMPLETE = (
+        map_complete
+    )
+
+    MAP_PATHS = (
+        map_paths
     )
 
 
@@ -427,6 +456,14 @@ def status():
         MAPS_DIR is not None
         and
         CANCEL_NAVIGATION is not None
+        and
+        NORMALIZE_MAP_NAME is not None
+        and
+        MAP_NAME_OCCUPIED is not None
+        and
+        MAP_COMPLETE is not None
+        and
+        MAP_PATHS is not None
     )
 
     result["slam_gmapping"] = (
@@ -750,17 +787,23 @@ def start(name):
         if (
             MAPS_DIR is None
             or CANCEL_NAVIGATION is None
+            or NORMALIZE_MAP_NAME is None
+            or MAP_NAME_OCCUPIED is None
+            or MAP_COMPLETE is None
+            or MAP_PATHS is None
         ):
             raise RuntimeError(
                 "Gestor de mapeo no configurado"
             )
 
-        if not _name_valid(name):
+        name = NORMALIZE_MAP_NAME(
+            name
+        )
+
+        if name is None:
             raise RuntimeError(
                 "Nombre de mapa inválido"
             )
-
-        name = name.strip()
 
         with LOCK:
             if STATE.get("mapping"):
@@ -768,12 +811,31 @@ def start(name):
                     "Ya existe una sesión activa"
                 )
 
-        yaml_path = MAPS_DIR / (name + ".yaml")
-        pgm_path = MAPS_DIR / (name + ".pgm")
+        occupied = MAP_NAME_OCCUPIED(
+            name
+        )
 
-        if yaml_path.exists() or pgm_path.exists():
+        if occupied is not None:
             raise RuntimeError(
-                "Ya existe un mapa con ese nombre"
+                "Ya existe un mapa con ese nombre: {}"
+                .format(
+                    occupied
+                )
+            )
+
+        yaml_path, pgm_path = (
+            MAP_PATHS(
+                name
+            )
+        )
+
+        if (
+            yaml_path.exists()
+            or
+            pgm_path.exists()
+        ):
+            raise RuntimeError(
+                "Ya existe un archivo para ese mapa"
             )
 
         if _node_exists("/slam_gmapping"):
