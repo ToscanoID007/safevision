@@ -1,0 +1,650 @@
+/* =========================================================
+   SAFEVISION - GESTION DE MAPAS
+   ========================================================= */
+
+.maps-page {
+    min-height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    background: #05090f;
+    color: #e5edf7;
+}
+
+.maps-topbar {
+    min-height: 64px;
+}
+
+.maps-layout {
+    height: calc(100vh - 64px);
+    padding: 12px;
+
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 0.72fr)
+        minmax(420px, 2.2fr)
+        minmax(230px, 0.82fr);
+
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+.maps-panel {
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    border: 1px solid #263345;
+    border-radius: 10px;
+
+    background: #0b121c;
+}
+
+.maps-panel-head {
+    min-height: 62px;
+    padding: 11px 13px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    border-bottom: 1px solid #263345;
+}
+
+.maps-panel-head h2 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.maps-panel-head span {
+    display: block;
+    margin-top: 3px;
+
+    color: #8190a5;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   IZQUIERDA
+   ========================================================= */
+
+.maps-search {
+    padding: 10px;
+    border-bottom: 1px solid #263345;
+}
+
+.maps-search input {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 10px 11px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    outline: none;
+
+    background: #070d15;
+    color: #e5edf7;
+}
+
+.maps-search input:focus {
+    border-color: #3b82f6;
+}
+
+.maps-list {
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+
+    padding: 8px;
+}
+
+.maps-list-message {
+    padding: 20px 10px;
+
+    text-align: center;
+    color: #748399;
+    font-size: 13px;
+}
+
+.maps-list-item {
+    width: 100%;
+
+    margin: 0 0 6px;
+    padding: 11px 12px;
+
+    border: 1px solid transparent;
+    border-radius: 7px;
+
+    background: #101a27;
+    color: #dce6f4;
+
+    text-align: left;
+    font-size: 13px;
+
+    cursor: pointer;
+}
+
+.maps-list-item:hover {
+    background: #152235;
+    border-color: #31435b;
+}
+
+.maps-list-item.active {
+    background: #142947;
+    border-color: #3b82f6;
+    color: #ffffff;
+}
+
+.maps-library-footer {
+    min-height: 52px;
+    padding: 8px 10px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    border-top: 1px solid #263345;
+
+    color: #8190a5;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   CENTRO / VISOR
+   ========================================================= */
+
+.maps-viewer-panel {
+    position: relative;
+}
+
+.maps-viewer-head {
+    flex-wrap: wrap;
+}
+
+.maps-view-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.maps-view-controls button {
+    min-width: 40px;
+}
+
+.maps-viewport {
+    position: relative;
+
+    flex: 1;
+    min-height: 0;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #0a111b 0,
+            #030609 72%
+        );
+
+    cursor: grab;
+}
+
+.maps-viewport.dragging {
+    cursor: grabbing;
+}
+
+.maps-placeholder {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 30px;
+
+    text-align: center;
+    color: #6f7e91;
+}
+
+.maps-scene {
+    position: absolute;
+    inset: 0;
+
+    transform-origin: center center;
+
+    user-select: none;
+}
+
+#mapsImage {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    pointer-events: none;
+    user-select: none;
+}
+
+.maps-viewer-status {
+    min-height: 38px;
+    padding: 9px 12px;
+
+    box-sizing: border-box;
+
+    border-top: 1px solid #263345;
+
+    color: #8796aa;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   DERECHA
+   ========================================================= */
+
+.maps-action-scroll {
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+
+    padding: 12px;
+}
+
+.maps-action-group {
+    margin-bottom: 20px;
+}
+
+.maps-action-group:last-child {
+    margin-bottom: 0;
+}
+
+.maps-action-group h3 {
+    margin: 0 0 8px;
+
+    color: #8898ad;
+
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.maps-action-group button,
+.maps-library-footer button,
+.maps-view-controls button {
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #111d2c;
+    color: #e5edf7;
+
+    cursor: pointer;
+}
+
+.maps-action-group button {
+    width: 100%;
+
+    margin-bottom: 7px;
+    padding: 10px 11px;
+
+    text-align: left;
+}
+
+.maps-library-footer button,
+.maps-view-controls button {
+    padding: 8px 10px;
+}
+
+.maps-action-group button:hover:not(:disabled),
+.maps-library-footer button:hover:not(:disabled),
+.maps-view-controls button:hover:not(:disabled) {
+    background: #192a40;
+    border-color: #3b82f6;
+}
+
+.maps-action-group button:disabled,
+.maps-view-controls button:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+}
+
+.maps-action-group .maps-danger {
+    border-color: #59313a;
+}
+
+.maps-action-group .maps-danger:hover:not(:disabled) {
+    background: #32141b;
+    border-color: #ef4444;
+}
+
+.maps-action-group .maps-special {
+    background: #12213a;
+}
+
+.maps-action-status {
+    min-height: 44px;
+    padding: 10px 12px;
+
+    box-sizing: border-box;
+
+    border-top: 1px solid #263345;
+
+    color: #8190a5;
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1050px) {
+
+    .maps-page {
+        overflow: auto;
+    }
+
+    .maps-layout {
+        height: auto;
+
+        grid-template-columns:
+            minmax(210px, 0.8fr)
+            minmax(420px, 2fr);
+    }
+
+    .maps-actions {
+        grid-column: 1 / -1;
+        min-height: 260px;
+    }
+
+    .maps-action-scroll {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+    }
+}
+
+@media (max-width: 720px) {
+
+    .maps-layout {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .maps-library {
+        min-height: 300px;
+    }
+
+    .maps-viewer-panel {
+        min-height: 520px;
+    }
+
+    .maps-actions {
+        min-height: 360px;
+    }
+
+    .maps-action-scroll {
+        display: block;
+    }
+}
+
+
+
+/* =========================================================
+   MODAL DE GESTION
+   ========================================================= */
+
+.maps-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(2px);
+}
+
+.maps-modal-backdrop[hidden] {
+    display: none;
+}
+
+.maps-modal {
+    width: min(460px, 100%);
+
+    overflow: hidden;
+
+    border: 1px solid #31435b;
+    border-radius: 11px;
+
+    background: #0b121c;
+
+    box-shadow:
+        0 22px 60px
+        rgba(0, 0, 0, 0.55);
+}
+
+.maps-modal-head {
+    padding: 15px 17px;
+
+    border-bottom: 1px solid #263345;
+}
+
+.maps-modal-head h2 {
+    margin: 0;
+
+    font-size: 18px;
+}
+
+.maps-modal-body {
+    padding: 17px;
+}
+
+.maps-modal-body p {
+    margin: 0 0 14px;
+
+    color: #a2b0c2;
+    line-height: 1.45;
+}
+
+.maps-modal-field label {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: #8f9db0;
+    font-size: 12px;
+}
+
+.maps-modal-field input {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    padding: 10px 11px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    outline: none;
+
+    background: #070d15;
+    color: #ffffff;
+}
+
+.maps-modal-field input:focus {
+    border-color: #3b82f6;
+}
+
+.maps-modal-error {
+    margin-top: 10px;
+    padding: 9px 10px;
+
+    border: 1px solid #63303a;
+    border-radius: 7px;
+
+    background: #2a1117;
+    color: #fca5a5;
+
+    font-size: 12px;
+}
+
+.maps-modal-actions {
+    padding: 12px 17px;
+
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    border-top: 1px solid #263345;
+}
+
+.maps-modal-actions button {
+    padding: 9px 14px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #111d2c;
+    color: #e5edf7;
+
+    cursor: pointer;
+}
+
+.maps-modal-actions button:hover {
+    background: #192a40;
+}
+
+.maps-modal-actions button.maps-modal-danger {
+    border-color: #7f1d1d;
+    background: #3a1519;
+    color: #fecaca;
+}
+
+.maps-modal-actions button.maps-modal-danger:hover {
+    border-color: #ef4444;
+    background: #52191f;
+}
+
+
+
+/* =========================================================
+   CONEXION
+   ========================================================= */
+
+.maps-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.maps-connection-badge {
+    padding: 6px 10px;
+
+    border: 1px solid;
+    border-radius: 999px;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.maps-connection-on {
+    border-color: #166534;
+    background: #0c2517;
+    color: #86efac;
+}
+
+.maps-connection-off {
+    border-color: #4b2930;
+    background: #231116;
+    color: #fca5a5;
+}
+
+
+
+/* =========================================================
+   VISOR COMPLETO - ROTACION + ZOOM AREA
+   ========================================================= */
+
+.maps-view-controls {
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.maps-rotation-control {
+    min-width: 205px;
+
+    padding: 4px 8px;
+
+    display: grid;
+    grid-template-columns:
+        auto
+        minmax(100px, 1fr)
+        38px;
+
+    align-items: center;
+    gap: 7px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #09121d;
+}
+
+.maps-rotation-control span {
+    color: #8fa0b5;
+    font-size: 11px;
+}
+
+.maps-rotation-control input {
+    width: 100%;
+}
+
+.maps-rotation-control output {
+    color: #dce6f4;
+    font-size: 11px;
+    text-align: right;
+}
+
+.maps-area-selection {
+    position: absolute;
+    z-index: 30;
+
+    border: 2px dashed #60a5fa;
+
+    background:
+        rgba(
+            59,
+            130,
+            246,
+            0.14
+        );
+
+    pointer-events: none;
+}
+
+#mapsAreaZoom.maps-active-tool {
+    border-color: #3b82f6;
+    background: #172b46;
+    color: #bfdbfe;
+}
+
+.maps-viewport.maps-area-mode {
+    cursor: crosshair;
+}

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision · Editor de mapa</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='editar_mapa.css') }}"
+    >
+</head>
+
+<body class="editor-page">
+
+<header class="topbar editor-topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+
+        <span>
+            Editor de mapa · {{ mapa_nombre }}
+        </span>
+    </div>
+
+    <div class="editor-top-actions">
+
+        <span
+            id="editorConnection"
+            class="editor-connection editor-off"
+        >
+            ● DESCONECTADO
+        </span>
+
+        <a
+            class="dashboard-tab dashboard-tab-link"
+            href="/mapas"
+        >
+            ← Gestión de mapas
+        </a>
+
+    </div>
+
+</header>
+
+
+<main class="editor-layout">
+
+    <section class="editor-toolbar">
+
+        <div class="editor-group">
+
+            <span class="editor-label">
+                Modo
+            </span>
+
+            <button
+                id="toolDraw"
+                class="active"
+                type="button"
+            >
+                Dibujar
+            </button>
+
+            <button
+                id="toolPan"
+                type="button"
+            >
+                Mover
+            </button>
+
+        </div>
+
+
+        <div class="editor-group">
+
+            <span class="editor-label">
+                Pincel
+            </span>
+
+            <button
+                id="colorFree"
+                class="active"
+                type="button"
+            >
+                Libre
+            </button>
+
+            <button
+                id="colorWall"
+                type="button"
+            >
+                Pared
+            </button>
+
+            <button
+                id="colorUnknown"
+                type="button"
+            >
+                Desconocido
+            </button>
+
+        </div>
+
+
+        <div class="editor-group">
+
+            <span class="editor-label">
+                Grosor
+            </span>
+
+            <input
+                id="brushSize"
+                type="range"
+                min="1"
+                max="40"
+                step="1"
+                value="5"
+            >
+
+            <output id="brushValue">
+                5
+            </output>
+
+        </div>
+
+
+        <div class="editor-group">
+
+            <button
+                id="undoButton"
+                type="button"
+                disabled
+            >
+                ↶ Deshacer
+            </button>
+
+        </div>
+
+
+        <div class="editor-group">
+
+            <span class="editor-label">
+                Vista
+            </span>
+
+            <button
+                id="zoomOut"
+                type="button"
+            >
+                −
+            </button>
+
+            <button
+                id="zoomIn"
+                type="button"
+            >
+                +
+            </button>
+
+            <button
+                id="resetView"
+                type="button"
+            >
+                Ajustar
+            </button>
+
+        </div>
+
+
+        <div class="editor-spacer"></div>
+
+
+        <div class="editor-group">
+
+            <button
+                id="cancelButton"
+                type="button"
+            >
+                Cancelar
+            </button>
+
+            <button
+                id="saveButton"
+                class="editor-save"
+                type="button"
+                disabled
+            >
+                Guardar mapa
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section
+        id="editorViewport"
+        class="editor-viewport"
+    >
+
+        <div
+            id="editorLoading"
+            class="editor-loading"
+        >
+            Cargando mapa...
+        </div>
+
+        <div
+            id="editorScene"
+            class="editor-scene"
+            hidden
+        >
+            <canvas id="editorCanvas"></canvas>
+        </div>
+
+    </section>
+
+
+    <footer class="editor-footer">
+
+        <span id="editorStatus">
+            Preparando editor...
+        </span>
+
+        <span id="editorDirty">
+            Sin cambios
+        </span>
+
+    </footer>
+
+</main>
+
+
+<script>
+window.SAFEVISION_EDITOR_MAP =
+    {{ mapa_nombre|tojson }};
+</script>
+
+<script
+    src="{{ url_for('static', filename='editar_mapa.js') }}"
+></script>
+
+</body>
+</html>

@@ -7,6 +7,8 @@ import json
 import math
 import io
 import os
+import shutil
+import zipfile
 import socket
 import subprocess
 import sys
@@ -1798,6 +1800,1500 @@ def nombre_mapa_seguro(nombre):
         or "\\" in nombre
         or ".." in nombre
     )
+
+
+# =========================================================
+# GESTION DE MAPAS
+# =========================================================
+
+def normalizar_nombre_mapa(nombre):
+
+    if not isinstance(
+        nombre,
+        str
+    ):
+        return None
+
+
+    nombre = nombre.strip()
+
+
+    if (
+        not nombre
+        or len(nombre) > 80
+        or not nombre_mapa_seguro(nombre)
+    ):
+        return None
+
+
+    if nombre.lower().endswith(
+        (
+            ".yaml",
+            ".pgm",
+            ".zip"
+        )
+    ):
+        return None
+
+
+    if any(
+        ord(char) < 32
+        for char in nombre
+    ):
+        return None
+
+
+    return nombre
+
+
+def rutas_mapa(nombre):
+
+    return (
+        MAPS_DIR / (
+            nombre + ".yaml"
+        ),
+        MAPS_DIR / (
+            nombre + ".pgm"
+        )
+    )
+
+
+def mapa_completo(nombre):
+
+    yaml_path, pgm_path = (
+        rutas_mapa(nombre)
+    )
+
+    return (
+        yaml_path.is_file()
+        and
+        pgm_path.is_file()
+    )
+
+
+def nombre_mapa_ocupado(
+    nombre,
+    excluir=None
+):
+
+    objetivo = nombre.casefold()
+
+    excluir_cf = (
+        excluir.casefold()
+        if isinstance(
+            excluir,
+            str
+        )
+        else None
+    )
+
+
+    if not MAPS_DIR.exists():
+        return None
+
+
+    vistos = set()
+
+
+    for pattern in (
+        "*.yaml",
+        "*.pgm"
+    ):
+
+        for path in MAPS_DIR.glob(
+            pattern
+        ):
+
+            stem = path.stem
+
+            key = stem.casefold()
+
+
+            if key in vistos:
+                continue
+
+
+            vistos.add(
+                key
+            )
+
+
+            if (
+                excluir_cf is not None
+                and key == excluir_cf
+            ):
+                continue
+
+
+            if key == objetivo:
+                return stem
+
+
+    return None
+
+
+def yaml_con_imagen(
+    contenido,
+    nuevo_nombre
+):
+
+    lineas = contenido.splitlines(
+        keepends=True
+    )
+
+
+    for index, linea in enumerate(
+        lineas
+    ):
+
+        stripped = linea.lstrip()
+
+
+        if not stripped.startswith(
+            "image:"
+        ):
+            continue
+
+
+        prefijo = linea[
+            :len(linea) - len(stripped)
+        ]
+
+
+        if linea.endswith(
+            "\r\n"
+        ):
+            final = "\r\n"
+
+        elif linea.endswith(
+            "\n"
+        ):
+            final = "\n"
+
+        else:
+            final = ""
+
+
+        lineas[index] = (
+            prefijo
+            +
+            "image: "
+            +
+            nuevo_nombre
+            +
+            ".pgm"
+            +
+            final
+        )
+
+
+        return "".join(
+            lineas
+        )
+
+
+    return None
+
+
+def error_mapa(
+    mensaje,
+    codigo
+):
+
+    return jsonify({
+        "ok": False,
+        "error": mensaje
+    }), codigo
+
+
+@app.route(
+    "/maps/rename",
+    methods=["POST"]
+)
+def map_rename():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    nombre = normalizar_nombre_mapa(
+        data.get("name")
+    )
+
+    nuevo = normalizar_nombre_mapa(
+        data.get("new_name")
+    )
+
+
+    if not nombre or not nuevo:
+
+        return error_mapa(
+            "Nombre de mapa invalido",
+            400
+        )
+
+
+    if not mapa_completo(
+        nombre
+    ):
+
+        return error_mapa(
+            "Mapa no encontrado",
+            404
+        )
+
+
+    if nombre == nuevo:
+
+        return error_mapa(
+            "El nuevo nombre es igual al actual",
+            409
+        )
+
+
+    ocupado = nombre_mapa_ocupado(
+        nuevo,
+        excluir=nombre
+    )
+
+
+    if ocupado is not None:
+
+        return error_mapa(
+            (
+                "Ya existe un mapa llamado "
+                "'{}'".format(
+                    ocupado
+                )
+            ),
+            409
+        )
+
+
+    old_yaml, old_pgm = (
+        rutas_mapa(nombre)
+    )
+
+    new_yaml, new_pgm = (
+        rutas_mapa(nuevo)
+    )
+
+
+    try:
+
+        contenido = (
+            old_yaml.read_text()
+        )
+
+
+        contenido_nuevo = (
+            yaml_con_imagen(
+                contenido,
+                nuevo
+            )
+        )
+
+
+        if contenido_nuevo is None:
+
+            return error_mapa(
+                "El YAML no contiene image:",
+                409
+            )
+
+
+        tmp_yaml = MAPS_DIR / (
+            ".maprename-{}-{}.yaml".format(
+                os.getpid(),
+                int(
+                    time.time()
+                    *
+                    1000
+                )
+            )
+        )
+
+        tmp_pgm = MAPS_DIR / (
+            ".maprename-{}-{}.pgm".format(
+                os.getpid(),
+                int(
+                    time.time()
+                    *
+                    1000
+                )
+            )
+        )
+
+
+        tmp_yaml.write_text(
+            contenido_nuevo
+        )
+
+        shutil.copy2(
+            str(old_pgm),
+            str(tmp_pgm)
+        )
+
+
+        tmp_yaml.replace(
+            new_yaml
+        )
+
+        tmp_pgm.replace(
+            new_pgm
+        )
+
+
+        old_yaml.unlink()
+        old_pgm.unlink()
+
+
+        return jsonify({
+            "ok": True,
+            "name": nuevo,
+            "message": (
+                "Mapa renombrado correctamente."
+            )
+        })
+
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo renombrar: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+@app.route(
+    "/maps/duplicate",
+    methods=["POST"]
+)
+def map_duplicate():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    nombre = normalizar_nombre_mapa(
+        data.get("name")
+    )
+
+    nuevo = normalizar_nombre_mapa(
+        data.get("new_name")
+    )
+
+
+    if not nombre or not nuevo:
+
+        return error_mapa(
+            "Nombre de mapa invalido",
+            400
+        )
+
+
+    if not mapa_completo(
+        nombre
+    ):
+
+        return error_mapa(
+            "Mapa no encontrado",
+            404
+        )
+
+
+    ocupado = nombre_mapa_ocupado(
+        nuevo
+    )
+
+
+    if ocupado is not None:
+
+        return error_mapa(
+            (
+                "Ya existe un mapa llamado "
+                "'{}'".format(
+                    ocupado
+                )
+            ),
+            409
+        )
+
+
+    old_yaml, old_pgm = (
+        rutas_mapa(nombre)
+    )
+
+    new_yaml, new_pgm = (
+        rutas_mapa(nuevo)
+    )
+
+
+    try:
+
+        contenido_nuevo = (
+            yaml_con_imagen(
+                old_yaml.read_text(),
+                nuevo
+            )
+        )
+
+
+        if contenido_nuevo is None:
+
+            return error_mapa(
+                "El YAML no contiene image:",
+                409
+            )
+
+
+        shutil.copy2(
+            str(old_pgm),
+            str(new_pgm)
+        )
+
+
+        try:
+
+            new_yaml.write_text(
+                contenido_nuevo
+            )
+
+        except Exception:
+
+            if new_pgm.exists():
+                new_pgm.unlink()
+
+            raise
+
+
+        return jsonify({
+            "ok": True,
+            "name": nuevo,
+            "source": nombre,
+            "message": (
+                "Mapa duplicado correctamente."
+            )
+        })
+
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo duplicar: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+@app.route(
+    "/maps/delete",
+    methods=["POST"]
+)
+def map_delete():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    nombre = normalizar_nombre_mapa(
+        data.get("name")
+    )
+
+
+    if not nombre:
+
+        return error_mapa(
+            "Nombre de mapa invalido",
+            400
+        )
+
+
+    if not mapa_completo(
+        nombre
+    ):
+
+        return error_mapa(
+            "Mapa no encontrado",
+            404
+        )
+
+
+    yaml_path, pgm_path = (
+        rutas_mapa(nombre)
+    )
+
+
+    trash_dir = (
+        MAPS_DIR
+        /
+        ".safevision_delete"
+    )
+
+
+    trash_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+    token = "{}-{}".format(
+        os.getpid(),
+        int(
+            time.time()
+            *
+            1000
+        )
+    )
+
+
+    trash_yaml = (
+        trash_dir
+        /
+        (
+            token
+            +
+            "-"
+            +
+            nombre
+            +
+            ".yaml"
+        )
+    )
+
+    trash_pgm = (
+        trash_dir
+        /
+        (
+            token
+            +
+            "-"
+            +
+            nombre
+            +
+            ".pgm"
+        )
+    )
+
+
+    try:
+
+        yaml_path.replace(
+            trash_yaml
+        )
+
+
+        try:
+
+            pgm_path.replace(
+                trash_pgm
+            )
+
+        except Exception:
+
+            trash_yaml.replace(
+                yaml_path
+            )
+
+            raise
+
+
+        try:
+            trash_yaml.unlink()
+        except Exception:
+            pass
+
+
+        try:
+            trash_pgm.unlink()
+        except Exception:
+            pass
+
+
+        return jsonify({
+            "ok": True,
+            "name": nombre,
+            "message": (
+                "Mapa eliminado correctamente."
+            )
+        })
+
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo eliminar: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+
+# =========================================================
+# TRANSFERENCIA DE MAPAS
+# =========================================================
+
+def nombre_descarga_mapa(
+    nombre
+):
+
+    limpio = "".join(
+        char
+        if (
+            char.isalnum()
+            or char in "._-"
+        )
+        else "_"
+        for char in nombre
+    )
+
+    return limpio or "mapa"
+
+
+@app.route(
+    "/maps/<nombre>/export",
+    methods=["GET"]
+)
+def map_export(
+    nombre
+):
+
+    nombre = normalizar_nombre_mapa(
+        nombre
+    )
+
+
+    if not nombre:
+
+        return error_mapa(
+            "Nombre de mapa invalido",
+            400
+        )
+
+
+    if not mapa_completo(
+        nombre
+    ):
+
+        return error_mapa(
+            "Mapa no encontrado",
+            404
+        )
+
+
+    yaml_path, pgm_path = (
+        rutas_mapa(nombre)
+    )
+
+
+    output = io.BytesIO()
+
+
+    try:
+
+        with zipfile.ZipFile(
+            output,
+            "w",
+            compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+
+            archive.write(
+                str(yaml_path),
+                arcname=(
+                    nombre
+                    +
+                    ".yaml"
+                )
+            )
+
+            archive.write(
+                str(pgm_path),
+                arcname=(
+                    nombre
+                    +
+                    ".pgm"
+                )
+            )
+
+
+        payload = output.getvalue()
+
+        safe_name = nombre_descarga_mapa(
+            nombre
+        )
+
+
+        return Response(
+            payload,
+            mimetype="application/zip",
+            headers={
+                "Content-Disposition":
+                    (
+                        'attachment; filename="'
+                        +
+                        safe_name
+                        +
+                        '.zip"'
+                    )
+            }
+        )
+
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo exportar: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+@app.route(
+    "/maps/import",
+    methods=["POST"]
+)
+def map_import():
+
+    uploaded = request.files.get(
+        "file"
+    )
+
+
+    if uploaded is None:
+
+        return error_mapa(
+            "Falta el archivo ZIP",
+            400
+        )
+
+
+    filename = (
+        uploaded.filename
+        or ""
+    )
+
+
+    if not filename.lower().endswith(
+        ".zip"
+    ):
+
+        return error_mapa(
+            "Solo se permiten archivos ZIP",
+            400
+        )
+
+
+    try:
+
+        payload = uploaded.read()
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo leer el archivo: {}".format(
+                exc
+            ),
+            400
+        )
+
+
+    if not payload:
+
+        return error_mapa(
+            "El archivo ZIP esta vacio",
+            400
+        )
+
+
+    if len(payload) > 20 * 1024 * 1024:
+
+        return error_mapa(
+            "El archivo ZIP supera 20 MB",
+            413
+        )
+
+
+    try:
+
+        archive = zipfile.ZipFile(
+            io.BytesIO(
+                payload
+            ),
+            "r"
+        )
+
+    except Exception:
+
+        return error_mapa(
+            "El archivo no es un ZIP valido",
+            400
+        )
+
+
+    try:
+
+        infos = [
+            item
+            for item in archive.infolist()
+            if not item.is_dir()
+        ]
+
+
+        if len(infos) != 2:
+
+            return error_mapa(
+                (
+                    "El ZIP debe contener exactamente "
+                    "un YAML y un PGM"
+                ),
+                400
+            )
+
+
+        for item in infos:
+
+            raw_name = item.filename
+
+
+            if (
+                "/"
+                in raw_name
+                or "\\"
+                in raw_name
+                or raw_name
+                in (
+                    ".",
+                    ".."
+                )
+            ):
+
+                return error_mapa(
+                    "El ZIP no debe contener carpetas",
+                    400
+                )
+
+
+            if item.file_size > 30 * 1024 * 1024:
+
+                return error_mapa(
+                    "Archivo interno demasiado grande",
+                    413
+                )
+
+
+        yaml_infos = [
+            item
+            for item in infos
+            if item.filename.lower().endswith(
+                ".yaml"
+            )
+        ]
+
+        pgm_infos = [
+            item
+            for item in infos
+            if item.filename.lower().endswith(
+                ".pgm"
+            )
+        ]
+
+
+        if (
+            len(yaml_infos) != 1
+            or len(pgm_infos) != 1
+        ):
+
+            return error_mapa(
+                (
+                    "El ZIP debe contener "
+                    "un .yaml y un .pgm"
+                ),
+                400
+            )
+
+
+        yaml_info = yaml_infos[0]
+        pgm_info = pgm_infos[0]
+
+
+        yaml_base = Path(
+            yaml_info.filename
+        ).stem
+
+        pgm_base = Path(
+            pgm_info.filename
+        ).stem
+
+
+        if (
+            yaml_base.casefold()
+            !=
+            pgm_base.casefold()
+        ):
+
+            return error_mapa(
+                (
+                    "El YAML y PGM deben tener "
+                    "el mismo nombre base"
+                ),
+                400
+            )
+
+
+        requested_name = (
+            request.form.get(
+                "name"
+            )
+            or yaml_base
+        )
+
+
+        nombre = normalizar_nombre_mapa(
+            requested_name
+        )
+
+
+        if not nombre:
+
+            return error_mapa(
+                "Nombre de mapa invalido",
+                400
+            )
+
+
+        ocupado = nombre_mapa_ocupado(
+            nombre
+        )
+
+
+        if ocupado is not None:
+
+            return error_mapa(
+                (
+                    "Ya existe un mapa llamado "
+                    "'{}'".format(
+                        ocupado
+                    )
+                ),
+                409
+            )
+
+
+        try:
+
+            yaml_original = (
+                archive.read(
+                    yaml_info
+                )
+                .decode(
+                    "utf-8"
+                )
+            )
+
+        except Exception:
+
+            return error_mapa(
+                "No se pudo leer el YAML",
+                400
+            )
+
+
+        pgm_data = archive.read(
+            pgm_info
+        )
+
+
+        if not (
+            pgm_data.startswith(
+                b"P5"
+            )
+            or pgm_data.startswith(
+                b"P2"
+            )
+        ):
+
+            return error_mapa(
+                "El archivo PGM no es valido",
+                400
+            )
+
+
+        yaml_final = yaml_con_imagen(
+            yaml_original,
+            nombre
+        )
+
+
+        if yaml_final is None:
+
+            return error_mapa(
+                "El YAML no contiene image:",
+                400
+            )
+
+
+        MAPS_DIR.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+
+        yaml_path, pgm_path = (
+            rutas_mapa(
+                nombre
+            )
+        )
+
+
+        token = "{}-{}".format(
+            os.getpid(),
+            int(
+                time.time()
+                *
+                1000
+            )
+        )
+
+
+        tmp_yaml = (
+            MAPS_DIR
+            /
+            (
+                ".import-"
+                +
+                token
+                +
+                ".yaml"
+            )
+        )
+
+        tmp_pgm = (
+            MAPS_DIR
+            /
+            (
+                ".import-"
+                +
+                token
+                +
+                ".pgm"
+            )
+        )
+
+
+        try:
+
+            tmp_yaml.write_text(
+                yaml_final
+            )
+
+            tmp_pgm.write_bytes(
+                pgm_data
+            )
+
+
+            tmp_yaml.replace(
+                yaml_path
+            )
+
+            tmp_pgm.replace(
+                pgm_path
+            )
+
+
+        except Exception:
+
+            for path in (
+                tmp_yaml,
+                tmp_pgm
+            ):
+
+                try:
+
+                    if path.exists():
+                        path.unlink()
+
+                except Exception:
+                    pass
+
+
+            for path in (
+                yaml_path,
+                pgm_path
+            ):
+
+                try:
+
+                    if path.exists():
+                        path.unlink()
+
+                except Exception:
+                    pass
+
+
+            raise
+
+
+        return jsonify({
+            "ok": True,
+            "name": nombre,
+            "message": (
+                "Mapa importado correctamente."
+            )
+        })
+
+
+    except Exception as exc:
+
+        return error_mapa(
+            "No se pudo importar: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+    finally:
+
+        try:
+            archive.close()
+        except Exception:
+            pass
+
+
+
+# =========================================================
+# EDITOR WEB DE MAPAS
+# =========================================================
+
+def validar_pgm_editor(
+    payload
+):
+
+    if not isinstance(
+        payload,
+        bytes
+    ):
+        return None, "Contenido invalido"
+
+
+    if len(payload) > 40 * 1024 * 1024:
+        return None, "PGM demasiado grande"
+
+
+    try:
+
+        partes = payload.split(
+            b"\n",
+            3
+        )
+
+
+        if len(partes) != 4:
+
+            return None, "Cabecera PGM invalida"
+
+
+        magic = partes[0].strip()
+
+        if magic != b"P5":
+
+            return None, (
+                "Solo se acepta PGM binario P5"
+            )
+
+
+        dimensiones = (
+            partes[1]
+            .strip()
+            .split()
+        )
+
+
+        if len(dimensiones) != 2:
+
+            return None, "Dimensiones PGM invalidas"
+
+
+        width = int(
+            dimensiones[0]
+        )
+
+        height = int(
+            dimensiones[1]
+        )
+
+
+        max_value = int(
+            partes[2].strip()
+        )
+
+
+        if (
+            width <= 0
+            or height <= 0
+            or width > 10000
+            or height > 10000
+        ):
+
+            return None, "Dimensiones fuera de rango"
+
+
+        if max_value != 255:
+
+            return None, "PGM debe utilizar maximo 255"
+
+
+        pixels = partes[3]
+
+
+        if len(pixels) != width * height:
+
+            return None, (
+                "Cantidad de pixeles invalida"
+            )
+
+
+        return (
+            {
+                "width": width,
+                "height": height,
+                "pixels": pixels
+            },
+            None
+        )
+
+
+    except Exception as exc:
+
+        return None, (
+            "PGM invalido: {}"
+            .format(
+                exc
+            )
+        )
+
+
+@app.route(
+    "/maps/<nombre>/edit",
+    methods=["POST"]
+)
+def map_edit(
+    nombre
+):
+
+    nombre = normalizar_nombre_mapa(
+        nombre
+    )
+
+
+    if not nombre:
+
+        return error_mapa(
+            "Nombre de mapa invalido",
+            400
+        )
+
+
+    if not mapa_completo(
+        nombre
+    ):
+
+        return error_mapa(
+            "Mapa no encontrado",
+            404
+        )
+
+
+    payload = request.get_data(
+        cache=False
+    )
+
+
+    parsed, error_text = (
+        validar_pgm_editor(
+            payload
+        )
+    )
+
+
+    if parsed is None:
+
+        return error_mapa(
+            error_text,
+            400
+        )
+
+
+    yaml_path, pgm_path = (
+        rutas_mapa(
+            nombre
+        )
+    )
+
+
+    original = cv2.imread(
+        str(pgm_path),
+        cv2.IMREAD_GRAYSCALE
+    )
+
+
+    if original is None:
+
+        return error_mapa(
+            "No se pudo leer el PGM original",
+            500
+        )
+
+
+    original_height, original_width = (
+        original.shape[:2]
+    )
+
+
+    if (
+        parsed["width"]
+        != original_width
+        or parsed["height"]
+        != original_height
+    ):
+
+        return error_mapa(
+            (
+                "El editor no puede cambiar "
+                "las dimensiones del mapa"
+            ),
+            409
+        )
+
+
+    backup_dir = (
+        MAPS_DIR
+        /
+        ".safevision_edit_backup"
+    )
+
+
+    backup_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+    backup_path = (
+        backup_dir
+        /
+        (
+            nombre
+            +
+            ".pgm"
+        )
+    )
+
+
+    token = "{}-{}".format(
+        os.getpid(),
+        int(
+            time.time()
+            *
+            1000
+        )
+    )
+
+
+    tmp_path = (
+        MAPS_DIR
+        /
+        (
+            ".edit-"
+            +
+            token
+            +
+            ".pgm"
+        )
+    )
+
+
+    try:
+
+        shutil.copy2(
+            str(pgm_path),
+            str(backup_path)
+        )
+
+
+        tmp_path.write_bytes(
+            payload
+        )
+
+
+        prueba = cv2.imread(
+            str(tmp_path),
+            cv2.IMREAD_GRAYSCALE
+        )
+
+
+        if prueba is None:
+
+            raise RuntimeError(
+                "OpenCV no pudo validar el PGM editado"
+            )
+
+
+        ph, pw = prueba.shape[:2]
+
+
+        if (
+            pw != original_width
+            or ph != original_height
+        ):
+
+            raise RuntimeError(
+                "Dimensiones alteradas al validar"
+            )
+
+
+        tmp_path.replace(
+            pgm_path
+        )
+
+
+        return jsonify({
+            "ok": True,
+            "name": nombre,
+            "width": original_width,
+            "height": original_height,
+            "message": (
+                "Mapa guardado correctamente."
+            )
+        })
+
+
+    except Exception as exc:
+
+        try:
+
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+        except Exception:
+            pass
+
+
+        return error_mapa(
+            "No se pudo guardar: {}".format(
+                exc
+            ),
+            500
+        )
+
 
 
 @app.route("/maps/<nombre>/meta")

@@ -564,6 +564,31 @@ def programar_mision():
     )
 
 
+# =========================================================
+# SAFEVISION GESTION DE MAPAS
+# =========================================================
+
+@app.route("/mapas")
+def mapas_gestion():
+    return render_template(
+        "mapas.html"
+    )
+
+
+
+@app.route(
+    "/mapas/editar/<nombre>"
+)
+def mapa_editor_page(
+    nombre
+):
+
+    return render_template(
+        "editar_mapa.html",
+        mapa_nombre=nombre
+    )
+
+
 
 
 @app.route(
@@ -1297,6 +1322,41 @@ def connect():
     })
 
 
+@app.route("/connection_status")
+def connection_status():
+
+    if not robot_ip:
+
+        return jsonify({
+            "connected": False
+        })
+
+
+    try:
+
+        response = requests.get(
+            "http://{}:8091/".format(
+                robot_ip
+            ),
+            timeout=1
+        )
+
+        response.raise_for_status()
+
+
+        return jsonify({
+            "connected": True
+        })
+
+
+    except Exception:
+
+        return jsonify({
+            "connected": False
+        })
+
+
+
 @app.route(
     "/robot_status"
 )
@@ -1598,6 +1658,330 @@ def map_image(nombre):
             status=502,
             mimetype="text/plain"
         )
+
+
+
+# =========================================================
+# GESTION DE MAPAS - PROXY
+# =========================================================
+
+def dashboard_map_post(
+    action
+):
+
+    if not robot_ip:
+
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+
+    try:
+
+        response = requests.post(
+            "http://{}:8091/maps/{}".format(
+                robot_ip,
+                action
+            ),
+            json=data,
+            timeout=5
+        )
+
+
+        try:
+
+            result = response.json()
+
+        except Exception:
+
+            result = {
+                "ok": False,
+                "error": (
+                    "Respuesta invalida del Robot Server."
+                )
+            }
+
+
+        return jsonify(
+            result
+        ), response.status_code
+
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo gestionar el mapa: {}"
+                .format(
+                    exc
+                )
+            )
+        }), 502
+
+
+@app.route(
+    "/maps/rename",
+    methods=["POST"]
+)
+def dashboard_map_rename():
+
+    return dashboard_map_post(
+        "rename"
+    )
+
+
+@app.route(
+    "/maps/duplicate",
+    methods=["POST"]
+)
+def dashboard_map_duplicate():
+
+    return dashboard_map_post(
+        "duplicate"
+    )
+
+
+@app.route(
+    "/maps/delete",
+    methods=["POST"]
+)
+def dashboard_map_delete():
+
+    return dashboard_map_post(
+        "delete"
+    )
+
+
+
+# =========================================================
+# TRANSFERENCIA DE MAPAS - PROXY
+# =========================================================
+
+@app.route(
+    "/maps/export/<nombre>",
+    methods=["GET"]
+)
+def dashboard_map_export(
+    nombre
+):
+
+    if not robot_ip:
+
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+
+    try:
+
+        response = requests.get(
+            "http://{}:8091/maps/{}/export".format(
+                robot_ip,
+                nombre
+            ),
+            timeout=15
+        )
+
+
+        content_type = response.headers.get(
+            "Content-Type",
+            "application/octet-stream"
+        )
+
+
+        headers = {}
+
+
+        disposition = response.headers.get(
+            "Content-Disposition"
+        )
+
+
+        if disposition:
+
+            headers[
+                "Content-Disposition"
+            ] = disposition
+
+
+        return Response(
+            response.content,
+            status=response.status_code,
+            content_type=content_type,
+            headers=headers
+        )
+
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo exportar el mapa: {}"
+                .format(
+                    exc
+                )
+            )
+        }), 502
+
+
+@app.route(
+    "/maps/import",
+    methods=["POST"]
+)
+def dashboard_map_import():
+
+    if not robot_ip:
+
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+
+    uploaded = request.files.get(
+        "file"
+    )
+
+
+    if uploaded is None:
+
+        return jsonify({
+            "ok": False,
+            "error": "Falta el archivo ZIP."
+        }), 400
+
+
+    nombre = request.form.get(
+        "name",
+        ""
+    )
+
+
+    try:
+
+        payload = uploaded.read()
+
+
+        response = requests.post(
+            "http://{}:8091/maps/import".format(
+                robot_ip
+            ),
+            files={
+                "file": (
+                    uploaded.filename,
+                    payload,
+                    (
+                        uploaded.mimetype
+                        or
+                        "application/zip"
+                    )
+                )
+            },
+            data={
+                "name": nombre
+            },
+            timeout=20
+        )
+
+
+        return Response(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers.get(
+                "Content-Type",
+                "application/json"
+            )
+        )
+
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo importar el mapa: {}"
+                .format(
+                    exc
+                )
+            )
+        }), 502
+
+
+
+# =========================================================
+# EDITOR DE MAPAS - PROXY
+# =========================================================
+
+@app.route(
+    "/maps/edit/<nombre>",
+    methods=["POST"]
+)
+def dashboard_map_edit(
+    nombre
+):
+
+    if not robot_ip:
+
+        return jsonify({
+            "ok": False,
+            "error": "Robot no conectado."
+        }), 409
+
+
+    payload = request.get_data(
+        cache=False
+    )
+
+
+    try:
+
+        response = requests.post(
+            (
+                "http://{}:8091/maps/{}/edit"
+                .format(
+                    robot_ip,
+                    nombre
+                )
+            ),
+            data=payload,
+            headers={
+                "Content-Type":
+                    "application/x-portable-graymap"
+            },
+            timeout=20
+        )
+
+
+        return Response(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers.get(
+                "Content-Type",
+                "application/json"
+            )
+        )
+
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No se pudo guardar el mapa: {}"
+                .format(
+                    exc
+                )
+            )
+        }), 502
 
 
 

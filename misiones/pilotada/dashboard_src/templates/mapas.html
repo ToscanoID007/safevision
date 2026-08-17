@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision · Gestión de Mapas</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='mapas.css') }}"
+    >
+</head>
+
+
+<body class="maps-page">
+
+<header class="topbar maps-topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+        <span>Gestión de Mapas</span>
+    </div>
+
+    <div class="maps-top-actions">
+
+        <span
+            id="mapsConnectionBadge"
+            class="maps-connection-badge maps-connection-off"
+        >
+            ● DESCONECTADO
+        </span>
+
+        <a
+            class="dashboard-tab dashboard-tab-link"
+            href="/"
+        >
+            ← Menú
+        </a>
+
+    </div>
+
+</header>
+
+
+<main class="maps-layout">
+
+    <!-- =================================================
+         IZQUIERDA
+         ================================================= -->
+
+    <section class="maps-panel maps-library">
+
+        <div class="maps-panel-head">
+            <div>
+                <h2>Mapas</h2>
+                <span>Mapas guardados en el robot</span>
+            </div>
+        </div>
+
+
+        <div class="maps-search">
+
+            <input
+                id="mapsSearch"
+                type="search"
+                placeholder="Buscar mapa..."
+                autocomplete="off"
+            >
+
+        </div>
+
+
+        <div
+            id="mapsList"
+            class="maps-list"
+        >
+
+            <div class="maps-list-message">
+                Cargando mapas...
+            </div>
+
+        </div>
+
+
+        <div class="maps-library-footer">
+
+            <span id="mapsCount">
+                0 mapas
+            </span>
+
+            <button
+                id="mapsRefresh"
+                type="button"
+            >
+                ↻ Actualizar
+            </button>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         CENTRO
+         ================================================= -->
+
+    <section class="maps-panel maps-viewer-panel">
+
+        <div class="maps-panel-head maps-viewer-head">
+
+            <div>
+                <h2 id="mapsSelectedName">
+                    Sin mapa seleccionado
+                </h2>
+
+                <span>
+                    Visor del mapa
+                </span>
+            </div>
+
+
+            <div class="maps-view-controls">
+
+                <button
+                    id="mapsZoomOut"
+                    type="button"
+                    title="Alejar"
+                    disabled
+                >
+                    −
+                </button>
+
+                <button
+                    id="mapsZoomIn"
+                    type="button"
+                    title="Acercar"
+                    disabled
+                >
+                    +
+                </button>
+
+                <div class="maps-rotation-control">
+
+                    <span>
+                        Rotar
+                    </span>
+
+                    <input
+                        id="mapsRotationSlider"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        disabled
+                    >
+
+                    <output id="mapsRotationValue">
+                        0°
+                    </output>
+
+                </div>
+
+                <button
+                    id="mapsAreaZoom"
+                    type="button"
+                    disabled
+                >
+                    Zoom área
+                </button>
+
+                <button
+                    id="mapsResetView"
+                    type="button"
+                    disabled
+                >
+                    Ajustar
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div
+            id="mapsViewport"
+            class="maps-viewport"
+        >
+
+            <div
+                id="mapsPlaceholder"
+                class="maps-placeholder"
+            >
+                Selecciona un mapa de la lista.
+            </div>
+
+
+            <div
+                id="mapsScene"
+                class="maps-scene"
+                hidden
+            >
+
+                <img
+                    id="mapsImage"
+                    alt="Mapa SafeVision"
+                    draggable="false"
+                >
+
+            </div>
+
+            <div
+                id="mapsAreaSelection"
+                class="maps-area-selection"
+                hidden
+            ></div>
+
+        </div>
+
+
+        <div
+            id="mapsViewerStatus"
+            class="maps-viewer-status"
+        >
+            Selecciona un mapa para comenzar.
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         DERECHA
+         ================================================= -->
+
+    <aside class="maps-panel maps-actions">
+
+        <div class="maps-panel-head">
+
+            <div>
+                <h2>Opciones</h2>
+                <span id="mapsActionName">
+                    Sin selección
+                </span>
+            </div>
+
+        </div>
+
+
+        <div class="maps-action-scroll">
+
+
+            <section class="maps-action-group">
+
+                <h3>Gestión</h3>
+
+                <button
+                    id="mapsRename"
+                    type="button"
+                    disabled
+                >
+                    Renombrar
+                </button>
+
+                <button
+                    id="mapsDuplicate"
+                    type="button"
+                    disabled
+                >
+                    Duplicar
+                </button>
+
+                <button
+                    id="mapsDelete"
+                    class="maps-danger"
+                    type="button"
+                    disabled
+                >
+                    Eliminar
+                </button>
+
+            </section>
+
+
+            <section class="maps-action-group">
+
+                <h3>Transferencia</h3>
+
+                <button
+                    id="mapsExport"
+                    type="button"
+                    disabled
+                >
+                    Exportar mapa
+                </button>
+
+                <button
+                    id="mapsImport"
+                    type="button"
+                    disabled
+                >
+                    Importar mapa
+                </button>
+
+            </section>
+
+
+            <section class="maps-action-group">
+
+                <h3>Herramientas</h3>
+
+                <button
+                    id="mapsEdit"
+                    class="maps-special"
+                    type="button"
+                    disabled
+                >
+                    🎨 Editar mapa
+                </button>
+
+                <button
+                    id="mapsCreate"
+                    class="maps-special"
+                    type="button"
+                    disabled
+                >
+                    🛰️ Mapear
+                </button>
+
+            </section>
+
+
+        </div>
+
+
+        <div
+            id="mapsActionStatus"
+            class="maps-action-status"
+        >
+            Selecciona un mapa.
+        </div>
+
+    </aside>
+
+</main>
+
+
+<!-- =====================================================
+     MODAL DE GESTION
+     ===================================================== -->
+
+<div
+    id="mapsModal"
+    class="maps-modal-backdrop"
+    hidden
+>
+
+    <div
+        class="maps-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mapsModalTitle"
+    >
+
+        <div class="maps-modal-head">
+
+            <h2 id="mapsModalTitle">
+                Gestión de mapa
+            </h2>
+
+        </div>
+
+
+        <div class="maps-modal-body">
+
+            <p id="mapsModalText"></p>
+
+
+            <div
+                id="mapsModalInputWrap"
+                class="maps-modal-field"
+            >
+
+                <label
+                    for="mapsModalInput"
+                >
+                    Nombre
+                </label>
+
+                <input
+                    id="mapsModalInput"
+                    type="text"
+                    maxlength="80"
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <div
+                id="mapsModalError"
+                class="maps-modal-error"
+                hidden
+            ></div>
+
+        </div>
+
+
+        <div class="maps-modal-actions">
+
+            <button
+                id="mapsModalCancel"
+                type="button"
+            >
+                Cancelar
+            </button>
+
+            <button
+                id="mapsModalConfirm"
+                type="button"
+            >
+                Confirmar
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<input
+    id="mapsImportFile"
+    type="file"
+    accept=".zip,application/zip"
+    hidden
+>
+
+
+<script
+    src="{{ url_for('static', filename='mapas.js') }}"
+></script>
+
+</body>
+</html>

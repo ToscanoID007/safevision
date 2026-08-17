@@ -1,0 +1,170 @@
+/* SAFEVISION - EDITOR DE MAPAS */
+
+.editor-page {
+    margin: 0;
+    min-height: 100vh;
+    overflow: hidden;
+    background: #05090f;
+    color: #e5edf7;
+}
+
+.editor-topbar {
+    min-height: 64px;
+}
+
+.editor-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.editor-connection {
+    padding: 6px 10px;
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.editor-on {
+    border-color: #166534;
+    background: #0c2517;
+    color: #86efac;
+}
+
+.editor-off {
+    border-color: #4b2930;
+    background: #231116;
+    color: #fca5a5;
+}
+
+.editor-layout {
+    height: calc(100vh - 64px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.editor-toolbar {
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #263345;
+    background: #0b121c;
+}
+
+.editor-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.editor-label {
+    color: #8190a5;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.editor-toolbar button {
+    padding: 8px 11px;
+    border: 1px solid #31435b;
+    border-radius: 7px;
+    background: #111d2c;
+    color: #e5edf7;
+    cursor: pointer;
+}
+
+.editor-toolbar button:hover:not(:disabled) {
+    background: #192a40;
+    border-color: #3b82f6;
+}
+
+.editor-toolbar button.active {
+    background: #15335a;
+    border-color: #3b82f6;
+}
+
+.editor-toolbar button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.editor-toolbar input[type="range"] {
+    width: 130px;
+}
+
+.editor-spacer {
+    flex: 1;
+}
+
+.editor-toolbar .editor-save {
+    border-color: #166534;
+    background: #12351f;
+    color: #bbf7d0;
+}
+
+.editor-viewport {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    background: #020407;
+    cursor: crosshair;
+}
+
+.editor-viewport.pan-mode {
+    cursor: grab;
+}
+
+.editor-viewport.pan-mode.dragging {
+    cursor: grabbing;
+}
+
+.editor-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7f8fa4;
+}
+
+.editor-scene {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform-origin: center center;
+    user-select: none;
+}
+
+#editorCanvas {
+    display: block;
+    background: #cdcdcd;
+    image-rendering: pixelated;
+    user-select: none;
+    touch-action: none;
+
+    box-shadow:
+        0 0 0 1px #344459,
+        0 12px 50px rgba(0, 0, 0, 0.45);
+}
+
+.editor-footer {
+    min-height: 40px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    border-top: 1px solid #263345;
+    background: #0b121c;
+
+    color: #8493a7;
+    font-size: 12px;
+}
+
+#editorDirty.dirty {
+    color: #fbbf24;
+}
