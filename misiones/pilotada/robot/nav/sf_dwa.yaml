@@ -1,6 +1,6 @@
 DWAPlannerROS:
   # 0.0 = crítico lateral completamente desactivado
-  lateral_vel_bias: 0.0
+  lateral_vel_bias: 2.0
 
   max_vel_x: 0.18
   min_vel_x: 0.00
