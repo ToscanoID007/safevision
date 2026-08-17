@@ -1,0 +1,10 @@
+<library path="lib/libsf_dwa_local_planner">
+  <class
+    name="sf_dwa_local_planner/DWAPlannerROS"
+    type="sf_dwa_local_planner::DWAPlannerROS"
+    base_class_type="nav_core::BaseLocalPlanner">
+    <description>
+      SafeVision DWA local planner based on ROS Navigation 1.16.7.
+    </description>
+  </class>
+</library>

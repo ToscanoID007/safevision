@@ -35,6 +35,16 @@ export SAFEVISION_MAP_NAME="$MAP_NAME"
 source /opt/ros/melodic/setup.bash
 source /home/pi/yahboomcar_ws/devel/setup.bash
 
+SAFEVISION_NAV_SETUP="/home/pi/safevision_nav_ws/devel/setup.bash"
+
+if [ ! -f "$SAFEVISION_NAV_SETUP" ]; then
+    echo "ERROR: no existe workspace de navegación SafeVision."
+    echo "$SAFEVISION_NAV_SETUP"
+    exit 1
+fi
+
+source "$SAFEVISION_NAV_SETUP"
+
 ROSCORE_PID=""
 DRIVER_PID=""
 LOCALIZACION_PID=""
