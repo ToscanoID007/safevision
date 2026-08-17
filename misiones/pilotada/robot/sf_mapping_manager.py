@@ -515,7 +515,14 @@ def _force_manual():
         )
 
     try:
-        CANCEL_NAVIGATION()
+        cancelled = (
+            CANCEL_NAVIGATION()
+        )
+
+        if cancelled is False:
+            raise RuntimeError(
+                "Cola de navegación no disponible"
+            )
 
     except Exception as exc:
         raise RuntimeError(
