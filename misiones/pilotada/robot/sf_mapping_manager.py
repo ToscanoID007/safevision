@@ -474,3 +474,112 @@ def status():
     )
 
     return result
+
+
+# =========================================================
+# HELPERS DE TRANSICION ROS
+# =========================================================
+
+def _kill_node(
+    name
+):
+    if not _node_exists(
+        name
+    ):
+        return True
+
+    result = _run(
+        [
+            "rosnode",
+            "kill",
+            name,
+        ],
+        timeout=5
+    )
+
+    if result is None:
+        return False
+
+    return _wait_node(
+        name,
+        False,
+        timeout=5.0
+    )
+
+
+def _force_manual():
+
+    if CANCEL_NAVIGATION is None:
+        raise RuntimeError(
+            "Gestor de mapeo no configurado"
+        )
+
+    try:
+        CANCEL_NAVIGATION()
+
+    except Exception as exc:
+        raise RuntimeError(
+            "No se pudo cancelar navegación: {}"
+            .format(exc)
+        )
+
+    try:
+        rospy.wait_for_service(
+            "/safevision/set_navigation_mode",
+            timeout=2.0
+        )
+
+        service = rospy.ServiceProxy(
+            "/safevision/set_navigation_mode",
+            SetBool
+        )
+
+        response = service(
+            False
+        )
+
+        if not response.success:
+            raise RuntimeError(
+                response.message
+                or
+                "Selector rechazó modo manual"
+            )
+
+    except Exception as exc:
+        raise RuntimeError(
+            "No se pudo forzar modo manual: {}"
+            .format(exc)
+        )
+
+
+def _stop_restore_process():
+    global RESTORE_PROCESS
+
+    _stop_process(
+        RESTORE_PROCESS
+    )
+
+    RESTORE_PROCESS = None
+
+
+def _stop_gmapping():
+    global GMAPPING_PROCESS
+
+    _stop_process(
+        GMAPPING_PROCESS
+    )
+
+    GMAPPING_PROCESS = None
+
+    if _node_exists(
+        "/slam_gmapping"
+    ):
+        _kill_node(
+            "/slam_gmapping"
+        )
+
+    return _wait_node(
+        "/slam_gmapping",
+        False,
+        timeout=5.0
+    )
