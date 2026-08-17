@@ -583,3 +583,137 @@ def _stop_gmapping():
         False,
         timeout=5.0
     )
+
+
+# =========================================================
+# RESTAURACION MAP_SERVER + AMCL
+# =========================================================
+
+def _restore_localization(
+    map_path
+):
+    global RESTORE_PROCESS
+
+    map_path = Path(
+        map_path
+    )
+
+    if not map_path.exists():
+        raise RuntimeError(
+            "Mapa de retorno no encontrado: {}"
+            .format(map_path)
+        )
+
+    if not map_path.is_file():
+        raise RuntimeError(
+            "Mapa de retorno inválido: {}"
+            .format(map_path)
+        )
+
+    if map_path.suffix.lower() != ".yaml":
+        raise RuntimeError(
+            "El mapa de retorno debe ser YAML"
+        )
+
+    if _node_exists(
+        "/slam_gmapping"
+    ):
+        raise RuntimeError(
+            "No se puede restaurar mientras Gmapping siga activo"
+        )
+
+    core = _core_status()
+
+    if not core["ok"]:
+        raise RuntimeError(
+            "Núcleo ROS incompleto: {}"
+            .format(
+                ", ".join(
+                    core["missing"]
+                )
+            )
+        )
+
+    # Evita mantener un roslaunch de restauración
+    # anterior antes de crear uno nuevo.
+    _stop_restore_process()
+
+    # Dejamos una pareja limpia para evitar duplicados
+    # si una transición anterior quedó a medias.
+    if not _kill_node(
+        "/amcl"
+    ):
+        raise RuntimeError(
+            "No se pudo limpiar AMCL antes de restaurar"
+        )
+
+    if not _kill_node(
+        "/sf_map_server"
+    ):
+        raise RuntimeError(
+            "No se pudo limpiar sf_map_server antes de restaurar"
+        )
+
+    try:
+        RESTORE_PROCESS = _start_process(
+            RESTORE_LAUNCH,
+            [
+                "map_file={}".format(
+                    map_path
+                )
+            ]
+        )
+
+        if not _wait_node(
+            "/sf_map_server",
+            True,
+            timeout=8.0
+        ):
+            raise RuntimeError(
+                "sf_map_server no volvió a iniciar"
+            )
+
+        if not _wait_node(
+            "/amcl",
+            True,
+            timeout=8.0
+        ):
+            raise RuntimeError(
+                "AMCL no volvió a iniciar"
+            )
+
+        if not _wait_map_publisher(
+            "/sf_map_server",
+            timeout=8.0
+        ):
+            raise RuntimeError(
+                "sf_map_server no recuperó /map"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto después de restaurar: {}"
+                .format(
+                    ", ".join(
+                        core["missing"]
+                    )
+                )
+            )
+
+        return True
+
+    except Exception:
+
+        _stop_restore_process()
+
+        _kill_node(
+            "/amcl"
+        )
+
+        _kill_node(
+            "/sf_map_server"
+        )
+
+        raise
