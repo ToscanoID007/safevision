@@ -12,6 +12,7 @@ import zipfile
 import socket
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import xmlrpc.client
@@ -71,11 +72,25 @@ NAV_STATUS = {
 }
 
 
-CAMERA_DEVICE = 1
+CAMERA_DEVICE = "/dev/video0"
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FPS = 30
+CAMERA_FOURCC = "MJPG"
 JPEG_QUALITY = 70
+
+
+# =========================================================
+# CAMARA COMPARTIDA
+# Una sola captura fisica para todos los clientes MJPEG.
+# =========================================================
+
+CAMERA_SHARED_CONDITION = threading.Condition()
+
+CAMERA_SHARED_FRAME = None
+CAMERA_SHARED_VERSION = 0
+CAMERA_SHARED_THREAD = None
+
 
 PORT = 8091
 
@@ -201,57 +216,210 @@ def camara_detectada():
     )
 
 
-def generar_frames():
-    cap = cv2.VideoCapture(
-        CAMERA_DEVICE
-    )
+def camera_capture_loop():
+    global CAMERA_SHARED_FRAME
+    global CAMERA_SHARED_VERSION
 
-    cap.set(
-        cv2.CAP_PROP_FRAME_WIDTH,
-        CAMERA_WIDTH
-    )
+    cap = None
 
-    cap.set(
-        cv2.CAP_PROP_FRAME_HEIGHT,
-        CAMERA_HEIGHT
-    )
+    while True:
 
-    cap.set(
-        cv2.CAP_PROP_FPS,
-        CAMERA_FPS
-    )
+        if (
+            cap is None
+            or
+            not cap.isOpened()
+        ):
 
-    try:
-        while True:
-            success, frame = cap.read()
+            if cap is not None:
+                cap.release()
 
-            if not success:
-                time.sleep(0.05)
-                continue
+            cap = cv2.VideoCapture(
+                CAMERA_DEVICE,
+                cv2.CAP_V4L2
+            )
 
-            ok, buffer = cv2.imencode(
-                ".jpg",
-                frame,
-                [
+            cap.set(
+                cv2.CAP_PROP_FOURCC,
+                cv2.VideoWriter_fourcc(
+                    *CAMERA_FOURCC
+                )
+            )
+
+            cap.set(
+                cv2.CAP_PROP_FRAME_WIDTH,
+                CAMERA_WIDTH
+            )
+
+            cap.set(
+                cv2.CAP_PROP_FRAME_HEIGHT,
+                CAMERA_HEIGHT
+            )
+
+            cap.set(
+                cv2.CAP_PROP_FPS,
+                CAMERA_FPS
+            )
+
+            fourcc_value = int(
+                cap.get(
+                    cv2.CAP_PROP_FOURCC
+                )
+            )
+
+            fourcc_actual = "".join(
+                chr(
+                    (
+                        fourcc_value
+                        >>
+                        (8 * index)
+                    )
+                    &
+                    0xFF
+                )
+                for index in range(4)
+            )
+
+            print(
+                "[CAMARA] dispositivo={} "
+                "formato={} "
+                "resolucion={}x{} "
+                "fps={}".format(
+                    CAMERA_DEVICE,
+                    fourcc_actual,
                     int(
-                        cv2.IMWRITE_JPEG_QUALITY
+                        cap.get(
+                            cv2.CAP_PROP_FRAME_WIDTH
+                        )
                     ),
-                    JPEG_QUALITY
-                ]
+                    int(
+                        cap.get(
+                            cv2.CAP_PROP_FRAME_HEIGHT
+                        )
+                    ),
+                    cap.get(
+                        cv2.CAP_PROP_FPS
+                    )
+                )
             )
 
-            if not ok:
+            if not cap.isOpened():
+
+                cap.release()
+                cap = None
+
+                time.sleep(1.0)
                 continue
 
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n"
-                + buffer.tobytes()
-                + b"\r\n"
+
+        success, frame = cap.read()
+
+        if not success:
+
+            cap.release()
+            cap = None
+
+            time.sleep(0.20)
+            continue
+
+
+        ok, buffer = cv2.imencode(
+            ".jpg",
+            frame,
+            [
+                int(
+                    cv2.IMWRITE_JPEG_QUALITY
+                ),
+                JPEG_QUALITY
+            ]
+        )
+
+
+        if not ok:
+            continue
+
+
+        jpeg = buffer.tobytes()
+
+
+        with CAMERA_SHARED_CONDITION:
+
+            CAMERA_SHARED_FRAME = jpeg
+
+            CAMERA_SHARED_VERSION += 1
+
+            CAMERA_SHARED_CONDITION.notify_all()
+
+
+def iniciar_camara_compartida():
+    global CAMERA_SHARED_THREAD
+
+    with CAMERA_SHARED_CONDITION:
+
+        if (
+            CAMERA_SHARED_THREAD is not None
+            and
+            CAMERA_SHARED_THREAD.is_alive()
+        ):
+            return
+
+
+        CAMERA_SHARED_THREAD = threading.Thread(
+            target=camera_capture_loop,
+            name="safevision-camera",
+            daemon=True
+        )
+
+
+        CAMERA_SHARED_THREAD.start()
+
+
+def generar_frames():
+
+    iniciar_camara_compartida()
+
+    last_version = -1
+
+
+    while True:
+
+        with CAMERA_SHARED_CONDITION:
+
+            CAMERA_SHARED_CONDITION.wait_for(
+                lambda: (
+                    CAMERA_SHARED_FRAME is not None
+                    and
+                    CAMERA_SHARED_VERSION
+                    !=
+                    last_version
+                ),
+                timeout=2.0
             )
 
-    finally:
-        cap.release()
+
+            if (
+                CAMERA_SHARED_FRAME is None
+                or
+                CAMERA_SHARED_VERSION
+                ==
+                last_version
+            ):
+                continue
+
+
+            jpeg = CAMERA_SHARED_FRAME
+
+            last_version = CAMERA_SHARED_VERSION
+
+
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            +
+            jpeg
+            +
+            b"\r\n"
+        )
+
 
 
 @app.route("/")

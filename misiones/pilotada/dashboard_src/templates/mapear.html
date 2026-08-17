@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision · Mapeo 2D</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='mapear.css') }}"
+    >
+</head>
+
+
+<body class="mapear-page">
+
+<header class="topbar mapear-topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+        <span>Mapeo 2D</span>
+    </div>
+
+    <div class="mapear-header-actions">
+
+        <span
+            id="mapearConnection"
+            class="mapear-badge disconnected"
+        >
+            ● DESCONECTADO
+        </span>
+
+        <a
+            href="/mapas"
+            class="dashboard-tab dashboard-tab-link"
+        >
+            ← Gestión de mapas
+        </a>
+
+    </div>
+
+</header>
+
+
+<main class="mapear-layout">
+
+
+    <section class="mapear-main">
+
+        <!-- CAMARA -->
+        <section class="mapear-panel">
+
+            <header class="mapear-panel-header">
+
+                <div>
+                    <h2>Cámara en vivo</h2>
+                    <span>Vista frontal del robot</span>
+                </div>
+
+                <strong id="cameraStatus">
+                    —
+                </strong>
+
+            </header>
+
+
+            <div class="mapear-camera">
+
+                <div
+                    id="cameraPlaceholder"
+                    class="mapear-placeholder"
+                >
+                    Esperando cámara...
+                </div>
+
+                <img
+                    id="mapearVideo"
+                    alt="Cámara del robot"
+                    draggable="false"
+                >
+
+            </div>
+
+        </section>
+
+
+
+        <!-- MAPA -->
+        <section class="mapear-panel">
+
+            <header class="mapear-panel-header">
+
+                <div>
+                    <h2>Mapa en vivo</h2>
+                    <span id="mapSubtitle">
+                        SLAM detenido
+                    </span>
+                </div>
+
+                <strong id="slamHeaderStatus">
+                    DETENIDO
+                </strong>
+
+            </header>
+
+
+            <div
+                id="mapViewport"
+                class="mapear-map-viewport"
+            >
+
+                <div
+                    id="mapPlaceholder"
+                    class="mapear-placeholder"
+                >
+                    Inicia una sesión de mapeo
+                    para visualizar el mapa LiDAR.
+                </div>
+
+
+                <div
+                    id="mapScene"
+                    class="mapear-map-scene"
+                    hidden
+                >
+
+                    <img
+                        id="mapImage"
+                        alt="Mapa SLAM"
+                        draggable="false"
+                    >
+
+
+                    <div
+                        id="robotMarker"
+                        class="mapear-robot"
+                        hidden
+                    >
+                        ▲
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="areaSelection"
+                    class="mapear-area-selection"
+                    hidden
+                ></div>
+
+            </div>
+
+        </section>
+
+    </section>
+
+
+
+    <!-- CONTROLES -->
+    <section class="mapear-controls">
+
+
+        <div class="mapear-control-block">
+
+            <h3>Estado</h3>
+
+            <div class="mapear-status-grid">
+
+                <span>LiDAR</span>
+                <strong id="lidarStatus">—</strong>
+
+                <span>Odometría</span>
+                <strong id="odomStatus">—</strong>
+
+                <span>Cámara</span>
+                <strong id="cameraControlStatus">—</strong>
+
+                <span>SLAM</span>
+                <strong id="slamStatus">DETENIDO</strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="mapear-control-block">
+
+            <h3>Control</h3>
+
+            <div class="mapear-switch-row">
+
+                <span>Mando</span>
+
+                <label class="mapear-switch">
+                    <input
+                        id="controlSwitch"
+                        type="checkbox"
+                        disabled
+                    >
+                    <span></span>
+                </label>
+
+                <span>Teclado</span>
+
+            </div>
+
+            <small>
+                Cambio desde Dashboard próximamente.
+            </small>
+
+        </div>
+
+
+
+        <div class="mapear-control-block session">
+
+            <h3>Sesión</h3>
+
+            <div class="mapear-session-row">
+
+                <input
+                    id="mapName"
+                    type="text"
+                    maxlength="80"
+                    autocomplete="off"
+                    placeholder="Nombre del mapa"
+                >
+
+                <button
+                    id="startMapping"
+                    type="button"
+                    disabled
+                >
+                    Iniciar mapeo
+                </button>
+
+                <button
+                    id="saveMapping"
+                    type="button"
+                    disabled
+                >
+                    Guardar mapa
+                </button>
+
+                <button
+                    id="discardMapping"
+                    type="button"
+                    disabled
+                >
+                    Descartar
+                </button>
+
+            </div>
+
+            <small id="sessionMessage">
+                Interfaz preparada. SLAM todavía no habilitado.
+            </small>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- BARRA VISOR -->
+    <section class="mapear-toolbar map-toolbar">
+
+        <strong>MAPA</strong>
+
+        <button
+            id="zoomOut"
+            disabled
+        >
+            −
+        </button>
+
+        <button
+            id="zoomIn"
+            disabled
+        >
+            +
+        </button>
+
+
+        <span>Rotar</span>
+
+        <input
+            id="rotationSlider"
+            type="range"
+            min="-180"
+            max="180"
+            value="0"
+            disabled
+        >
+
+        <output id="rotationValue">
+            0°
+        </output>
+
+
+        <button
+            id="areaZoom"
+            disabled
+        >
+            Zoom área
+        </button>
+
+        <button
+            id="resetMap"
+            disabled
+        >
+            Ajustar
+        </button>
+
+        <div class="mapear-spacer"></div>
+
+        <span id="toolbarStatus">
+            Visor preparado.
+        </span>
+
+    </section>
+
+
+</main>
+
+
+<script
+    src="{{ url_for('static', filename='mapear.js') }}"
+></script>
+
+</body>
+</html>

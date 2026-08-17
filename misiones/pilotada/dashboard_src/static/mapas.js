@@ -229,7 +229,8 @@ function setActionState() {
     }
 
     if (createButton) {
-        createButton.disabled = true;
+        createButton.disabled =
+            !mapsConnection.connected;
     }
 
 
@@ -2293,6 +2294,9 @@ document.addEventListener(
         const editButton =
             $m("mapsEdit");
 
+        const createButton =
+            $m("mapsCreate");
+
         const viewport =
             $m("mapsViewport");
 
@@ -2566,6 +2570,24 @@ document.addEventListener(
                                 mapsState.selected
                             )
                         );
+                }
+            );
+        }
+
+
+
+        if (createButton) {
+
+            createButton.addEventListener(
+                "click",
+                () => {
+
+                    if (!mapsConnection.connected) {
+                        return;
+                    }
+
+                    window.location.href =
+                        "/mapas/mapear";
                 }
             );
         }

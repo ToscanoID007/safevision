@@ -1,0 +1,461 @@
+.mapear-page {
+    margin: 0;
+    min-height: 100vh;
+    overflow: hidden;
+    background: #05090f;
+    color: #e5edf7;
+}
+
+.mapear-topbar {
+    min-height: 64px;
+}
+
+.mapear-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mapear-badge {
+    padding: 6px 10px;
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.mapear-badge.connected {
+    color: #86efac;
+    background: #0c2517;
+    border-color: #166534;
+}
+
+.mapear-badge.disconnected {
+    color: #fca5a5;
+    background: #231116;
+    border-color: #4b2930;
+}
+
+.mapear-layout {
+    height: calc(100vh - 64px);
+
+    display: grid;
+
+    grid-template-rows:
+        minmax(0, 1fr)
+        auto
+        auto;
+}
+
+.mapear-main {
+    min-height: 0;
+
+    padding: 12px 12px 0;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(0, 1fr);
+
+    gap: 12px;
+}
+
+.mapear-panel {
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    background: #0b121c;
+
+    border: 1px solid #263345;
+    border-radius: 10px;
+}
+
+.mapear-panel-header {
+    min-height: 58px;
+
+    padding: 9px 12px;
+
+    box-sizing: border-box;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    border-bottom: 1px solid #263345;
+}
+
+.mapear-panel-header h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.mapear-panel-header span {
+    color: #8190a5;
+    font-size: 11px;
+}
+
+.mapear-camera,
+.mapear-map-viewport {
+    position: relative;
+
+    flex: 1;
+
+    min-height: 0;
+
+    overflow: hidden;
+
+    background: #020407;
+}
+
+#mapearVideo {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+}
+
+.mapear-placeholder {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 30px;
+
+    text-align: center;
+
+    color: #68798e;
+}
+
+.mapear-map-viewport {
+    cursor: grab;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #0c1521,
+            #020407 72%
+        );
+}
+
+.mapear-map-scene {
+    position: absolute;
+    inset: 0;
+
+    transform-origin: center center;
+}
+
+#mapImage {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    user-select: none;
+    pointer-events: none;
+}
+
+.mapear-robot {
+    position: absolute;
+
+    z-index: 10;
+
+    color: #22c55e;
+
+    font-size: 28px;
+
+    text-shadow:
+        0 0 4px #000,
+        0 0 8px rgba(34, 197, 94, 0.7);
+
+    transform-origin: center center;
+
+    pointer-events: none;
+}
+
+.mapear-area-selection {
+    position: absolute;
+
+    border: 2px dashed #60a5fa;
+
+    background:
+        rgba(59, 130, 246, 0.14);
+
+    pointer-events: none;
+}
+
+.mapear-controls {
+    margin: 10px 12px 0;
+
+    padding: 10px 12px;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(170px, 0.8fr)
+        minmax(220px, 0.9fr)
+        minmax(400px, 2fr);
+
+    gap: 20px;
+
+    background: #0b121c;
+
+    border: 1px solid #263345;
+    border-radius: 10px;
+}
+
+.mapear-control-block h3 {
+    margin: 0 0 8px;
+
+    font-size: 11px;
+
+    color: #8494aa;
+
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.mapear-status-grid {
+    display: grid;
+
+    grid-template-columns:
+        auto auto;
+
+    gap: 4px 14px;
+
+    font-size: 12px;
+}
+
+.mapear-status-grid span {
+    color: #8190a5;
+}
+
+.mapear-status-grid strong {
+    text-align: right;
+}
+
+.mapear-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    font-size: 12px;
+}
+
+.mapear-switch {
+    position: relative;
+
+    width: 44px;
+    height: 22px;
+
+    opacity: 0.65;
+}
+
+.mapear-switch input {
+    display: none;
+}
+
+.mapear-switch > span {
+    position: absolute;
+    inset: 0;
+
+    border: 1px solid #34465e;
+    border-radius: 999px;
+
+    background: #182332;
+}
+
+.mapear-switch > span::before {
+    content: "";
+
+    position: absolute;
+
+    width: 16px;
+    height: 16px;
+
+    left: 2px;
+    top: 2px;
+
+    border-radius: 50%;
+
+    background: #60a5fa;
+}
+
+.mapear-switch input:checked + span::before {
+    transform: translateX(21px);
+}
+
+.mapear-control-block small {
+    display: block;
+
+    margin-top: 7px;
+
+    color: #6f7f94;
+    font-size: 11px;
+}
+
+.mapear-session-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(150px, 1fr)
+        auto
+        auto
+        auto;
+
+    gap: 7px;
+}
+
+.mapear-session-row input {
+    min-width: 0;
+
+    padding: 9px 10px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #070d15;
+    color: #e5edf7;
+
+    outline: none;
+}
+
+.mapear-controls button,
+.mapear-toolbar button {
+    padding: 8px 10px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #111d2c;
+    color: #e5edf7;
+}
+
+.mapear-controls button:disabled,
+.mapear-toolbar button:disabled {
+    opacity: 0.4;
+}
+
+.mapear-toolbar {
+    min-height: 52px;
+
+    margin: 10px 12px 12px;
+
+    padding: 7px 10px;
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    box-sizing: border-box;
+
+    background: #0b121c;
+
+    border: 1px solid #263345;
+    border-radius: 10px;
+}
+
+.mapear-toolbar strong,
+.mapear-toolbar span,
+.mapear-toolbar output {
+    color: #8999ad;
+    font-size: 11px;
+}
+
+#rotationSlider {
+    width: 180px;
+}
+
+.mapear-spacer {
+    flex: 1;
+}
+
+@media (max-width: 950px) {
+
+    .mapear-page {
+        overflow: auto;
+    }
+
+    .mapear-layout {
+        height: auto;
+    }
+
+    .mapear-main {
+        grid-template-columns: 1fr;
+    }
+
+    .mapear-panel {
+        min-height: 450px;
+    }
+
+    .mapear-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .mapear-session-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .mapear-toolbar {
+        flex-wrap: wrap;
+    }
+}
+
+
+/* ====================================================== */
+/* ROSMASTER X3 - HUELLA A ESCALA                         */
+/* Reutilizado del visor estable de Misión Pilotada.      */
+/* ====================================================== */
+
+#robotMarker[hidden] {
+    display: none !important;
+}
+
+#robotMarker {
+    position: absolute;
+
+    z-index: 30;
+
+    box-sizing: border-box;
+
+    width: auto;
+    height: auto;
+
+    padding: 0;
+    margin: 0;
+
+    line-height: normal;
+
+    font-size: 0;
+
+    background:
+        rgba(255, 59, 48, 0.48);
+
+    border:
+        1px solid rgba(255, 59, 48, 0.95);
+
+    border-right:
+        1px solid rgba(255, 255, 255, 0.95);
+
+    border-radius: 1px;
+
+    box-shadow:
+        0 0 2px rgba(0, 0, 0, 0.85);
+
+    pointer-events: none;
+    user-select: none;
+
+    transform-origin:
+        50% 50%;
+}

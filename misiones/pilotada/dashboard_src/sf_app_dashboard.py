@@ -576,6 +576,14 @@ def mapas_gestion():
 
 
 
+@app.route("/mapas/mapear")
+def mapas_mapear():
+    return render_template(
+        "mapear.html"
+    )
+
+
+
 @app.route(
     "/mapas/editar/<nombre>"
 )
@@ -1590,6 +1598,75 @@ def video_feed():
             "boundary=frame"
         )
     )
+
+
+
+@app.route(
+    "/video_feed_raw"
+)
+def video_feed_raw():
+    if not robot_ip:
+
+        return Response(
+            "Robot no conectado.",
+            status=409,
+            mimetype="text/plain"
+        )
+
+
+    origen = (
+        "http://{}:8091/video_feed"
+    ).format(
+        robot_ip
+    )
+
+
+    try:
+
+        respuesta = requests.get(
+            origen,
+            stream=True,
+            timeout=5
+        )
+
+
+        respuesta.raise_for_status()
+
+
+        def generar():
+
+            try:
+
+                for chunk in respuesta.iter_content(
+                    chunk_size=16384
+                ):
+
+                    if chunk:
+                        yield chunk
+
+            finally:
+
+                respuesta.close()
+
+
+        return Response(
+            generar(),
+            content_type=(
+                "multipart/x-mixed-replace; "
+                "boundary=frame"
+            )
+        )
+
+
+    except Exception as exc:
+
+        return Response(
+            "Video no disponible: {}".format(
+                exc
+            ),
+            status=502,
+            mimetype="text/plain"
+        )
 
 
 
