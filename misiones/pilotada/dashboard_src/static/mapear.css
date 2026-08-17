@@ -459,3 +459,70 @@
     transform-origin:
         50% 50%;
 }
+
+
+/* ====================================================== */
+/* MAPEAR TOOLBAR INLINE EN HEADER                        */
+/* ====================================================== */
+
+.mapear-map-header {
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+
+.mapear-inline-toolbar.map-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+
+    gap: 6px;
+
+    margin-left: 8px;
+
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+}
+
+
+.mapear-inline-toolbar button {
+    flex: 0 0 auto;
+
+    padding: 6px 8px;
+
+    border: 1px solid #31435b;
+    border-radius: 7px;
+
+    background: #111d2c;
+    color: #e5edf7;
+}
+
+
+.mapear-inline-toolbar button:disabled {
+    opacity: 0.4;
+}
+
+
+.mapear-inline-toolbar span,
+.mapear-inline-toolbar output {
+    color: #8999ad;
+
+    font-size: 11px;
+
+    white-space: nowrap;
+}
+
+
+.mapear-inline-toolbar #rotationSlider {
+    width: 150px;
+}
+
+
+.mapear-map-header #slamHeaderStatus {
+    margin-left: auto;
+
+    white-space: nowrap;
+}

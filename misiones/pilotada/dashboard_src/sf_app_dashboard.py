@@ -2106,6 +2106,118 @@ def dashboard_map_pose():
         }), 502
 
 
+@app.route("/mapping/map")
+def dashboard_mapping_live_map():
+
+    if not robot_ip:
+
+        return Response(
+            "Robot no conectado.",
+            status=409,
+            mimetype="text/plain"
+        )
+
+    try:
+
+        response = requests.get(
+            "http://{}:8091/mapping/map".format(
+                robot_ip
+            ),
+            timeout=3
+        )
+
+        if not response.ok:
+
+            return Response(
+                response.text,
+                status=response.status_code,
+                mimetype="text/plain"
+            )
+
+        result = Response(
+            response.content,
+            mimetype="image/png"
+        )
+
+        result.headers[
+            "Cache-Control"
+        ] = (
+            "no-store, no-cache, "
+            "must-revalidate"
+        )
+
+        version = response.headers.get(
+            "X-SafeVision-Map-Version"
+        )
+
+        if version is not None:
+
+            result.headers[
+                "X-SafeVision-Map-Version"
+            ] = version
+
+        return result
+
+    except Exception as exc:
+
+        return Response(
+            (
+                "Mapa vivo no disponible: {}"
+                .format(exc)
+            ),
+            status=502,
+            mimetype="text/plain"
+        )
+
+
+@app.route("/mapping/meta")
+def dashboard_mapping_live_meta():
+
+    if not robot_ip:
+
+        return jsonify({
+            "ok": False,
+            "available": False,
+            "error": "Robot no conectado."
+        }), 409
+
+    try:
+
+        response = requests.get(
+            "http://{}:8091/mapping/meta".format(
+                robot_ip
+            ),
+            timeout=2
+        )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {
+                "ok": False,
+                "available": False,
+                "error": (
+                    "Metadatos de mapa vivo invalidos."
+                )
+            }
+
+        return jsonify(
+            data
+        ), response.status_code
+
+    except Exception as exc:
+
+        return jsonify({
+            "ok": False,
+            "available": False,
+            "error": (
+                "Mapa vivo no disponible: {}"
+                .format(exc)
+            )
+        }), 502
+
+
 @app.route("/map_meta/<nombre>")
 def dashboard_map_meta(nombre):
     if not robot_ip:

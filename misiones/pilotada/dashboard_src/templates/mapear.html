@@ -99,7 +99,7 @@
         <!-- MAPA -->
         <section class="mapear-panel">
 
-            <header class="mapear-panel-header">
+            <header class="mapear-panel-header mapear-map-header">
 
                 <div>
                     <h2>Mapa en vivo</h2>
@@ -108,9 +108,70 @@
                     </span>
                 </div>
 
+
+                <div
+                    class="mapear-inline-toolbar map-toolbar"
+                >
+
+                    <button
+                        id="zoomOut"
+                        disabled
+                    >
+                        −
+                    </button>
+
+                    <button
+                        id="zoomIn"
+                        disabled
+                    >
+                        +
+                    </button>
+
+
+                    <span>Rotar</span>
+
+                    <input
+                        id="rotationSlider"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value="0"
+                        disabled
+                    >
+
+                    <output id="rotationValue">
+                        0°
+                    </output>
+
+
+                    <button
+                        id="areaZoom"
+                        disabled
+                    >
+                        Zoom área
+                    </button>
+
+                    <button
+                        id="resetMap"
+                        disabled
+                    >
+                        Ajustar
+                    </button>
+
+                </div>
+
+
                 <strong id="slamHeaderStatus">
                     DETENIDO
                 </strong>
+
+
+                <span
+                    id="toolbarStatus"
+                    hidden
+                >
+                    Visor preparado.
+                </span>
 
             </header>
 
@@ -274,63 +335,6 @@
 
 
 
-    <!-- BARRA VISOR -->
-    <section class="mapear-toolbar map-toolbar">
-
-        <strong>MAPA</strong>
-
-        <button
-            id="zoomOut"
-            disabled
-        >
-            −
-        </button>
-
-        <button
-            id="zoomIn"
-            disabled
-        >
-            +
-        </button>
-
-
-        <span>Rotar</span>
-
-        <input
-            id="rotationSlider"
-            type="range"
-            min="-180"
-            max="180"
-            value="0"
-            disabled
-        >
-
-        <output id="rotationValue">
-            0°
-        </output>
-
-
-        <button
-            id="areaZoom"
-            disabled
-        >
-            Zoom área
-        </button>
-
-        <button
-            id="resetMap"
-            disabled
-        >
-            Ajustar
-        </button>
-
-        <div class="mapear-spacer"></div>
-
-        <span id="toolbarStatus">
-            Visor preparado.
-        </span>
-
-    </section>
 
 
 </main>

@@ -19,8 +19,10 @@ import xmlrpc.client
 from pathlib import Path
 
 import cv2
+import numpy as np
 import rospy
 from std_msgs.msg import String
+from nav_msgs.msg import OccupancyGrid
 from flask import Flask, Response, jsonify, request
 
 
@@ -70,6 +72,18 @@ NAV_STATUS = {
     "active_map": None,
     "message": "Cola de navegación no disponible"
 }
+
+
+# =========================================================
+# MAPA ROS EN VIVO
+# Fuente: /map (nav_msgs/OccupancyGrid)
+# =========================================================
+
+LIVE_MAP_LOCK = threading.Lock()
+
+LIVE_MAP_PNG = None
+LIVE_MAP_META = None
+LIVE_MAP_VERSION = 0
 
 
 CAMERA_DEVICE = "/dev/video0"
@@ -3746,6 +3760,180 @@ def nav_status_callback(msg):
         pass
 
 
+def live_map_callback(msg):
+    global LIVE_MAP_PNG
+    global LIVE_MAP_META
+    global LIVE_MAP_VERSION
+
+    width = int(msg.info.width)
+    height = int(msg.info.height)
+
+    if (
+        width <= 0
+        or
+        height <= 0
+        or
+        len(msg.data) != width * height
+    ):
+        return
+
+    grid = np.asarray(
+        msg.data,
+        dtype=np.int16
+    ).reshape(
+        (height, width)
+    )
+
+    # Convencion SafeVision/map_saver:
+    # libre=254, ocupado=0, desconocido=205.
+    image = np.full(
+        (height, width),
+        205,
+        dtype=np.uint8
+    )
+
+    image[grid == 0] = 254
+    image[grid >= 65] = 0
+
+    # OccupancyGrid: origen inferior izquierdo.
+    # PNG: origen superior izquierdo.
+    image = np.flipud(image)
+
+    ok, encoded = cv2.imencode(
+        ".png",
+        image
+    )
+
+    if not ok:
+        return
+
+    q = msg.info.origin.orientation
+
+    siny_cosp = 2.0 * (
+        q.w * q.z
+        +
+        q.x * q.y
+    )
+
+    cosy_cosp = 1.0 - 2.0 * (
+        q.y * q.y
+        +
+        q.z * q.z
+    )
+
+    origin_yaw = math.atan2(
+        siny_cosp,
+        cosy_cosp
+    )
+
+    meta = {
+        "ok": True,
+        "frame_id": (
+            msg.header.frame_id
+            or
+            "map"
+        ),
+        "resolution": float(
+            msg.info.resolution
+        ),
+        "width": width,
+        "height": height,
+        "origin": {
+            "x": float(
+                msg.info.origin.position.x
+            ),
+            "y": float(
+                msg.info.origin.position.y
+            ),
+            "yaw": float(
+                origin_yaw
+            )
+        },
+        "map_load_time": float(
+            msg.info.map_load_time.to_sec()
+        ),
+        "ros_stamp": float(
+            msg.header.stamp.to_sec()
+        ),
+        "updated_at": float(
+            time.time()
+        )
+    }
+
+    png = encoded.tobytes()
+
+    with LIVE_MAP_LOCK:
+
+        LIVE_MAP_VERSION += 1
+
+        meta["version"] = (
+            LIVE_MAP_VERSION
+        )
+
+        LIVE_MAP_PNG = png
+        LIVE_MAP_META = meta
+
+
+@app.route("/mapping/map")
+def mapping_live_map():
+
+    with LIVE_MAP_LOCK:
+
+        png = LIVE_MAP_PNG
+        version = LIVE_MAP_VERSION
+
+    if png is None:
+
+        return Response(
+            "Mapa ROS no disponible.",
+            status=503,
+            mimetype="text/plain"
+        )
+
+    response = Response(
+        png,
+        mimetype="image/png"
+    )
+
+    response.headers[
+        "Cache-Control"
+    ] = "no-store, no-cache, must-revalidate"
+
+    response.headers[
+        "X-SafeVision-Map-Version"
+    ] = str(
+        version
+    )
+
+    return response
+
+
+@app.route("/mapping/meta")
+def mapping_live_meta():
+
+    with LIVE_MAP_LOCK:
+
+        if LIVE_MAP_META is None:
+
+            return jsonify({
+                "ok": False,
+                "available": False,
+                "error": (
+                    "Mapa ROS no disponible"
+                )
+            }), 503
+
+        meta = dict(
+            LIVE_MAP_META
+        )
+
+    meta["available"] = True
+
+    return jsonify(
+        meta
+    )
+
+
 def iniciar_nav_bridge():
     global NAV_COMMAND_PUB
 
@@ -3767,6 +3955,13 @@ def iniciar_nav_bridge():
         String,
         nav_status_callback,
         queue_size=20
+    )
+
+    rospy.Subscriber(
+        "/map",
+        OccupancyGrid,
+        live_map_callback,
+        queue_size=1
     )
 
 
