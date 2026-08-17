@@ -971,3 +971,159 @@ def start(name):
 
     finally:
         OPERATION_LOCK.release()
+
+
+
+# =========================================================
+# DESCARTAR SESION DE MAPEO
+# =========================================================
+
+def discard():
+
+    if not OPERATION_LOCK.acquire(
+        blocking=False
+    ):
+        return {
+            "ok": False,
+            "error": (
+                "Hay otra operación de mapeo en curso"
+            ),
+        }
+
+    try:
+        with LOCK:
+            mapping = bool(
+                STATE.get("mapping")
+            )
+
+            name = STATE.get(
+                "name"
+            )
+
+            restore_value = STATE.get(
+                "restore_map"
+            )
+
+        with LOCK:
+            state = STATE.get(
+                "state"
+            )
+
+        recoverable = (
+            mapping
+            or
+            (
+                state == "error"
+                and restore_value
+            )
+        )
+
+        if not recoverable:
+            raise RuntimeError(
+                "No hay una sesión de mapeo activa"
+            )
+
+        if not restore_value:
+            raise RuntimeError(
+                "La sesión no tiene mapa de retorno"
+            )
+
+        restore_map = Path(
+            restore_value
+        )
+
+        _set_state(
+            state="stopping",
+            mapping=True,
+            message="Descartando mapa",
+        )
+
+        if not _stop_gmapping():
+            raise RuntimeError(
+                "No se pudo detener Gmapping completamente"
+            )
+
+        if _node_exists(
+            "/slam_gmapping"
+        ):
+            raise RuntimeError(
+                "slam_gmapping continúa activo"
+            )
+
+        _restore_localization(
+            restore_map
+        )
+
+        if not _node_exists(
+            "/sf_map_server"
+        ):
+            raise RuntimeError(
+                "sf_map_server no quedó activo"
+            )
+
+        if not _node_exists(
+            "/amcl"
+        ):
+            raise RuntimeError(
+                "AMCL no quedó activo"
+            )
+
+        if not _map_has_publisher(
+            "/sf_map_server"
+        ):
+            raise RuntimeError(
+                "sf_map_server no recuperó /map"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto tras descartar: {}".format(
+                    ", ".join(
+                        core["missing"]
+                    )
+                )
+            )
+
+        restored_name = (
+            restore_map.stem
+        )
+
+        _set_state(
+            state="idle",
+            mapping=False,
+            name=None,
+            restore_map=None,
+            started_at=None,
+            message="Mapeo detenido",
+        )
+
+        return {
+            "ok": True,
+            "mapping": False,
+            "discarded": name,
+            "restored_map": restored_name,
+        }
+
+    except Exception as exc:
+
+        error = str(
+            exc
+        )
+
+        _set_state(
+            state="error",
+            mapping=_node_exists(
+                "/slam_gmapping"
+            ),
+            message=error,
+        )
+
+        return {
+            "ok": False,
+            "error": error,
+        }
+
+    finally:
+        OPERATION_LOCK.release()
