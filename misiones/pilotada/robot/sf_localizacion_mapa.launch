@@ -1,0 +1,65 @@
+<launch>
+
+    <!--
+        SafeVision - Overlay de mapa + AMCL
+
+        Se utiliza para recuperar la localizacion normal
+        despues de una sesion de Gmapping.
+
+        El nucleo del robot (EKF, LiDAR, IMU, odometria,
+        robot_state_publisher) permanece activo.
+    -->
+
+    <arg name="map_file"/>
+
+    <arg name="initial_pose_x" default="0.0"/>
+    <arg name="initial_pose_y" default="0.0"/>
+    <arg name="initial_pose_a" default="0.0"/>
+
+
+    <node
+        pkg="map_server"
+        type="map_server"
+        name="sf_map_server"
+        args="$(arg map_file)"
+    />
+
+
+    <include
+        file="$(find yahboomcar_nav)/launch/library/amcl.launch"
+    >
+        <arg
+            name="initial_pose_x"
+            value="$(arg initial_pose_x)"
+        />
+
+        <arg
+            name="initial_pose_y"
+            value="$(arg initial_pose_y)"
+        />
+
+        <arg
+            name="initial_pose_a"
+            value="$(arg initial_pose_a)"
+        />
+
+        <arg
+            name="odom_model_type"
+            value="omni"
+        />
+    </include>
+
+
+    <!-- Mismos ajustes usados actualmente por SafeVision. -->
+
+    <param
+        name="/amcl/update_min_d"
+        value="0.10"
+    />
+
+    <param
+        name="/amcl/update_min_a"
+        value="0.10"
+    />
+
+</launch>

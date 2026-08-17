@@ -1,0 +1,22 @@
+<launch>
+
+    <!--
+        SafeVision - SLAM 2D
+
+        Reutiliza exclusivamente el Gmapping ya configurado
+        por Yahboom.
+
+        NO inicia:
+        - chasis
+        - LiDAR
+        - odometria
+        - IMU
+        - EKF
+        - teleoperacion
+    -->
+
+    <include
+        file="$(find yahboomcar_nav)/launch/library/gmapping.launch"
+    />
+
+</launch>
