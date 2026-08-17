@@ -724,3 +724,250 @@ def _restore_localization(
         )
 
         raise
+
+
+
+# =========================================================
+# INICIO DE SESION DE MAPEO
+# =========================================================
+
+def start(name):
+    global GMAPPING_PROCESS
+
+    if not OPERATION_LOCK.acquire(
+        blocking=False
+    ):
+        return {
+            "ok": False,
+            "error": "Hay otra operación de mapeo en curso",
+        }
+
+    restore_map = None
+    localization_touched = False
+    gmapping_started = False
+
+    try:
+        if (
+            MAPS_DIR is None
+            or CANCEL_NAVIGATION is None
+        ):
+            raise RuntimeError(
+                "Gestor de mapeo no configurado"
+            )
+
+        if not _name_valid(name):
+            raise RuntimeError(
+                "Nombre de mapa inválido"
+            )
+
+        name = name.strip()
+
+        with LOCK:
+            if STATE.get("mapping"):
+                raise RuntimeError(
+                    "Ya existe una sesión activa"
+                )
+
+        yaml_path = MAPS_DIR / (name + ".yaml")
+        pgm_path = MAPS_DIR / (name + ".pgm")
+
+        if yaml_path.exists() or pgm_path.exists():
+            raise RuntimeError(
+                "Ya existe un mapa con ese nombre"
+            )
+
+        if _node_exists("/slam_gmapping"):
+            raise RuntimeError(
+                "slam_gmapping ya está activo"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto: {}".format(
+                    ", ".join(core["missing"])
+                )
+            )
+
+        if not _node_exists("/sf_map_server"):
+            raise RuntimeError(
+                "sf_map_server no está activo"
+            )
+
+        if not _node_exists("/amcl"):
+            raise RuntimeError(
+                "AMCL no está activo"
+            )
+
+        if not _map_has_publisher(
+            "/sf_map_server"
+        ):
+            raise RuntimeError(
+                "sf_map_server no controla /map"
+            )
+
+        restore_map = _current_map()
+
+        if restore_map is None:
+            raise RuntimeError(
+                "No se pudo identificar el mapa activo"
+            )
+
+        _set_state(
+            state="starting",
+            mapping=False,
+            name=name,
+            restore_map=str(restore_map),
+            started_at=time.time(),
+            message="Preparando Gmapping",
+        )
+
+        # Cancela navegación y fuerza MANUAL
+        # antes de modificar localización.
+        _force_manual()
+
+        localization_touched = True
+
+        # Si venimos de una restauración anterior,
+        # cerramos primero su roslaunch.
+        _stop_restore_process()
+
+        if not _kill_node("/amcl"):
+            raise RuntimeError(
+                "No se pudo detener AMCL"
+            )
+
+        if not _kill_node("/sf_map_server"):
+            raise RuntimeError(
+                "No se pudo detener sf_map_server"
+            )
+
+        if _node_exists("/amcl"):
+            raise RuntimeError(
+                "AMCL continúa activo"
+            )
+
+        if _node_exists("/sf_map_server"):
+            raise RuntimeError(
+                "sf_map_server continúa activo"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto tras transición: {}".format(
+                    ", ".join(core["missing"])
+                )
+            )
+
+        GMAPPING_PROCESS = _start_process(
+            GMAPPING_LAUNCH
+        )
+
+        gmapping_started = True
+
+        if not _wait_node(
+            "/slam_gmapping",
+            True,
+            timeout=10.0
+        ):
+            raise RuntimeError(
+                "slam_gmapping no inició"
+            )
+
+        if not _wait_map_publisher(
+            "/slam_gmapping",
+            timeout=10.0
+        ):
+            raise RuntimeError(
+                "Gmapping no tomó control de /map"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto con Gmapping: {}".format(
+                    ", ".join(core["missing"])
+                )
+            )
+
+        _set_state(
+            state="mapping",
+            mapping=True,
+            message="Mapeando",
+        )
+
+        return {
+            "ok": True,
+            "mapping": True,
+            "name": name,
+            "restore_map": restore_map.stem,
+        }
+
+    except Exception as exc:
+        error = str(exc)
+        rollback_errors = []
+
+        if (
+            gmapping_started
+            or GMAPPING_PROCESS is not None
+        ):
+            try:
+                if not _stop_gmapping():
+                    rollback_errors.append(
+                        "Gmapping no terminó completamente"
+                    )
+            except Exception as stop_exc:
+                rollback_errors.append(
+                    "Error deteniendo Gmapping: {}".format(
+                        stop_exc
+                    )
+                )
+
+        if (
+            localization_touched
+            and restore_map is not None
+        ):
+            try:
+                _restore_localization(
+                    restore_map
+                )
+            except Exception as restore_exc:
+                rollback_errors.append(
+                    "Error restaurando localización: {}".format(
+                        restore_exc
+                    )
+                )
+
+        rollback_error = (
+            "; ".join(rollback_errors)
+            if rollback_errors
+            else None
+        )
+
+        message = error
+
+        if rollback_error:
+            message += (
+                " | ROLLBACK: "
+                + rollback_error
+            )
+
+        _set_state(
+            state="error",
+            mapping=False,
+            message=message,
+        )
+
+        return {
+            "ok": False,
+            "error": error,
+            "rollback_ok": not rollback_errors,
+            "rollback_error": rollback_error,
+        }
+
+    finally:
+        OPERATION_LOCK.release()
