@@ -1189,3 +1189,343 @@ def discard():
 
     finally:
         OPERATION_LOCK.release()
+
+
+
+# =========================================================
+# GUARDAR SESION DE MAPEO
+# =========================================================
+
+def save():
+
+    if not OPERATION_LOCK.acquire(
+        blocking=False
+    ):
+        return {
+            "ok": False,
+            "error": (
+                "Hay otra operación de mapeo en curso"
+            ),
+        }
+
+    yaml_path = None
+    pgm_path = None
+    saved_pair = False
+    original_restore = None
+    name = None
+
+    try:
+        if (
+            MAPS_DIR is None
+            or NORMALIZE_MAP_NAME is None
+            or MAP_NAME_OCCUPIED is None
+            or MAP_COMPLETE is None
+            or MAP_PATHS is None
+        ):
+            raise RuntimeError(
+                "Gestor de mapeo no configurado"
+            )
+
+        with LOCK:
+            mapping = bool(
+                STATE.get("mapping")
+            )
+
+            name = STATE.get(
+                "name"
+            )
+
+            original_restore = STATE.get(
+                "restore_map"
+            )
+
+        if not mapping:
+            raise RuntimeError(
+                "No hay una sesión de mapeo activa"
+            )
+
+        name = NORMALIZE_MAP_NAME(
+            name
+        )
+
+        if name is None:
+            raise RuntimeError(
+                "La sesión tiene un nombre de mapa inválido"
+            )
+
+        if not _node_exists(
+            "/slam_gmapping"
+        ):
+            raise RuntimeError(
+                "slam_gmapping no está activo"
+            )
+
+        if not _map_has_publisher(
+            "/slam_gmapping"
+        ):
+            raise RuntimeError(
+                "Gmapping no controla /map"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Núcleo ROS incompleto: {}".format(
+                    ", ".join(
+                        core["missing"]
+                    )
+                )
+            )
+
+        occupied = MAP_NAME_OCCUPIED(
+            name
+        )
+
+        if occupied is not None:
+            raise RuntimeError(
+                "Ya existe un mapa con ese nombre: {}"
+                .format(
+                    occupied
+                )
+            )
+
+        yaml_path, pgm_path = (
+            MAP_PATHS(
+                name
+            )
+        )
+
+        if (
+            yaml_path.exists()
+            or pgm_path.exists()
+        ):
+            raise RuntimeError(
+                "Ya existe un archivo para ese mapa"
+            )
+
+        MAPS_DIR.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        map_saver = Path(
+            "/opt/ros/melodic/lib/map_server/map_saver"
+        )
+
+        if not map_saver.is_file():
+            raise RuntimeError(
+                "map_saver no está disponible"
+            )
+
+        prefix = (
+            MAPS_DIR
+            /
+            name
+        )
+
+        _set_state(
+            state="saving",
+            mapping=True,
+            message="Guardando mapa",
+        )
+
+        result = _run(
+            [
+                str(
+                    map_saver
+                ),
+                "-f",
+                str(
+                    prefix
+                ),
+            ],
+            timeout=30
+        )
+
+        if (
+            result is None
+            or result.returncode != 0
+        ):
+            for candidate in (
+                yaml_path,
+                pgm_path,
+            ):
+                try:
+                    candidate.unlink()
+
+                except FileNotFoundError:
+                    pass
+
+                except Exception:
+                    pass
+
+            details = ""
+
+            if result is not None:
+                details = (
+                    result.stderr
+                    or result.stdout
+                    or ""
+                ).strip()
+
+            if len(details) > 300:
+                details = details[-300:]
+
+            if details:
+                raise RuntimeError(
+                    "map_saver falló: {}"
+                    .format(
+                        details
+                    )
+                )
+
+            raise RuntimeError(
+                "map_saver falló"
+            )
+
+        if not MAP_COMPLETE(
+            name
+        ):
+            for candidate in (
+                yaml_path,
+                pgm_path,
+            ):
+                try:
+                    candidate.unlink()
+
+                except FileNotFoundError:
+                    pass
+
+                except Exception:
+                    pass
+
+            raise RuntimeError(
+                "map_saver no generó el par YAML + PGM"
+            )
+
+        saved_pair = True
+
+        # Desde este punto el mapa ya está persistido.
+        # Si falla la transición, restore_map apunta al
+        # mapa nuevo para poder reintentar recuperación.
+        _set_state(
+            state="switching",
+            mapping=True,
+            restore_map=str(
+                yaml_path
+            ),
+            message=(
+                "Mapa guardado; restaurando localización"
+            ),
+        )
+
+        if not _stop_gmapping():
+            raise RuntimeError(
+                "El mapa se guardó, pero Gmapping no terminó completamente"
+            )
+
+        if _node_exists(
+            "/slam_gmapping"
+        ):
+            raise RuntimeError(
+                "El mapa se guardó, pero slam_gmapping continúa activo"
+            )
+
+        _restore_localization(
+            yaml_path
+        )
+
+        if not _node_exists(
+            "/sf_map_server"
+        ):
+            raise RuntimeError(
+                "El mapa se guardó, pero sf_map_server no quedó activo"
+            )
+
+        if not _node_exists(
+            "/amcl"
+        ):
+            raise RuntimeError(
+                "El mapa se guardó, pero AMCL no quedó activo"
+            )
+
+        if not _map_has_publisher(
+            "/sf_map_server"
+        ):
+            raise RuntimeError(
+                "El mapa se guardó, pero sf_map_server no recuperó /map"
+            )
+
+        core = _core_status()
+
+        if not core["ok"]:
+            raise RuntimeError(
+                "Mapa guardado, pero núcleo ROS incompleto: {}".format(
+                    ", ".join(
+                        core["missing"]
+                    )
+                )
+            )
+
+        _set_state(
+            state="idle",
+            mapping=False,
+            name=None,
+            restore_map=None,
+            started_at=None,
+            message="Mapeo detenido",
+        )
+
+        return {
+            "ok": True,
+            "mapping": False,
+            "saved": name,
+            "restored_map": name,
+            "yaml": str(
+                yaml_path
+            ),
+            "pgm": str(
+                pgm_path
+            ),
+        }
+
+    except Exception as exc:
+
+        error = str(
+            exc
+        )
+
+        gmapping_live = _node_exists(
+            "/slam_gmapping"
+        )
+
+        if saved_pair:
+            restore_value = (
+                str(yaml_path)
+                if yaml_path is not None
+                else original_restore
+            )
+
+        else:
+            restore_value = (
+                original_restore
+            )
+
+        _set_state(
+            state="error",
+            mapping=gmapping_live,
+            restore_map=restore_value,
+            message=error,
+        )
+
+        return {
+            "ok": False,
+            "error": error,
+            "mapping": gmapping_live,
+            "saved": saved_pair,
+            "name": name,
+        }
+
+    finally:
+        OPERATION_LOCK.release()
