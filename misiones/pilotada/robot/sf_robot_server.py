@@ -4285,13 +4285,17 @@ def main():
         "=============================================="
     )
 
-    app.run(
-        host="0.0.0.0",
-        port=PORT,
-        debug=False,
-        threaded=True,
-        use_reloader=False
-    )
+    try:
+        app.run(
+            host="0.0.0.0",
+            port=PORT,
+            debug=False,
+            threaded=True,
+            use_reloader=False
+        )
+
+    finally:
+        sf_mapping_manager.shutdown()
 
 
 if __name__ == "__main__":
