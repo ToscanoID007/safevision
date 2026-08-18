@@ -5,8 +5,11 @@ import signal
 import subprocess
 import threading
 import time
+import xmlrpc.client
 from pathlib import Path
 
+import rosgraph
+import rosnode
 import rospy
 from std_srvs.srv import SetBool
 
@@ -350,6 +353,89 @@ def _current_map():
     return None
 
 
+def _current_map_direct(
+    master
+):
+    if master is None:
+        return None
+
+    try:
+        uri = rosnode.get_api_uri(
+            master,
+            "/sf_map_server"
+        )
+
+    except Exception:
+        return None
+
+    if not uri:
+        return None
+
+    try:
+        proxy = xmlrpc.client.ServerProxy(
+            uri
+        )
+
+        code, _message, node_pid = (
+            proxy.getPid(
+                "/safevision_mapping_manager"
+            )
+        )
+
+        if code != 1:
+            return None
+
+        node_pid = int(
+            node_pid
+        )
+
+    except Exception:
+        return None
+
+    cmdline = Path(
+        "/proc/{}/cmdline".format(
+            node_pid
+        )
+    )
+
+    try:
+        args = [
+            item
+            for item
+            in cmdline.read_bytes().split(
+                b"\0"
+            )
+            if item
+        ]
+
+    except Exception:
+        return None
+
+    for raw in args:
+
+        try:
+            value = raw.decode(
+                "utf-8"
+            )
+
+        except Exception:
+            continue
+
+        if not value.endswith(
+            ".yaml"
+        ):
+            continue
+
+        candidate = Path(
+            value
+        )
+
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
 def _core_status():
 
     nodes = _ros_nodes()
@@ -466,8 +552,33 @@ def status():
         MAP_PATHS is not None
     )
 
-    # Una sola lectura de nodos para todo el snapshot.
-    nodes = _ros_nodes()
+    nodes = set()
+    map_publishers = []
+    master = None
+
+    try:
+        master = rosgraph.Master(
+            "/safevision_mapping_manager"
+        )
+
+        nodes = set(
+            rosnode.get_node_names()
+        )
+
+        system_state = (
+            master.getSystemState()
+        )
+
+        for topic, publishers in system_state[0]:
+            if topic == "/map":
+                map_publishers = list(
+                    publishers
+                )
+                break
+
+    except Exception:
+        nodes = set()
+        map_publishers = []
 
     result["slam_gmapping"] = (
         "/slam_gmapping"
@@ -501,44 +612,23 @@ def status():
         "missing": missing,
     }
 
-    # Una sola consulta de /map para ambos posibles
-    # publicadores.
-    map_info = _run(
-        [
-            "rostopic",
-            "info",
-            "/map",
-        ],
-        timeout=3
-    )
-
-    if (
-        map_info is not None
-        and
-        map_info.returncode == 0
-    ):
-        map_output = (
-            map_info.stdout
-        )
-
-    else:
-        map_output = ""
-
     result["map_from_gmapping"] = (
         "/slam_gmapping"
-        in map_output
+        in map_publishers
     )
 
     result["map_from_server"] = (
         "/sf_map_server"
-        in map_output
+        in map_publishers
     )
 
     current_map = None
 
     if result["map_server"]:
         current_map = (
-            _current_map()
+            _current_map_direct(
+                master
+            )
         )
 
     result["current_map"] = (
