@@ -466,43 +466,80 @@ def status():
         MAP_PATHS is not None
     )
 
+    # Una sola lectura de nodos para todo el snapshot.
+    nodes = _ros_nodes()
+
     result["slam_gmapping"] = (
-        _node_exists(
-            "/slam_gmapping"
-        )
+        "/slam_gmapping"
+        in nodes
     )
 
     result["map_server"] = (
-        _node_exists(
-            "/sf_map_server"
-        )
+        "/sf_map_server"
+        in nodes
     )
 
     result["amcl"] = (
-        _node_exists(
-            "/amcl"
-        )
+        "/amcl"
+        in nodes
     )
 
-    result["map_from_gmapping"] = (
-        _map_has_publisher(
-            "/slam_gmapping"
+    required = [
+        "/rplidarNode",
+        "/ekf_localization",
+        "/odometry_publisher",
+    ]
+
+    missing = [
+        name
+        for name in required
+        if name not in nodes
+    ]
+
+    result["core"] = {
+        "ok": not missing,
+        "missing": missing,
+    }
+
+    # Una sola consulta de /map para ambos posibles
+    # publicadores.
+    map_info = _run(
+        [
+            "rostopic",
+            "info",
+            "/map",
+        ],
+        timeout=3
+    )
+
+    if (
+        map_info is not None
+        and
+        map_info.returncode == 0
+    ):
+        map_output = (
+            map_info.stdout
         )
+
+    else:
+        map_output = ""
+
+    result["map_from_gmapping"] = (
+        "/slam_gmapping"
+        in map_output
     )
 
     result["map_from_server"] = (
-        _map_has_publisher(
-            "/sf_map_server"
+        "/sf_map_server"
+        in map_output
+    )
+
+    current_map = None
+
+    if result["map_server"]:
+        current_map = (
+            _current_map()
         )
-    )
-
-    result["core"] = (
-        _core_status()
-    )
-
-    current_map = (
-        _current_map()
-    )
 
     result["current_map"] = (
         str(current_map)
