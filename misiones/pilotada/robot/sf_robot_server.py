@@ -25,6 +25,8 @@ from std_msgs.msg import String
 from nav_msgs.msg import OccupancyGrid
 from flask import Flask, Response, jsonify, request
 
+import sf_mapping_manager
+
 
 AUTOMATIC_ROBOT_DIR = (
     Path(__file__).resolve().parents[2]
@@ -3987,6 +3989,25 @@ def publicar_nav_command(data):
     return True
 
 
+def cancelar_navegacion_para_mapeo():
+    return publicar_nav_command(
+        {
+            "command": "cancel"
+        }
+    )
+
+
+def configurar_mapping_manager():
+    sf_mapping_manager.configure(
+        MAPS_DIR,
+        cancelar_navegacion_para_mapeo,
+        normalizar_nombre_mapa,
+        nombre_mapa_ocupado,
+        mapa_completo,
+        rutas_mapa,
+    )
+
+
 @app.route("/nav/status")
 def nav_status():
     response = dict(
@@ -4141,6 +4162,8 @@ def main():
     CONTROL_MODE = args.control
 
     iniciar_nav_bridge()
+
+    configurar_mapping_manager()
 
     print(
         "=============================================="
