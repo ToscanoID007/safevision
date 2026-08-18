@@ -3936,6 +3936,86 @@ def mapping_live_meta():
     )
 
 
+# =========================================================
+# SESION DE MAPEO
+# =========================================================
+
+@app.route(
+    "/mapping/session/status"
+)
+def mapping_session_status():
+    return jsonify(
+        sf_mapping_manager.status()
+    )
+
+
+@app.route(
+    "/mapping/session/start",
+    methods=["POST"]
+)
+def mapping_session_start():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    name = normalizar_nombre_mapa(
+        data.get("name")
+    )
+
+    if name is None:
+        return jsonify({
+            "ok": False,
+            "error": "Nombre de mapa invalido"
+        }), 400
+
+    result = sf_mapping_manager.start(
+        name
+    )
+
+    return jsonify(
+        result
+    ), (
+        200
+        if result.get("ok")
+        else 409
+    )
+
+
+@app.route(
+    "/mapping/session/save",
+    methods=["POST"]
+)
+def mapping_session_save():
+
+    result = sf_mapping_manager.save()
+
+    return jsonify(
+        result
+    ), (
+        200
+        if result.get("ok")
+        else 409
+    )
+
+
+@app.route(
+    "/mapping/session/discard",
+    methods=["POST"]
+)
+def mapping_session_discard():
+
+    result = sf_mapping_manager.discard()
+
+    return jsonify(
+        result
+    ), (
+        200
+        if result.get("ok")
+        else 409
+    )
+
+
 def iniciar_nav_bridge():
     global NAV_COMMAND_PUB
 
