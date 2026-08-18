@@ -362,7 +362,8 @@ def _current_map_direct(
     try:
         uri = rosnode.get_api_uri(
             master,
-            "/sf_map_server"
+            "/sf_map_server",
+            skip_cache=True
         )
 
     except Exception:
@@ -829,7 +830,7 @@ def _restore_localization(
         RESTORE_PROCESS = _start_process(
             RESTORE_LAUNCH,
             [
-                "map_file={}".format(
+                "map_file:={}".format(
                     map_path
                 )
             ]
