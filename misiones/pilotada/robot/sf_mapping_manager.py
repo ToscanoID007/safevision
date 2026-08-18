@@ -1529,3 +1529,169 @@ def save():
 
     finally:
         OPERATION_LOCK.release()
+
+
+
+# =========================================================
+# CIERRE DEL GESTOR
+# Solo procesos roslaunch creados por este modulo.
+# No mata nodos ROS por nombre.
+# =========================================================
+
+def _signal_owned_process(
+    process,
+    sig
+):
+    if process is None:
+        return False
+
+    if process.poll() is not None:
+        return False
+
+    try:
+        os.killpg(
+            os.getpgid(
+                process.pid
+            ),
+            sig
+        )
+
+        return True
+
+    except Exception:
+        return False
+
+
+def _wait_owned_processes(
+    processes,
+    timeout
+):
+    deadline = (
+        time.time()
+        +
+        float(timeout)
+    )
+
+    while time.time() < deadline:
+
+        alive = [
+            process
+            for process in processes
+            if (
+                process is not None
+                and
+                process.poll() is None
+            )
+        ]
+
+        if not alive:
+            return True
+
+        time.sleep(
+            0.05
+        )
+
+    return not any(
+        process is not None
+        and process.poll() is None
+        for process in processes
+    )
+
+
+def shutdown():
+    global GMAPPING_PROCESS
+    global RESTORE_PROCESS
+
+    processes = []
+
+    for process in (
+        GMAPPING_PROCESS,
+        RESTORE_PROCESS,
+    ):
+        if process is None:
+            continue
+
+        if any(
+            existing.pid == process.pid
+            for existing in processes
+        ):
+            continue
+
+        processes.append(
+            process
+        )
+
+    # Desde este punto el gestor deja de considerar
+    # estos procesos como disponibles para operaciones.
+    GMAPPING_PROCESS = None
+    RESTORE_PROCESS = None
+
+    if not processes:
+        return {
+            "ok": True,
+            "stopped": 0,
+        }
+
+    # Primera oportunidad: cierre ROS normal.
+    for process in processes:
+        _signal_owned_process(
+            process,
+            signal.SIGINT
+        )
+
+    _wait_owned_processes(
+        processes,
+        timeout=1.0
+    )
+
+    remaining = [
+        process
+        for process in processes
+        if process.poll() is None
+    ]
+
+    # Segunda oportunidad: terminar el roslaunch.
+    for process in remaining:
+        _signal_owned_process(
+            process,
+            signal.SIGTERM
+        )
+
+    _wait_owned_processes(
+        remaining,
+        timeout=0.4
+    )
+
+    remaining = [
+        process
+        for process in remaining
+        if process.poll() is None
+    ]
+
+    # Ultimo recurso durante cierre general de Pilotada.
+    for process in remaining:
+        _signal_owned_process(
+            process,
+            signal.SIGKILL
+        )
+
+    _wait_owned_processes(
+        remaining,
+        timeout=0.2
+    )
+
+    alive = [
+        process.pid
+        for process in processes
+        if process.poll() is None
+    ]
+
+    return {
+        "ok": not alive,
+        "stopped": (
+            len(processes)
+            -
+            len(alive)
+        ),
+        "alive": alive,
+    }
