@@ -21,6 +21,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import rospy
+from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 from nav_msgs.msg import OccupancyGrid
 from flask import (
@@ -66,6 +67,7 @@ MODEL_MANAGER = sf_model_manager.ModelManager()
 CONTROL_MODE = "desconocido"
 
 NAV_COMMAND_PUB = None
+KEYBOARD_CMD_PUB = None
 NAV_STATUS_RECEIVED = False
 NAV_STATUS_VERSION = 0
 
@@ -679,6 +681,202 @@ def runtime_control():
         if result.get("ok")
         else 409
     )
+
+
+
+# =========================================================
+# SAFEVISION · TECLADO WEB
+# El navegador publica solamente en /cmd_vel_manual.
+# sf_cmd_vel_selector conserva el watchdog de 0.5 s y
+# decide si MANUAL o NAVEGACION puede llegar a /cmd_vel.
+# =========================================================
+
+KEYBOARD_LINEAR_LIMIT = 1.0
+KEYBOARD_ANGULAR_LIMIT = 5.0
+
+
+def clamp_keyboard_value(
+    value,
+    limit
+):
+    value = float(
+        value
+    )
+
+    if not math.isfinite(
+        value
+    ):
+        raise ValueError(
+            "valor no finito"
+        )
+
+    limit = abs(
+        float(limit)
+    )
+
+    return max(
+        -limit,
+        min(
+            limit,
+            value
+        )
+    )
+
+
+def publicar_keyboard_twist(
+    linear_x,
+    linear_y,
+    angular_z
+):
+    if KEYBOARD_CMD_PUB is None:
+        return False, 0
+
+    connections = int(
+        KEYBOARD_CMD_PUB.get_num_connections()
+    )
+
+    if connections < 1:
+        return False, connections
+
+    twist = Twist()
+
+    twist.linear.x = float(
+        linear_x
+    )
+
+    twist.linear.y = float(
+        linear_y
+    )
+
+    twist.angular.z = float(
+        angular_z
+    )
+
+    KEYBOARD_CMD_PUB.publish(
+        twist
+    )
+
+    return True, connections
+
+
+@app.route(
+    "/runtime/keyboard",
+    methods=["POST"]
+)
+def runtime_keyboard():
+    if CONTROL_MODE != "teclado":
+        return jsonify({
+            "ok": False,
+            "error": (
+                "El control por teclado no esta activo."
+            )
+        }), 409
+
+    runtime = sf_runtime_manager.status(
+        CONTROL_MODE
+    )
+
+    selector = (
+        runtime.get(
+            "resources",
+            {}
+        )
+        .get(
+            "selector",
+            {}
+        )
+    )
+
+    if not selector.get(
+        "active"
+    ):
+        return jsonify({
+            "ok": False,
+            "error": (
+                "El selector de velocidad no esta activo."
+            )
+        }), 409
+
+    data = request.get_json(
+        silent=True
+    )
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "JSON invalido."
+        }), 400
+
+    try:
+        linear_x = clamp_keyboard_value(
+            data.get(
+                "linear_x",
+                0.0
+            ),
+            KEYBOARD_LINEAR_LIMIT
+        )
+
+        linear_y = clamp_keyboard_value(
+            data.get(
+                "linear_y",
+                0.0
+            ),
+            KEYBOARD_LINEAR_LIMIT
+        )
+
+        angular_z = clamp_keyboard_value(
+            data.get(
+                "angular_z",
+                0.0
+            ),
+            KEYBOARD_ANGULAR_LIMIT
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+        return jsonify({
+            "ok": False,
+            "error": (
+                "linear_x, linear_y y angular_z "
+                "deben ser numericos finitos."
+            )
+        }), 400
+
+    published, connections = (
+        publicar_keyboard_twist(
+            linear_x,
+            linear_y,
+            angular_z
+        )
+    )
+
+    if not published:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "No hay suscriptor activo en "
+                "/cmd_vel_manual."
+            ),
+            "connections": connections,
+        }), 409
+
+    return jsonify({
+        "ok": True,
+        "mode": "teclado",
+        "topic": "/cmd_vel_manual",
+        "connections": connections,
+        "command": {
+            "linear_x": linear_x,
+            "linear_y": linear_y,
+            "angular_z": angular_z,
+        },
+        "watchdog_seconds": 0.5,
+    })
 
 
 @app.route("/video_feed")
@@ -4287,6 +4485,7 @@ def mapping_session_discard():
 
 def iniciar_nav_bridge():
     global NAV_COMMAND_PUB
+    global KEYBOARD_CMD_PUB
 
     if not rospy.core.is_initialized():
         rospy.init_node(
@@ -4298,6 +4497,12 @@ def iniciar_nav_bridge():
     NAV_COMMAND_PUB = rospy.Publisher(
         "/safevision/nav/command",
         String,
+        queue_size=10
+    )
+
+    KEYBOARD_CMD_PUB = rospy.Publisher(
+        "/cmd_vel_manual",
+        Twist,
         queue_size=10
     )
 

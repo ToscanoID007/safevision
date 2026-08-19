@@ -361,14 +361,89 @@ def _stop_lidar():
 
 
 def _ensure_lidar():
-    if _nodes_present({"/rplidarNode"}) and _topic_present("/scan"):
+    def registered():
+        return (
+            _nodes_present(
+                {
+                    "/rplidarNode"
+                }
+            )
+            and
+            _topic_present(
+                "/scan"
+            )
+        )
+
+    # Un publisher registrado no garantiza que el sensor
+    # este entregando LaserScan. El RPLidar puede quedar vivo
+    # pero silencioso despues de una transicion/restart.
+    if (
+        registered()
+        and
+        _topic_has_message(
+            "/scan",
+            timeout=3
+        )
+    ):
         return True
-    launch = ROBOT_DIR / "sf_runtime_lidar.launch"
-    _spawn("lidar", "roslaunch " + shlex.quote(str(launch)))
-    return _wait(
-        lambda: _nodes_present({"/rplidarNode"}) and _topic_present("/scan"),
-        15,
+
+    # Si existe un LiDAR registrado pero silencioso, reiniciarlo
+    # antes de considerarlo listo.
+    if registered():
+        if not _stop_lidar():
+            return False
+
+        time.sleep(
+            0.8
+        )
+
+    launch = (
+        ROBOT_DIR
+        /
+        "sf_runtime_lidar.launch"
     )
+
+    command = (
+        "roslaunch "
+        +
+        shlex.quote(
+            str(launch)
+        )
+    )
+
+    # Dos intentos maximo. El segundo permite recuperar el
+    # puerto serie si el primer arranque queda registrado
+    # pero no comienza a emitir /scan.
+    for attempt in range(2):
+
+        _spawn(
+            "lidar",
+            command
+        )
+
+        nodes_ok = _wait(
+            registered,
+            15
+        )
+
+        if (
+            nodes_ok
+            and
+            _topic_has_message(
+                "/scan",
+                timeout=8
+            )
+        ):
+            return True
+
+        _stop_lidar()
+
+        if attempt == 0:
+            time.sleep(
+                1.0
+            )
+
+    return False
 
 
 def _ensure_localization(map_path):
