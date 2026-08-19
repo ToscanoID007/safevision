@@ -4063,17 +4063,122 @@ def mapping_session_start():
             "error": "Nombre de mapa invalido"
         }), 400
 
+    mission_state = (
+        MISSION_RUNTIME.status()
+    )
+
+    if mission_state.get(
+        "running"
+    ):
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Cancela la mision automatica "
+                "antes de iniciar Mapear."
+            )
+        }), 409
+
+    runtime_prepare = (
+        sf_runtime_manager.prepare_mapping(
+            CONTROL_MODE
+        )
+    )
+
+    if not runtime_prepare.get(
+        "ok"
+    ):
+        return jsonify({
+            "ok": False,
+            "error": runtime_prepare.get(
+                "message",
+                "No se pudo preparar Mapear."
+            ),
+            "runtime": runtime_prepare,
+        }), 409
+
     result = sf_mapping_manager.start(
         name
     )
 
+    if not result.get(
+        "ok"
+    ):
+        # Si start() hizo rollback mediante su roslaunch
+        # temporal, lo cerramos y devolvemos ownership
+        # al Runtime Manager.
+        sf_mapping_manager.shutdown()
+
+        recovery = (
+            sf_runtime_manager.restore_after_mapping(
+                control_mode=CONTROL_MODE
+            )
+        )
+
+        result[
+            "runtime_recovery"
+        ] = recovery
+
+        return jsonify(
+            result
+        ), 409
+
+    runtime_started = (
+        sf_runtime_manager.mark_mapping_started(
+            result.get(
+                "restore_map"
+            ),
+            CONTROL_MODE
+        )
+    )
+
+    result[
+        "runtime"
+    ] = runtime_started
+
+    if not runtime_started.get(
+        "ok"
+    ):
+        rollback = (
+            sf_mapping_manager.discard()
+        )
+
+        sf_mapping_manager.shutdown()
+
+        recovery = (
+            sf_runtime_manager.restore_after_mapping(
+                rollback.get(
+                    "restored_map"
+                ),
+                CONTROL_MODE
+            )
+        )
+
+        result[
+            "ok"
+        ] = False
+
+        result[
+            "error"
+        ] = (
+            "Gmapping inicio pero el Runtime Manager "
+            "no pudo confirmar exclusividad."
+        )
+
+        result[
+            "mapping_rollback"
+        ] = rollback
+
+        result[
+            "runtime_recovery"
+        ] = recovery
+
+        return jsonify(
+            result
+        ), 409
+
     return jsonify(
         result
-    ), (
-        200
-        if result.get("ok")
-        else 409
-    )
+    ), 200
 
 
 @app.route(
@@ -4083,6 +4188,41 @@ def mapping_session_start():
 def mapping_session_save():
 
     result = sf_mapping_manager.save()
+
+    if result.get(
+        "ok"
+    ):
+        # save() restaura localizacion temporalmente.
+        # Cerramos ese owner y Runtime Manager retoma
+        # localizacion + navegacion con el mapa nuevo.
+        sf_mapping_manager.shutdown()
+
+        runtime = (
+            sf_runtime_manager.restore_after_mapping(
+                result.get(
+                    "restored_map"
+                ),
+                CONTROL_MODE
+            )
+        )
+
+        result[
+            "runtime"
+        ] = runtime
+
+        if not runtime.get(
+            "ok"
+        ):
+            result[
+                "ok"
+            ] = False
+
+            result[
+                "error"
+            ] = (
+                "Mapa guardado, pero el runtime "
+                "no pudo restaurar navegacion."
+            )
 
     return jsonify(
         result
@@ -4100,6 +4240,41 @@ def mapping_session_save():
 def mapping_session_discard():
 
     result = sf_mapping_manager.discard()
+
+    if result.get(
+        "ok"
+    ):
+        # discard() recupera el mapa anterior con un
+        # roslaunch temporal. Runtime Manager toma
+        # ownership definitivo de nuevo.
+        sf_mapping_manager.shutdown()
+
+        runtime = (
+            sf_runtime_manager.restore_after_mapping(
+                result.get(
+                    "restored_map"
+                ),
+                CONTROL_MODE
+            )
+        )
+
+        result[
+            "runtime"
+        ] = runtime
+
+        if not runtime.get(
+            "ok"
+        ):
+            result[
+                "ok"
+            ] = False
+
+            result[
+                "error"
+            ] = (
+                "Mapeo descartado, pero el runtime "
+                "no pudo restaurar navegacion."
+            )
 
     return jsonify(
         result

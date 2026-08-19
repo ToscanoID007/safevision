@@ -836,10 +836,13 @@ def _restore_localization(
             ]
         )
 
+        # En la Raspberry Pi roslaunch puede tardar mas
+        # de 8 s en completar su inicializacion tras Gmapping.
+        # No lo abortamos mientras aun esta cargando roscore.
         if not _wait_node(
             "/sf_map_server",
             True,
-            timeout=8.0
+            timeout=20.0
         ):
             raise RuntimeError(
                 "sf_map_server no volvió a iniciar"

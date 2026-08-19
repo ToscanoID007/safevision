@@ -40,6 +40,8 @@ def _empty_state():
         "requested_profile": None,
         "map_name": None,
         "control_mode": None,
+        "resume_profile": None,
+        "resume_map_name": None,
         "owned": {},
     }
 
@@ -846,6 +848,390 @@ def _ensure_base(
     )
 
 
+def prepare_mapping(
+    control_mode=None
+):
+    with _LOCK:
+        base = _ensure_base(
+            control_mode
+        )
+
+        if not base.get("ok"):
+            return _result(
+                False,
+                base.get(
+                    "message",
+                    "No se pudo preparar la base."
+                ),
+                base=base,
+                status=status(
+                    control_mode
+                ),
+            )
+
+        current = status(
+            control_mode
+        )
+
+        if current[
+            "resources"
+        ]["mapping"]["active"]:
+            return _result(
+                True,
+                "Mapeo ya activo.",
+                status=current,
+            )
+
+        state = _load_state()
+
+        resume_profile = state.get(
+            "requested_profile"
+        )
+
+        resume_map = state.get(
+            "map_name"
+        )
+
+        if resume_profile not in (
+            "pilotada",
+            "automatica",
+        ):
+            return _result(
+                False,
+                (
+                    "Mapear requiere Pilotada o Automatica "
+                    "con mapa activo."
+                ),
+                status=current,
+            )
+
+        if not resume_map:
+            return _result(
+                False,
+                "Mapear requiere un mapa activo de retorno.",
+                status=current,
+            )
+
+        prerequisites = [
+            "driver",
+            "core",
+            "lidar",
+            "localization",
+            "selector",
+            "navigation",
+            "nav_queue",
+        ]
+
+        missing = [
+            name
+            for name in prerequisites
+            if not current[
+                "resources"
+            ][name]["active"]
+        ]
+
+        if missing:
+            return _result(
+                False,
+                (
+                    "Mapear requiere recursos activos: "
+                    + ", ".join(
+                        missing
+                    )
+                ),
+                status=current,
+            )
+
+        # sf_mapping_manager.start() necesita nav_queue
+        # para publicar cancel antes de retirar
+        # AMCL/map_server. No apagamos navegacion aqui.
+        _set_selector_manual()
+
+        state[
+            "resume_profile"
+        ] = resume_profile
+
+        state[
+            "resume_map_name"
+        ] = resume_map
+
+        if control_mode:
+            state[
+                "control_mode"
+            ] = control_mode
+
+        _save_state(
+            state
+        )
+
+        return _result(
+            True,
+            "Runtime listo para iniciar Gmapping.",
+            resume_profile=resume_profile,
+            resume_map=resume_map,
+            status=status(
+                control_mode
+            ),
+        )
+
+def mark_mapping_started(
+    restore_map=None,
+    control_mode=None
+):
+    with _LOCK:
+        current = status(
+            control_mode
+        )
+
+        if not current[
+            "resources"
+        ]["mapping"]["active"]:
+            return _result(
+                False,
+                "Gmapping no aparece activo.",
+                status=current,
+            )
+
+        _set_selector_manual()
+
+        steps = []
+
+        # Gmapping ya tomo /map.
+        # Ahora retiramos los recursos incompatibles.
+        for name, action in [
+            (
+                "nav_queue",
+                _stop_nav_queue,
+            ),
+            (
+                "navigation",
+                _stop_navigation,
+            ),
+            (
+                "pose_exporter",
+                _stop_pose_exporter,
+            ),
+        ]:
+            ok = bool(
+                action()
+            )
+
+            steps.append({
+                "resource": name,
+                "ok": ok,
+            })
+
+            if not ok:
+                return _result(
+                    False,
+                    (
+                        "No se pudo activar Mapear; "
+                        "fallo deteniendo "
+                        + name
+                    ),
+                    steps=steps,
+                    status=status(
+                        control_mode
+                    ),
+                )
+
+        # sf_mapping_manager ya retiro AMCL/map_server.
+        # Cerramos el roslaunch padre que era del runtime.
+        _terminate_owned(
+            "localization"
+        )
+
+        state = _load_state()
+
+        state[
+            "requested_profile"
+        ] = "mapear"
+
+        if restore_map:
+            state[
+                "map_name"
+            ] = str(
+                restore_map
+            )
+
+        if control_mode:
+            state[
+                "control_mode"
+            ] = control_mode
+
+        _save_state(
+            state
+        )
+
+        final = status(
+            control_mode
+        )
+
+        conflicts = [
+            name
+            for name in [
+                "localization",
+                "pose_exporter",
+                "navigation",
+                "nav_queue",
+            ]
+            if final[
+                "resources"
+            ][name]["active"]
+        ]
+
+        if conflicts:
+            return _result(
+                False,
+                (
+                    "Mapear tiene recursos incompatibles: "
+                    + ", ".join(
+                        conflicts
+                    )
+                ),
+                steps=steps,
+                status=final,
+            )
+
+        if not final[
+            "resources"
+        ]["mapping"]["active"]:
+            return _result(
+                False,
+                "Gmapping dejo de estar activo.",
+                steps=steps,
+                status=final,
+            )
+
+        return _result(
+            True,
+            "Perfil Mapear activo.",
+            steps=steps,
+            status=final,
+        )
+
+def restore_after_mapping(
+    restored_map=None,
+    control_mode=None
+):
+    with _LOCK:
+        current = status(
+            control_mode
+        )
+
+        if current[
+            "resources"
+        ]["mapping"]["active"]:
+            return _result(
+                False,
+                (
+                    "No se puede restaurar navegacion "
+                    "mientras Gmapping siga activo."
+                ),
+                status=current,
+            )
+
+        state = _load_state()
+
+        resume_profile = state.get(
+            "resume_profile"
+        )
+
+        if resume_profile not in (
+            "pilotada",
+            "automatica",
+        ):
+            resume_profile = "pilotada"
+
+        target_map = (
+            restored_map
+            or state.get(
+                "resume_map_name"
+            )
+            or state.get(
+                "map_name"
+            )
+        )
+
+        if not target_map:
+            return _result(
+                False,
+                "No hay mapa para restaurar tras Mapear.",
+                status=current,
+            )
+
+        # sf_mapping_manager.shutdown() ya cerro sus
+        # roslaunch temporales. Limpiamos cualquier
+        # nodo residual antes del handoff definitivo.
+        _terminate_owned(
+            "localization"
+        )
+
+        _rosnode_kill(
+            "/amcl",
+            "/sf_map_server",
+        )
+
+        clean = _wait(
+            lambda: (
+                not _node_alive(
+                    "/amcl"
+                )
+                and
+                not _node_alive(
+                    "/sf_map_server"
+                )
+            ),
+            6.0,
+        )
+
+        if not clean:
+            return _result(
+                False,
+                (
+                    "No se pudo limpiar la localizacion "
+                    "temporal tras Mapear."
+                ),
+                status=status(
+                    control_mode
+                ),
+            )
+
+        result = apply_profile(
+            resume_profile,
+            map_name=target_map,
+            control_mode=control_mode,
+        )
+
+        if not result.get(
+            "ok"
+        ):
+            return result
+
+        state = _load_state()
+
+        state[
+            "resume_profile"
+        ] = None
+
+        state[
+            "resume_map_name"
+        ] = None
+
+        _save_state(
+            state
+        )
+
+        result[
+            "resumed_profile"
+        ] = resume_profile
+
+        result[
+            "restored_map"
+        ] = target_map
+
+        return result
+
 def infer_profile(resources):
     if resources["mapping"]["active"]:
         return "mapear"
@@ -955,7 +1341,7 @@ def status(control_mode=None):
 
     return {
         "ok": True,
-        "manager_version": 4,
+        "manager_version": 5,
         "mode": "active_profiles",
         "hostname": socket.gethostname(),
         "ros_master_uri": (
@@ -984,6 +1370,7 @@ def apply_profile(profile, map_name=None, control_mode=None):
         "libre",
         "pilotada",
         "automatica",
+        "mapear",
     ):
         return _result(
             False,
@@ -991,6 +1378,51 @@ def apply_profile(profile, map_name=None, control_mode=None):
         )
 
     with _LOCK:
+        current = status(
+            control_mode
+        )
+
+        if profile == "mapear":
+            if current[
+                "resources"
+            ]["mapping"]["active"]:
+                state = _load_state()
+                state[
+                    "requested_profile"
+                ] = "mapear"
+                _save_state(
+                    state
+                )
+
+                return _result(
+                    True,
+                    "Perfil Mapear activo.",
+                    status=status(
+                        control_mode
+                    ),
+                )
+
+            return _result(
+                False,
+                (
+                    "Mapear se inicia mediante "
+                    "/mapping/session/start."
+                ),
+                status=current,
+            )
+
+        if current[
+            "resources"
+        ]["mapping"]["active"]:
+            return _result(
+                False,
+                (
+                    "Hay una sesion de mapeo activa; "
+                    "guarda o descarta antes de cambiar perfil."
+                ),
+                status=current,
+            )
+
         base = _ensure_base(control_mode)
 
         if not base.get("ok"):
