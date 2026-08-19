@@ -457,7 +457,8 @@ def index():
         "ip": obtener_ip(),
         "video": "/video_feed",
         "health": "/health",
-        "runtime": "/runtime/status"
+        "runtime": "/runtime/status",
+        "runtime_profile": "/runtime/profile"
     })
 
 
@@ -613,6 +614,34 @@ def runtime_status():
             CONTROL_MODE
         )
     )
+
+
+@app.route(
+    "/runtime/profile",
+    methods=["POST"]
+)
+def runtime_profile():
+
+    global CONTROL_MODE
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    profile = data.get("profile")
+    map_name = data.get("map")
+    control = data.get("control") or CONTROL_MODE
+
+    result = sf_runtime_manager.apply_profile(
+        profile,
+        map_name=map_name,
+        control_mode=control
+    )
+
+    if result.get("ok") and control in ("mando", "teclado"):
+        CONTROL_MODE = control
+
+    return jsonify(result), (200 if result.get("ok") else 409)
 
 
 @app.route("/video_feed")
