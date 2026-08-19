@@ -5289,6 +5289,2398 @@
     }
 
 
+
+
+    // =====================================================
+    // SAFEVISION AUTOMATICA · CALIBRACIONES PILOTADA
+    // =====================================================
+
+    const AUTO_CALIBRATION_ROBOT_LENGTH_M = 0.24;
+    const AUTO_CALIBRATION_ROBOT_WIDTH_M = 0.20;
+
+    const automaticCalibration = {
+        active: false,
+        firstPoint: null,
+        applying: false
+    };
+
+    const automaticCalibrationRaster = {
+        rasterMapName: null,
+        rasterWidth: 0,
+        rasterHeight: 0,
+        raster: null
+    };
+
+    const calibrationPoseButton =
+        document.getElementById("autoCalibrationPose");
+
+    const calibrationMeasuresButton =
+        document.getElementById("autoCalibrationMeasures");
+
+    const calibrationStatus =
+        document.getElementById("autoCalibrationStatus");
+
+    const calibrationPoint =
+        document.getElementById("autoCalibrationPoint");
+
+    function automaticCalibrationMapName() {
+        return (
+            (autoMapData.mission && autoMapData.mission.map)
+            ||
+            ""
+        );
+    }
+
+    function setAutomaticCalibrationStatus(message, state = "") {
+        if (!calibrationStatus) {
+            return;
+        }
+
+        calibrationStatus.textContent = message || "";
+        calibrationStatus.dataset.state = state || "";
+    }
+
+    function automaticCalibrationReady() {
+        return Boolean(
+            connectionState.connected
+            &&
+            autoMissionState.loaded
+            &&
+            autoMapData.mission
+            &&
+            autoMapData.meta
+            &&
+            mapImage
+            &&
+            mapImage.complete
+            &&
+            mapImage.naturalWidth
+            &&
+            mapImage.naturalHeight
+            &&
+            !autoMissionState.busy
+            &&
+            !autoMissionState.running
+            &&
+            !automaticCalibration.applying
+        );
+    }
+
+    function updateAutomaticCalibrationControls() {
+        const ready = automaticCalibrationReady();
+
+        if (calibrationPoseButton) {
+            calibrationPoseButton.disabled = !ready;
+        }
+
+        if (calibrationMeasuresButton) {
+            calibrationMeasuresButton.disabled = !ready;
+        }
+    }
+
+    function cancelAutomaticCalibration(keepStatus = false) {
+        automaticCalibration.active = false;
+        automaticCalibration.firstPoint = null;
+
+        if (calibrationPoseButton) {
+            calibrationPoseButton.textContent = "Calibrar pose";
+        }
+
+        if (mapScene) {
+            mapScene.classList.remove("auto-map-calibrating");
+        }
+
+        if (calibrationPoint) {
+            calibrationPoint.hidden = true;
+        }
+
+        if (!keepStatus) {
+            setAutomaticCalibrationStatus("");
+        }
+
+        updateAutomaticCalibrationControls();
+    }
+
+    function automaticViewportToScene(clientX, clientY) {
+        if (!mapViewport || !mapScene) {
+            return null;
+        }
+
+        const viewportRect = mapViewport.getBoundingClientRect();
+        const parentX = clientX - viewportRect.left;
+        const parentY = clientY - viewportRect.top;
+        const style = window.getComputedStyle(mapScene);
+
+        let matrix;
+        try {
+            matrix = (
+                style.transform && style.transform !== "none"
+            )
+                ? new DOMMatrix(style.transform)
+                : new DOMMatrix();
+        } catch (error) {
+            matrix = new DOMMatrix();
+        }
+
+        let originX = mapScene.clientWidth / 2;
+        let originY = mapScene.clientHeight / 2;
+        const originParts = String(style.transformOrigin || "").split(/\s+/);
+
+        if (originParts.length >= 2) {
+            const ox = Number.parseFloat(originParts[0]);
+            const oy = Number.parseFloat(originParts[1]);
+            if (Number.isFinite(ox)) originX = ox;
+            if (Number.isFinite(oy)) originY = oy;
+        }
+
+        const offsetX = Number(mapScene.offsetLeft || 0);
+        const offsetY = Number(mapScene.offsetTop || 0);
+
+        try {
+            const inverse = matrix.inverse();
+            const point = new DOMPoint(
+                parentX - offsetX - originX,
+                parentY - offsetY - originY
+            ).matrixTransform(inverse);
+
+            return {
+                x: point.x + originX,
+                y: point.y + originY
+            };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function automaticScreenToMap(clientX, clientY) {
+        if (!autoMapData.meta || !mapImage) {
+            return null;
+        }
+
+        const scenePoint = automaticViewportToScene(clientX, clientY);
+        const layout = getAutomaticImageLayout();
+
+        if (!scenePoint || !layout || !layout.width || !layout.height) {
+            return null;
+        }
+
+        const u = (scenePoint.x - layout.left) / layout.width;
+        const v = (scenePoint.y - layout.top) / layout.height;
+
+        if (u < 0 || u > 1 || v < 0 || v > 1) {
+            return null;
+        }
+
+        const meta = autoMapData.meta;
+        const width = Number(meta.width);
+        const height = Number(meta.height);
+        const resolution = Number(meta.resolution);
+        const originX = Number(meta.origin.x);
+        const originY = Number(meta.origin.y);
+        const originYaw = Number(meta.origin.yaw || 0);
+
+        if (
+            !Number.isFinite(width)
+            || !Number.isFinite(height)
+            || !Number.isFinite(resolution)
+            || !Number.isFinite(originX)
+            || !Number.isFinite(originY)
+        ) {
+            return null;
+        }
+
+        const pixelX = u * width;
+        const pixelY = v * height;
+        const localX = pixelX * resolution;
+        const localY = (height - pixelY) * resolution;
+        const cosO = Math.cos(originYaw);
+        const sinO = Math.sin(originYaw);
+
+        return {
+            x: originX + cosO * localX - sinO * localY,
+            y: originY + sinO * localX + cosO * localY,
+            u,
+            v,
+            sceneX: scenePoint.x,
+            sceneY: scenePoint.y
+        };
+    }
+
+    function showAutomaticCalibrationPoint(point) {
+        if (!calibrationPoint || !point) {
+            return;
+        }
+
+        calibrationPoint.style.left = point.sceneX + "px";
+        calibrationPoint.style.top = point.sceneY + "px";
+        calibrationPoint.hidden = false;
+    }
+
+    async function applyAutomaticInitialPose(x, y, yaw, successMessage) {
+        automaticCalibration.applying = true;
+        updateAutomaticCalibrationControls();
+        setAutomaticCalibrationStatus("Aplicando pose a AMCL...", "active");
+
+        try {
+            const response = await fetch(
+                "/initialpose",
+                {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({x, y, yaw})
+                }
+            );
+
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (error) {
+                data = {};
+            }
+
+            if (!response.ok || !data.ok) {
+                throw new Error(
+                    data.message || data.error || "No se pudo aplicar la pose."
+                );
+            }
+
+            setAutomaticCalibrationStatus(successMessage, "success");
+            cancelAutomaticCalibration(true);
+
+            window.setTimeout(
+                () => updateAutomaticRealPose(autoExecution.token),
+                700
+            );
+
+            return true;
+        } catch (error) {
+            setAutomaticCalibrationStatus(
+                "Error: " + error.message,
+                "error"
+            );
+            return false;
+        } finally {
+            automaticCalibration.applying = false;
+            updateAutomaticCalibrationControls();
+        }
+    }
+
+    function startAutomaticPoseCalibration() {
+        if (!automaticCalibrationReady()) {
+            setAutomaticCalibrationStatus(
+                "Selecciona una misión y espera a que cargue su mapa.",
+                "error"
+            );
+            return;
+        }
+
+        if (automaticCalibration.active) {
+            cancelAutomaticCalibration();
+            return;
+        }
+
+        automaticCalibration.active = true;
+        automaticCalibration.firstPoint = null;
+
+        if (calibrationPoseButton) {
+            calibrationPoseButton.textContent = "Cancelar calibración";
+        }
+
+        if (mapScene) {
+            mapScene.classList.add("auto-map-calibrating");
+        }
+
+        if (calibrationPoint) {
+            calibrationPoint.hidden = true;
+        }
+
+        setAutomaticCalibrationStatus(
+            "1/2: clic donde está el CENTRO del robot.",
+            "active"
+        );
+    }
+
+    async function handleAutomaticCalibrationClick(event) {
+        if (!automaticCalibration.active || event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const point = automaticScreenToMap(event.clientX, event.clientY);
+
+        if (!point) {
+            setAutomaticCalibrationStatus(
+                "Haz clic dentro de la imagen del mapa.",
+                "error"
+            );
+            return;
+        }
+
+        if (!automaticCalibration.firstPoint) {
+            automaticCalibration.firstPoint = point;
+            showAutomaticCalibrationPoint(point);
+            setAutomaticCalibrationStatus(
+                "2/2: clic hacia donde apunta el FRENTE del robot.",
+                "active"
+            );
+            return;
+        }
+
+        const dx = point.x - automaticCalibration.firstPoint.x;
+        const dy = point.y - automaticCalibration.firstPoint.y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance < 0.05) {
+            setAutomaticCalibrationStatus(
+                "El segundo clic debe indicar una dirección.",
+                "error"
+            );
+            return;
+        }
+
+        const x = automaticCalibration.firstPoint.x;
+        const y = automaticCalibration.firstPoint.y;
+        const yaw = Math.atan2(dy, dx);
+        const deg = yaw * 180 / Math.PI;
+
+        await applyAutomaticInitialPose(
+            x,
+            y,
+            yaw,
+            `Pose aplicada: ${x.toFixed(2)}, ${y.toFixed(2)}, ${deg.toFixed(1)}°`
+        );
+    }
+
+function automaticPhysicalMeasurePrompt(
+    label
+) {
+
+    const value =
+        window.prompt(
+            `${label} en metros.\n`
+            +
+            `Déjalo vacío si no tienes esa medida:`,
+            ""
+        );
+
+
+    if (value === null) {
+        return {
+            cancelled: true,
+            value: null
+        };
+    }
+
+
+    const text =
+        value
+        .trim()
+        .replace(
+            ",",
+            "."
+        );
+
+
+    if (!text) {
+        return {
+            cancelled: false,
+            value: null
+        };
+    }
+
+
+    const number =
+        Number(
+            text
+        );
+
+
+    if (
+        !Number.isFinite(number)
+        ||
+        number <= 0
+        ||
+        number > 4
+    ) {
+
+        throw new Error(
+            `${label}: medida inválida.`
+        );
+    }
+
+
+    return {
+        cancelled: false,
+        value: number
+    };
+}
+
+function automaticWorldPoseToAlignment(
+    x,
+    y,
+    yaw,
+    meta
+) {
+
+    const resolution =
+        Number(
+            meta.resolution
+        );
+
+    const width =
+        Number(
+            meta.width
+        );
+
+    const height =
+        Number(
+            meta.height
+        );
+
+    const originX =
+        Number(
+            meta.origin.x
+        );
+
+    const originY =
+        Number(
+            meta.origin.y
+        );
+
+    const originYaw =
+        Number(
+            meta.origin.yaw
+            ||
+            0
+        );
+
+
+    const dx =
+        x
+        -
+        originX;
+
+    const dy =
+        y
+        -
+        originY;
+
+
+    const cosO =
+        Math.cos(
+            originYaw
+        );
+
+    const sinO =
+        Math.sin(
+            originYaw
+        );
+
+
+    const localX =
+        cosO * dx
+        +
+        sinO * dy;
+
+    const localY =
+        -sinO * dx
+        +
+        cosO * dy;
+
+
+    return {
+        pixelX:
+            localX
+            /
+            resolution,
+
+        pixelY:
+            height
+            -
+            (
+                localY
+                /
+                resolution
+            ),
+
+        yawRel:
+            yaw
+            -
+            originYaw,
+
+        resolution,
+        width,
+        height
+    };
+}
+
+function evaluateAutomaticPhysicalPose(
+    x,
+    y,
+    yaw,
+    measurements,
+    raster,
+    meta
+) {
+
+    const p =
+        automaticWorldPoseToAlignment(
+            x,
+            y,
+            yaw,
+            meta
+        );
+
+
+    if (
+        p.pixelX < 0
+        ||
+        p.pixelY < 0
+        ||
+        p.pixelX >= p.width
+        ||
+        p.pixelY >= p.height
+    ) {
+        return null;
+    }
+
+
+    const definitions = {
+        F: {
+            angle:
+                p.yawRel,
+            offset:
+                AUTO_CALIBRATION_ROBOT_LENGTH_M / 2
+        },
+
+        I: {
+            angle:
+                p.yawRel
+                +
+                Math.PI / 2,
+            offset:
+                AUTO_CALIBRATION_ROBOT_WIDTH_M / 2
+        },
+
+        D: {
+            angle:
+                p.yawRel
+                -
+                Math.PI / 2,
+            offset:
+                AUTO_CALIBRATION_ROBOT_WIDTH_M / 2
+        },
+
+        A: {
+            angle:
+                p.yawRel
+                +
+                Math.PI,
+            offset:
+                AUTO_CALIBRATION_ROBOT_LENGTH_M / 2
+        }
+    };
+
+
+    let squaredError =
+        0;
+
+    let absoluteError =
+        0;
+
+    let count =
+        0;
+
+    const predicted =
+        {};
+
+
+    for (
+        const key
+        of Object.keys(
+            measurements
+        )
+    ) {
+
+        const physical =
+            measurements[key];
+
+
+        if (physical === null) {
+            continue;
+        }
+
+
+        const def =
+            definitions[key];
+
+
+        const result =
+            measureAutomaticAlignmentClearance(
+                raster,
+                p.width,
+                p.height,
+                p.resolution,
+                p.pixelX,
+                p.pixelY,
+                def.angle,
+                def.offset
+            );
+
+
+        if (
+            !result
+            ||
+            result.type !== "wall"
+        ) {
+            return null;
+        }
+
+
+        const difference =
+            result.distance
+            -
+            physical;
+
+
+        squaredError +=
+            difference
+            *
+            difference;
+
+        absoluteError +=
+            Math.abs(
+                difference
+            );
+
+        count += 1;
+
+        predicted[key] =
+            result.distance;
+    }
+
+
+    if (!count) {
+        return null;
+    }
+
+
+    return {
+        x,
+        y,
+        yaw,
+        score:
+            squaredError
+            /
+            count,
+        meanError:
+            absoluteError
+            /
+            count,
+        predicted
+    };
+}
+
+function searchAutomaticPhysicalPose(
+    current,
+    measurements,
+    raster,
+    meta
+) {
+
+    let best =
+        null;
+
+
+    function tryCandidate(
+        x,
+        y,
+        yaw
+    ) {
+
+        const candidate =
+            evaluateAutomaticPhysicalPose(
+                x,
+                y,
+                yaw,
+                measurements,
+                raster,
+                meta
+            );
+
+
+        if (
+            candidate
+            &&
+            (
+                !best
+                ||
+                candidate.score
+                <
+                best.score
+            )
+        ) {
+            best =
+                candidate;
+        }
+    }
+
+
+    const coarseXY =
+        0.025;
+
+    const coarseYaw =
+        2
+        *
+        Math.PI
+        /
+        180;
+
+
+    for (
+        let ix = -10;
+        ix <= 10;
+        ix += 1
+    ) {
+
+        for (
+            let iy = -10;
+            iy <= 10;
+            iy += 1
+        ) {
+
+            for (
+                let ia = -6;
+                ia <= 6;
+                ia += 1
+            ) {
+
+                tryCandidate(
+                    Number(current.x)
+                    +
+                    ix * coarseXY,
+
+                    Number(current.y)
+                    +
+                    iy * coarseXY,
+
+                    Number(current.yaw)
+                    +
+                    ia * coarseYaw
+                );
+            }
+        }
+    }
+
+
+    if (!best) {
+        return null;
+    }
+
+
+    const coarseBest =
+        best;
+
+    best =
+        null;
+
+
+    const fineXY =
+        0.01;
+
+    const fineYaw =
+        Math.PI
+        /
+        180;
+
+
+    for (
+        let ix = -4;
+        ix <= 4;
+        ix += 1
+    ) {
+
+        for (
+            let iy = -4;
+            iy <= 4;
+            iy += 1
+        ) {
+
+            for (
+                let ia = -3;
+                ia <= 3;
+                ia += 1
+            ) {
+
+                tryCandidate(
+                    coarseBest.x
+                    +
+                    ix * fineXY,
+
+                    coarseBest.y
+                    +
+                    iy * fineXY,
+
+                    coarseBest.yaw
+                    +
+                    ia * fineYaw
+                );
+            }
+        }
+    }
+
+
+    return (
+        best
+        ||
+        coarseBest
+    );
+}
+
+function getAutomaticCalibrationRaster(
+    width,
+    height
+) {
+
+    const image =
+        document.getElementById(
+            "mapImage"
+        );
+
+
+    if (
+        !image
+        ||
+        !image.complete
+        ||
+        !image.naturalWidth
+        ||
+        !image.naturalHeight
+    ) {
+        return null;
+    }
+
+
+    if (
+        automaticCalibrationRaster.raster
+        &&
+        automaticCalibrationRaster.rasterMapName
+            === automaticCalibrationMapName()
+        &&
+        automaticCalibrationRaster.rasterWidth
+            === width
+        &&
+        automaticCalibrationRaster.rasterHeight
+            === height
+    ) {
+        return automaticCalibrationRaster.raster;
+    }
+
+
+    try {
+
+        const rasterCanvas =
+            document.createElement(
+                "canvas"
+            );
+
+        rasterCanvas.width =
+            width;
+
+        rasterCanvas.height =
+            height;
+
+
+        const ctx =
+            rasterCanvas.getContext(
+                "2d",
+                {
+                    willReadFrequently: true
+                }
+            );
+
+
+        ctx.drawImage(
+            image,
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        const raster =
+            ctx.getImageData(
+                0,
+                0,
+                width,
+                height
+            ).data;
+
+
+        automaticCalibrationRaster.rasterMapName =
+            automaticCalibrationMapName();
+
+        automaticCalibrationRaster.rasterWidth =
+            width;
+
+        automaticCalibrationRaster.rasterHeight =
+            height;
+
+        automaticCalibrationRaster.raster =
+            raster;
+
+
+        return raster;
+
+
+    } catch (_) {
+
+        return null;
+    }
+}
+
+function classifyAutomaticAlignmentPixel(
+    raster,
+    width,
+    height,
+    x,
+    y
+) {
+
+    const px =
+        Math.round(x);
+
+    const py =
+        Math.round(y);
+
+
+    if (
+        px < 0
+        ||
+        py < 0
+        ||
+        px >= width
+        ||
+        py >= height
+    ) {
+        return "outside";
+    }
+
+
+    const index =
+        (
+            py * width
+            +
+            px
+        )
+        *
+        4;
+
+
+    const luminance =
+        (
+            raster[index]
+            +
+            raster[index + 1]
+            +
+            raster[index + 2]
+        )
+        /
+        3;
+
+
+    if (luminance <= 80) {
+        return "occupied";
+    }
+
+
+    if (
+        luminance >= 150
+        &&
+        luminance <= 230
+    ) {
+        return "unknown";
+    }
+
+
+    return "free";
+}
+
+function measureAutomaticAlignmentClearance(
+    raster,
+    width,
+    height,
+    resolution,
+    pixelX,
+    pixelY,
+    angle,
+    robotOffset
+) {
+
+    const maxDistance =
+        4.0;
+
+    const maxPixels =
+        Math.floor(
+            maxDistance
+            /
+            resolution
+        );
+
+
+    const dx =
+        Math.cos(
+            angle
+        );
+
+    const dy =
+        -Math.sin(
+            angle
+        );
+
+
+    for (
+        let step = 1;
+        step <= maxPixels;
+        step += 1
+    ) {
+
+        const state =
+            classifyAutomaticAlignmentPixel(
+                raster,
+                width,
+                height,
+                pixelX + dx * step,
+                pixelY + dy * step
+            );
+
+
+        if (state === "occupied") {
+
+            return {
+                type: "wall",
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+
+
+        if (
+            state === "unknown"
+            ||
+            state === "outside"
+        ) {
+
+            return {
+                type: state,
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+    }
+
+
+    return {
+        type: "far",
+        distance: maxDistance
+    };
+}
+
+    async function runAutomaticPhysicalCalibration() {
+        try {
+            if (!automaticCalibrationReady()) {
+                throw new Error(
+                    "Selecciona una misión y espera a que cargue su mapa."
+                );
+            }
+
+            if (!autoExecution.pose) {
+                throw new Error(
+                    "Espera a que aparezca la pose actual del robot en el mapa."
+                );
+            }
+
+            window.alert(
+                "Calibración aproximada por medidas físicas.\n\n"
+                + "Mide desde el borde del robot hasta las paredes.\n"
+                + "Puedes dejar campos vacíos.\n\n"
+                + "Se requieren al menos 3 medidas."
+            );
+
+            const measurements = {};
+
+            for (const item of [
+                ["F", "Frente"],
+                ["I", "Izquierda"],
+                ["D", "Derecha"],
+                ["A", "Atrás"]
+            ]) {
+                const result = automaticPhysicalMeasurePrompt(item[1]);
+                if (result.cancelled) {
+                    return;
+                }
+                measurements[item[0]] = result.value;
+            }
+
+            const available = Object.values(measurements)
+                .filter(value => value !== null)
+                .length;
+
+            if (available < 3) {
+                throw new Error("Se requieren al menos 3 medidas físicas.");
+            }
+
+            const meta = autoMapData.meta;
+            const raster = getAutomaticCalibrationRaster(
+                Number(meta.width),
+                Number(meta.height)
+            );
+
+            if (!raster) {
+                throw new Error("No pude leer el mapa para calcular el ajuste.");
+            }
+
+            setAutomaticCalibrationStatus(
+                "Calculando pose por medidas...",
+                "active"
+            );
+
+            const best = searchAutomaticPhysicalPose(
+                autoExecution.pose,
+                measurements,
+                raster,
+                meta
+            );
+
+            if (!best) {
+                throw new Error(
+                    "No encontré una pose compatible con esas medidas."
+                );
+            }
+
+            const yawDeg = best.yaw * 180 / Math.PI;
+            const labels = {
+                F: "Frente",
+                I: "Izquierda",
+                D: "Derecha",
+                A: "Atrás"
+            };
+            const lines = [];
+
+            for (const key of ["F", "I", "D", "A"]) {
+                if (measurements[key] === null) {
+                    continue;
+                }
+                lines.push(
+                    `${labels[key]}: físico ${measurements[key].toFixed(2)} m`
+                    + ` | mapa ${best.predicted[key].toFixed(2)} m`
+                );
+            }
+
+            const accepted = window.confirm(
+                "Pose sugerida\n\n"
+                + `X: ${best.x.toFixed(3)} m\n`
+                + `Y: ${best.y.toFixed(3)} m\n`
+                + `Yaw: ${yawDeg.toFixed(1)}°\n\n`
+                + `Desajuste medio estimado: ${best.meanError.toFixed(3)} m\n\n`
+                + lines.join("\n")
+                + "\n\nAceptar para aplicar esta pose."
+            );
+
+            if (!accepted) {
+                setAutomaticCalibrationStatus(
+                    "Calibración por medidas cancelada."
+                );
+                return;
+            }
+
+            const applied = await applyAutomaticInitialPose(
+                best.x,
+                best.y,
+                best.yaw,
+                `Medidas aplicadas · error aprox. ${best.meanError.toFixed(2)} m`
+            );
+
+            if (applied) {
+                window.alert(
+                    "Pose aplicada.\n\n"
+                    + `Desajuste estimado: ${best.meanError.toFixed(3)} m\n\n`
+                    + "Mueve un poco el robot para que AMCL/IMU terminen de estabilizar la estimación."
+                );
+            }
+        } catch (error) {
+            setAutomaticCalibrationStatus(
+                "Error: " + error.message,
+                "error"
+            );
+            window.alert(error.message);
+        }
+    }
+
+    if (calibrationPoseButton) {
+        calibrationPoseButton.addEventListener(
+            "click",
+            startAutomaticPoseCalibration
+        );
+    }
+
+    if (calibrationMeasuresButton) {
+        calibrationMeasuresButton.addEventListener(
+            "click",
+            runAutomaticPhysicalCalibration
+        );
+    }
+
+    if (mapViewport) {
+        mapViewport.addEventListener(
+            "mousedown",
+            handleAutomaticCalibrationClick,
+            true
+        );
+    }
+
+    missionSelect.addEventListener(
+        "change",
+        () => {
+            cancelAutomaticCalibration();
+            automaticCalibrationRaster.rasterMapName = null;
+            automaticCalibrationRaster.rasterWidth = 0;
+            automaticCalibrationRaster.rasterHeight = 0;
+            automaticCalibrationRaster.raster = null;
+            updateAutomaticCalibrationControls();
+        }
+    );
+
+    window.setInterval(
+        updateAutomaticCalibrationControls,
+        250
+    );
+
+    updateAutomaticCalibrationControls();
+
+
+
+    // =====================================================
+    // SAFEVISION AUTOMATICA · GUIA EXACTA DE PILOTADA
+    // =====================================================
+
+    const automaticAlignmentGuide = {
+        rasterMapName:
+            null,
+
+        rasterWidth:
+            0,
+
+        rasterHeight:
+            0,
+
+        raster:
+            null,
+
+        visible:
+            true
+    };
+
+
+    function automaticAlignmentMapName() {
+
+        return (
+            (
+                autoMapData.mission
+                &&
+                autoMapData.mission.map
+            )
+            ||
+            ""
+        );
+    }
+
+
+function hideRobotAlignmentGuide() {
+
+    const canvas =
+        document.getElementById(
+            "robotAlignmentGuide"
+        );
+
+    if (canvas) {
+        canvas.hidden = true;
+    }
+}
+
+function getRobotAlignmentCanvas(
+    width,
+    height,
+    renderScale
+) {
+
+    const scene =
+        document.getElementById(
+            "mapScene"
+        );
+
+    if (!scene) {
+        return null;
+    }
+
+
+    let canvas =
+        document.getElementById(
+            "robotAlignmentGuide"
+        );
+
+
+    if (!canvas) {
+
+        canvas =
+            document.createElement(
+                "canvas"
+            );
+
+        canvas.id =
+            "robotAlignmentGuide";
+
+        canvas.hidden =
+            true;
+
+        scene.appendChild(
+            canvas
+        );
+    }
+
+
+    const targetWidth =
+        Math.max(
+            1,
+            Math.round(
+                width
+                *
+                renderScale
+            )
+        );
+
+    const targetHeight =
+        Math.max(
+            1,
+            Math.round(
+                height
+                *
+                renderScale
+            )
+        );
+
+
+    if (
+        canvas.width
+        !==
+        targetWidth
+    ) {
+        canvas.width =
+            targetWidth;
+    }
+
+    if (
+        canvas.height
+        !==
+        targetHeight
+    ) {
+        canvas.height =
+            targetHeight;
+    }
+
+
+    return canvas;
+}
+
+function getAlignmentRaster(
+    width,
+    height
+) {
+
+    const image =
+        document.getElementById(
+            "mapImage"
+        );
+
+
+    if (
+        !image
+        ||
+        !image.complete
+        ||
+        !image.naturalWidth
+        ||
+        !image.naturalHeight
+    ) {
+        return null;
+    }
+
+
+    if (
+        automaticAlignmentGuide.raster
+        &&
+        automaticAlignmentGuide.rasterMapName
+            === automaticAlignmentMapName()
+        &&
+        automaticAlignmentGuide.rasterWidth
+            === width
+        &&
+        automaticAlignmentGuide.rasterHeight
+            === height
+    ) {
+        return automaticAlignmentGuide.raster;
+    }
+
+
+    try {
+
+        const rasterCanvas =
+            document.createElement(
+                "canvas"
+            );
+
+        rasterCanvas.width =
+            width;
+
+        rasterCanvas.height =
+            height;
+
+
+        const ctx =
+            rasterCanvas.getContext(
+                "2d",
+                {
+                    willReadFrequently: true
+                }
+            );
+
+
+        ctx.drawImage(
+            image,
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        const raster =
+            ctx.getImageData(
+                0,
+                0,
+                width,
+                height
+            ).data;
+
+
+        automaticAlignmentGuide.rasterMapName =
+            automaticAlignmentMapName();
+
+        automaticAlignmentGuide.rasterWidth =
+            width;
+
+        automaticAlignmentGuide.rasterHeight =
+            height;
+
+        automaticAlignmentGuide.raster =
+            raster;
+
+
+        return raster;
+
+
+    } catch (_) {
+
+        return null;
+    }
+}
+
+function classifyAlignmentPixel(
+    raster,
+    width,
+    height,
+    x,
+    y
+) {
+
+    const px =
+        Math.round(x);
+
+    const py =
+        Math.round(y);
+
+
+    if (
+        px < 0
+        ||
+        py < 0
+        ||
+        px >= width
+        ||
+        py >= height
+    ) {
+        return "outside";
+    }
+
+
+    const index =
+        (
+            py * width
+            +
+            px
+        )
+        *
+        4;
+
+
+    const luminance =
+        (
+            raster[index]
+            +
+            raster[index + 1]
+            +
+            raster[index + 2]
+        )
+        /
+        3;
+
+
+    if (luminance <= 80) {
+        return "occupied";
+    }
+
+
+    if (
+        luminance >= 150
+        &&
+        luminance <= 230
+    ) {
+        return "unknown";
+    }
+
+
+    return "free";
+}
+
+function measureAlignmentClearance(
+    raster,
+    width,
+    height,
+    resolution,
+    pixelX,
+    pixelY,
+    angle,
+    robotOffset
+) {
+
+    const maxDistance =
+        4.0;
+
+    const maxPixels =
+        Math.floor(
+            maxDistance
+            /
+            resolution
+        );
+
+
+    const dx =
+        Math.cos(
+            angle
+        );
+
+    const dy =
+        -Math.sin(
+            angle
+        );
+
+
+    for (
+        let step = 1;
+        step <= maxPixels;
+        step += 1
+    ) {
+
+        const state =
+            classifyAlignmentPixel(
+                raster,
+                width,
+                height,
+                pixelX + dx * step,
+                pixelY + dy * step
+            );
+
+
+        if (state === "occupied") {
+
+            return {
+                type: "wall",
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+
+
+        if (
+            state === "unknown"
+            ||
+            state === "outside"
+        ) {
+
+            return {
+                type: state,
+                distance:
+                    Math.max(
+                        0,
+                        step * resolution
+                        -
+                        robotOffset
+                    )
+            };
+        }
+    }
+
+
+    return {
+        type: "far",
+        distance: maxDistance
+    };
+}
+
+function formatAlignmentClearance(
+    result
+) {
+
+    if (
+        result.type === "wall"
+    ) {
+
+        return (
+            result.distance.toFixed(2)
+            +
+            " m"
+        );
+    }
+
+
+    if (
+        result.type === "far"
+    ) {
+
+        return (
+            ">"
+            +
+            result.distance.toFixed(1)
+            +
+            " m"
+        );
+    }
+
+
+    return "?";
+}
+
+function updateRobotAlignmentGuide(
+    pixelX,
+    pixelY,
+    yawRel,
+    resolution,
+    width,
+    height
+) {
+
+    if (
+        !automaticAlignmentGuide.visible
+    ) {
+
+        hideRobotAlignmentGuide();
+        return;
+    }
+
+
+    const zoomScale =
+        Math.max(
+            1,
+            Number(
+                autoMapView.scale
+            )
+            ||
+            1
+        );
+
+
+    const deviceScale =
+        Math.max(
+            1,
+            Number(
+                window.devicePixelRatio
+            )
+            ||
+            1
+        );
+
+
+    const renderScale =
+        Math.min(
+            5,
+            zoomScale
+            *
+            deviceScale
+        );
+
+
+    const raster =
+        getAlignmentRaster(
+            width,
+            height
+        );
+
+
+    const canvas =
+        getRobotAlignmentCanvas(
+            width,
+            height,
+            renderScale
+        );
+
+
+    if (
+        !raster
+        ||
+        !canvas
+        ||
+        !resolution
+    ) {
+
+        hideRobotAlignmentGuide();
+        return;
+    }
+
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+
+    const scaleX =
+        rect.width
+        /
+        width;
+
+
+    const scaleY =
+        rect.height
+        /
+        height;
+
+
+    const displayScale =
+        Math.max(
+            0.05,
+            (
+                scaleX
+                +
+                scaleY
+            )
+            /
+            2
+        );
+
+
+    const screenCompensation =
+        1.0
+        /
+        displayScale;
+
+
+    const ctx =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    ctx.setTransform(
+        renderScale,
+        0,
+        0,
+        renderScale,
+        0,
+        0
+    );
+
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    const directions = [
+        {
+            label: "F",
+            angle: yawRel,
+            robotOffset:
+                ROSMASTER_X3_LENGTH_M / 2
+        },
+        {
+            label: "I",
+            angle:
+                yawRel
+                +
+                Math.PI / 2,
+            robotOffset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+        {
+            label: "D",
+            angle:
+                yawRel
+                -
+                Math.PI / 2,
+            robotOffset:
+                ROSMASTER_X3_WIDTH_M / 2
+        },
+        {
+            label: "A",
+            angle:
+                yawRel
+                +
+                Math.PI,
+            robotOffset:
+                ROSMASTER_X3_LENGTH_M / 2
+        }
+    ];
+
+
+    const guideMeters =
+        1.0;
+
+    const guidePixels =
+        guideMeters
+        /
+        resolution;
+
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        "#ff2d2d";
+
+    ctx.fillStyle =
+        "#ff2d2d";
+
+    ctx.lineWidth =
+        0.65
+        *
+        screenCompensation;
+
+    ctx.lineCap =
+        "round";
+
+    ctx.font =
+        `700 ${
+            13
+            *
+            screenCompensation
+        }px sans-serif`;
+
+    ctx.textAlign =
+        "center";
+
+    ctx.textBaseline =
+        "middle";
+
+    ctx.shadowColor =
+        "rgba(255, 255, 255, 0.95)";
+
+    ctx.shadowBlur =
+        1.5
+        *
+        screenCompensation;
+
+
+    for (
+        const direction
+        of directions
+    ) {
+
+        const dx =
+            Math.cos(
+                direction.angle
+            );
+
+        const dy =
+            -Math.sin(
+                direction.angle
+            );
+
+
+        const endX =
+            pixelX
+            +
+            dx * guidePixels;
+
+        const endY =
+            pixelY
+            +
+            dy * guidePixels;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            pixelX,
+            pixelY
+        );
+
+        ctx.lineTo(
+            endX,
+            endY
+        );
+
+        ctx.stroke();
+
+
+        const perpendicularX =
+            -dy;
+
+        const perpendicularY =
+            dx;
+
+
+        for (
+            let tick = 0.25;
+            tick <= 1.001;
+            tick += 0.25
+        ) {
+
+            const tickPixels =
+                tick
+                /
+                resolution;
+
+
+            const tx =
+                pixelX
+                +
+                dx * tickPixels;
+
+            const ty =
+                pixelY
+                +
+                dy * tickPixels;
+
+
+            const halfTick =
+                2.5
+                *
+                screenCompensation;
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                tx
+                -
+                perpendicularX
+                *
+                halfTick,
+                ty
+                -
+                perpendicularY
+                *
+                halfTick
+            );
+
+            ctx.lineTo(
+                tx
+                +
+                perpendicularX
+                *
+                halfTick,
+                ty
+                +
+                perpendicularY
+                *
+                halfTick
+            );
+
+            ctx.stroke();
+        }
+
+
+        const clearance =
+            measureAlignmentClearance(
+                raster,
+                width,
+                height,
+                resolution,
+                pixelX,
+                pixelY,
+                direction.angle,
+                direction.robotOffset
+            );
+
+
+        const text =
+            (
+                direction.label
+                +
+                " "
+                +
+                formatAlignmentClearance(
+                    clearance
+                )
+            );
+
+
+        const textOffset =
+            11
+            *
+            screenCompensation;
+
+
+        let textX =
+            endX
+            +
+            dx
+            *
+            textOffset;
+
+        let textY =
+            endY
+            +
+            dy
+            *
+            textOffset;
+
+
+        textX =
+            Math.max(
+                35,
+                Math.min(
+                    width - 35,
+                    textX
+                )
+            );
+
+        textY =
+            Math.max(
+                10,
+                Math.min(
+                    height - 10,
+                    textY
+                )
+            );
+
+
+        ctx.save();
+
+        ctx.lineWidth =
+            3
+            *
+            screenCompensation;
+
+        ctx.strokeStyle =
+            "rgba(255, 255, 255, 0.92)";
+
+        ctx.shadowBlur =
+            0;
+
+        ctx.strokeText(
+            text,
+            textX,
+            textY
+        );
+
+        ctx.fillText(
+            text,
+            textX,
+            textY
+        );
+
+        ctx.restore();
+    }
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        pixelX,
+        pixelY,
+        2.5
+        *
+        screenCompensation,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+
+    canvas.hidden =
+        false;
+}
+
+
+    function updateAutomaticAlignmentGuideToggleUI() {
+
+        const button =
+            document.getElementById(
+                "autoAlignmentGuideToggle"
+            );
+
+
+        if (!button) {
+            return;
+        }
+
+
+        button.textContent =
+            automaticAlignmentGuide.visible
+                ?
+                "Ocultar guía"
+                :
+                "Mostrar guía";
+
+
+        button.classList.toggle(
+            "active",
+            automaticAlignmentGuide.visible
+        );
+
+
+        button.disabled =
+            !(
+                autoMapData.meta
+                &&
+                autoExecution.pose
+            );
+    }
+
+
+    function renderAutomaticAlignmentGuide() {
+
+        const pose =
+            autoExecution.pose;
+
+        const meta =
+            autoMapData.meta;
+
+
+        if (
+            !automaticAlignmentGuide.visible
+            ||
+            !pose
+            ||
+            !meta
+        ) {
+
+            hideRobotAlignmentGuide();
+
+            updateAutomaticAlignmentGuideToggleUI();
+
+            return;
+        }
+
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+
+        const u =
+            Number(
+                pose.u
+            );
+
+        const v =
+            Number(
+                pose.v
+            );
+
+
+        if (
+            !Number.isFinite(width)
+            ||
+            !Number.isFinite(height)
+            ||
+            !Number.isFinite(resolution)
+            ||
+            !Number.isFinite(u)
+            ||
+            !Number.isFinite(v)
+            ||
+            resolution <= 0
+        ) {
+
+            hideRobotAlignmentGuide();
+
+            updateAutomaticAlignmentGuideToggleUI();
+
+            return;
+        }
+
+
+        const pixelX =
+            u
+            *
+            width;
+
+        const pixelY =
+            v
+            *
+            height;
+
+
+        const originYaw =
+            Number(
+                (
+                    meta.origin
+                    &&
+                    meta.origin.yaw
+                )
+                ||
+                0
+            );
+
+
+        const yawRel =
+            Number.isFinite(
+                Number(
+                    pose.visualYaw
+                )
+            )
+                ?
+                Number(
+                    pose.visualYaw
+                )
+                :
+                (
+                    Number(
+                        pose.yaw
+                    )
+                    -
+                    originYaw
+                );
+
+
+        updateRobotAlignmentGuide(
+            pixelX,
+            pixelY,
+            yawRel,
+            resolution,
+            width,
+            height
+        );
+
+
+        updateAutomaticAlignmentGuideToggleUI();
+    }
+
+
+    const automaticAlignmentToggle =
+        document.getElementById(
+            "autoAlignmentGuideToggle"
+        );
+
+
+    if (automaticAlignmentToggle) {
+
+        automaticAlignmentToggle.addEventListener(
+            "click",
+            () => {
+
+                automaticAlignmentGuide.visible =
+                    !automaticAlignmentGuide.visible;
+
+
+                updateAutomaticAlignmentGuideToggleUI();
+
+
+                if (
+                    !automaticAlignmentGuide.visible
+                ) {
+
+                    hideRobotAlignmentGuide();
+
+                    return;
+                }
+
+
+                renderAutomaticAlignmentGuide();
+            }
+        );
+    }
+
+
+    missionSelect.addEventListener(
+        "change",
+        () => {
+
+            automaticAlignmentGuide.rasterMapName =
+                null;
+
+            automaticAlignmentGuide.rasterWidth =
+                0;
+
+            automaticAlignmentGuide.rasterHeight =
+                0;
+
+            automaticAlignmentGuide.raster =
+                null;
+
+
+            hideRobotAlignmentGuide();
+
+            updateAutomaticAlignmentGuideToggleUI();
+        }
+    );
+
+
+    window.setInterval(
+        renderAutomaticAlignmentGuide,
+        200
+    );
+
+
+    updateAutomaticAlignmentGuideToggleUI();
+
+
     missionSelect.addEventListener(
         "change",
         () => {

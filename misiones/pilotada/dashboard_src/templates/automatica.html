@@ -412,6 +412,42 @@
                 Ajustar
             </button>
 
+
+            <button
+                id="autoAlignmentGuideToggle"
+                type="button"
+                disabled
+                title="Mostrar u ocultar la guía de alineación"
+            >
+                Ocultar guía
+            </button>
+
+
+            <button
+                id="autoCalibrationPose"
+                type="button"
+                disabled
+                title="Indicar posición y orientación del robot en el mapa"
+            >
+                Calibrar pose
+            </button>
+
+            <button
+                id="autoCalibrationMeasures"
+                type="button"
+                disabled
+                title="Ajustar la pose usando distancias físicas aproximadas"
+            >
+                Calibrar medidas
+            </button>
+
+
+            <span
+                id="autoCalibrationStatus"
+                class="auto-calibration-status"
+                aria-live="polite"
+            ></span>
+
         </div>
 
 
@@ -439,8 +475,7 @@
                     alt="Mapa SafeVision"
                     draggable="false"
                 >
-
-                <div
+<div
                     id="robotMarker"
                     class="robot-marker"
                     hidden
