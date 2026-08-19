@@ -1,0 +1,18 @@
+[Unit]
+Description=SafeVision ROS Master
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/robot_custom
+Environment=HOME=/home/pi
+ExecStart=/home/pi/robot_custom/misiones/pilotada/robot/sf_roscore_service.sh
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

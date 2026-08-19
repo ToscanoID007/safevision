@@ -1,0 +1,21 @@
+[Unit]
+Description=SafeVision Robot Server
+After=network-online.target safevision-roscore.service
+Wants=network-online.target
+Requires=safevision-roscore.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/robot_custom/misiones/pilotada/robot
+Environment=HOME=/home/pi
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/robot_custom/misiones/pilotada/robot/sf_robot_server_service.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target
