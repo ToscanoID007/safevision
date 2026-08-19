@@ -473,3 +473,79 @@ body {
 #robotAlignmentGuide[hidden] {
     display: none !important;
 }
+
+
+/* =========================================================
+   SAFEVISION AUTOMATICA · MAPEAR V2 VISUAL
+   ========================================================= */
+
+/*
+ * OccupancyGrid raster:
+ * nearest-neighbour conserva las celdas al ampliar
+ * y evita el suavizado borroso del navegador.
+ */
+.auto-map-viewport #mapImage {
+    image-rendering:
+        -moz-crisp-edges;
+
+    image-rendering:
+        crisp-edges;
+
+    image-rendering:
+        pixelated;
+}
+
+
+/*
+ * Huella vectorial fisica.
+ * Al ser hija de mapScene recibe el mismo pan/zoom/rotacion.
+ */
+#sfRobotFootprintSvg {
+    position:
+        absolute;
+
+    z-index:
+        59;
+
+    overflow:
+        visible;
+
+    pointer-events:
+        none;
+
+    user-select:
+        none;
+
+    shape-rendering:
+        geometricPrecision;
+}
+
+
+#sfRobotFootprintSvg[hidden] {
+    display:
+        none !important;
+}
+
+
+#sfRobotFootprintBody {
+    fill:
+        #ff2d2d;
+
+    fill-opacity:
+        0.84;
+
+    shape-rendering:
+        geometricPrecision;
+}
+
+
+#sfRobotFootprintNose {
+    fill:
+        #ffffff;
+
+    fill-opacity:
+        0.98;
+
+    shape-rendering:
+        geometricPrecision;
+}

@@ -2112,34 +2112,185 @@
     // =====================================================
 
     const ROSMASTER_X3_LENGTH_M =
-        0.24;
+        0.234;
 
     const ROSMASTER_X3_WIDTH_M =
-        0.20;
+        0.200;
 
 
     function hideAutomaticRobotMarker() {
 
-        const marker =
+        const legacyMarker =
             document.getElementById(
                 "robotMarker"
             );
 
 
-        if (marker) {
+        if (legacyMarker) {
 
-            marker.hidden =
+            legacyMarker.hidden =
+                true;
+        }
+
+
+        const svg =
+            document.getElementById(
+                "sfRobotFootprintSvg"
+            );
+
+
+        if (svg) {
+
+            svg.hidden =
                 true;
         }
     }
 
 
+    // =====================================================
+    // SAFEVISION AUTOMATICA · MAPEAR V2 VISUAL
+    //
+    // Misma idea aplicada en Mapear V2:
+    // - huella fisica en unidades reales
+    // - SVG vectorial
+    // - cuerpo rojo sin sombra
+    // - nariz blanca dentro de la huella, frente +X
+    // - hijo de mapScene: hereda pan / zoom / rotacion
+    // =====================================================
+
+    function ensureAutomaticRobotFootprintSvg() {
+
+        if (!mapScene) {
+            return null;
+        }
+
+
+        let svg =
+            document.getElementById(
+                "sfRobotFootprintSvg"
+            );
+
+
+        if (svg) {
+            return svg;
+        }
+
+
+        const ns =
+            "http://www.w3.org/2000/svg";
+
+
+        svg =
+            document.createElementNS(
+                ns,
+                "svg"
+            );
+
+
+        svg.id =
+            "sfRobotFootprintSvg";
+
+        svg.setAttribute(
+            "viewBox",
+            "0 0 234 200"
+        );
+
+        svg.setAttribute(
+            "preserveAspectRatio",
+            "none"
+        );
+
+        svg.hidden =
+            true;
+
+
+        const body =
+            document.createElementNS(
+                ns,
+                "rect"
+            );
+
+
+        body.id =
+            "sfRobotFootprintBody";
+
+        body.setAttribute(
+            "x",
+            "0"
+        );
+
+        body.setAttribute(
+            "y",
+            "0"
+        );
+
+        body.setAttribute(
+            "width",
+            "234"
+        );
+
+        body.setAttribute(
+            "height",
+            "200"
+        );
+
+
+        const nose =
+            document.createElementNS(
+                ns,
+                "polygon"
+            );
+
+
+        nose.id =
+            "sfRobotFootprintNose";
+
+        /*
+         * Frente físico +X.
+         * El indicador queda DENTRO de la huella.
+         */
+        nose.setAttribute(
+            "points",
+            "190,66 226,100 190,134"
+        );
+
+
+        svg.appendChild(
+            body
+        );
+
+        svg.appendChild(
+            nose
+        );
+
+
+        mapScene.appendChild(
+            svg
+        );
+
+
+        return svg;
+    }
+
+
     function renderAutomaticRobotMarker() {
 
-        const marker =
+        const legacyMarker =
             document.getElementById(
                 "robotMarker"
             );
+
+
+        if (legacyMarker) {
+
+            /*
+             * Se conserva en HTML por compatibilidad,
+             * pero el render real es el SVG vectorial.
+             */
+            legacyMarker.hidden =
+                true;
+        }
+
 
         const pose =
             autoExecution.pose;
@@ -2149,11 +2300,11 @@
 
 
         if (
-            !marker
-            ||
             !pose
             ||
             !meta
+            ||
+            !mapScene
         ) {
 
             hideAutomaticRobotMarker();
@@ -2162,20 +2313,22 @@
         }
 
 
-        const resolution =
-            Number(
-                meta.resolution
-            );
+        const layout =
+            getAutomaticImageLayout();
 
-        const width =
-            Number(
-                meta.width
-            );
 
-        const height =
-            Number(
-                meta.height
-            );
+        if (
+            !layout
+            ||
+            !layout.width
+            ||
+            !layout.height
+        ) {
+
+            hideAutomaticRobotMarker();
+
+            return;
+        }
 
 
         const u =
@@ -2193,46 +2346,41 @@
                 pose.visualYaw
             );
 
+        const resolution =
+            Number(
+                meta.resolution
+            );
+
+        const width =
+            Number(
+                meta.width
+            );
+
+        const height =
+            Number(
+                meta.height
+            );
+
 
         if (
-            !Number.isFinite(
-                resolution
-            )
+            !Number.isFinite(u)
+            ||
+            !Number.isFinite(v)
+            ||
+            !Number.isFinite(yawRel)
+            ||
+            !Number.isFinite(resolution)
             ||
             resolution <= 0
             ||
-            !Number.isFinite(
-                width
-            )
+            !Number.isFinite(width)
             ||
             width <= 0
             ||
-            !Number.isFinite(
-                height
-            )
+            !Number.isFinite(height)
             ||
             height <= 0
             ||
-            !Number.isFinite(
-                u
-            )
-            ||
-            !Number.isFinite(
-                v
-            )
-            ||
-            !Number.isFinite(
-                yawRel
-            )
-        ) {
-
-            hideAutomaticRobotMarker();
-
-            return;
-        }
-
-
-        if (
             u < 0
             ||
             u > 1
@@ -2248,23 +2396,43 @@
         }
 
 
+        const svg =
+            ensureAutomaticRobotFootprintSvg();
+
+
+        if (!svg) {
+
+            hideAutomaticRobotMarker();
+
+            return;
+        }
+
+
         /*
-         * Igual que Pilotada:
-         * posición normalizada dentro del mapa.
+         * object-fit: contain:
+         * usamos la geometria REAL renderizada de la imagen.
          */
-        const leftPct =
+        const centerX =
+            layout.left
+            +
             u
             *
-            100;
+            layout.width;
 
-        const topPct =
+        const centerY =
+            layout.top
+            +
             v
             *
-            100;
+            layout.height;
 
 
         /*
-         * Dimensiones físicas completas del mapa.
+         * Escala fisica:
+         *
+         * rendered px / metros del OccupancyGrid.
+         * Como resolucion X/Y es la misma, ambas escalas
+         * deben coincidir salvo redondeo.
          */
         const mapWidthMeters =
             width
@@ -2277,50 +2445,35 @@
             resolution;
 
 
-        /*
-         * Huella física ROSMASTER X3:
-         *
-         * longitud = 0.24 m
-         * ancho    = 0.20 m
-         */
-        const robotLengthPct =
-            (
-                ROSMASTER_X3_LENGTH_M
-                /
-                mapWidthMeters
-            )
+        const pxPerMeterX =
+            layout.width
+            /
+            mapWidthMeters;
+
+        const pxPerMeterY =
+            layout.height
+            /
+            mapHeightMeters;
+
+
+        const pxPerMeter =
+            Math.min(
+                pxPerMeterX,
+                pxPerMeterY
+            );
+
+
+        const footprintLengthPx =
+            ROSMASTER_X3_LENGTH_M
             *
-            100;
+            pxPerMeter;
 
-        const robotWidthPct =
-            (
-                ROSMASTER_X3_WIDTH_M
-                /
-                mapHeightMeters
-            )
+        const footprintWidthPx =
+            ROSMASTER_X3_WIDTH_M
             *
-            100;
+            pxPerMeter;
 
 
-        marker.style.left =
-            `${leftPct}%`;
-
-        marker.style.top =
-            `${topPct}%`;
-
-        marker.style.width =
-            `${robotLengthPct}%`;
-
-        marker.style.height =
-            `${robotWidthPct}%`;
-
-
-        /*
-         * MISMA ORIENTACIÓN DE PILOTADA.
-         *
-         * Frente físico = +X.
-         * Y de imagen crece hacia abajo.
-         */
         const yawDeg =
             yawRel
             *
@@ -2329,73 +2482,64 @@
             Math.PI;
 
 
-        marker.style.transform =
+        svg.style.left =
+            centerX
+            +
+            "px";
+
+        svg.style.top =
+            centerY
+            +
+            "px";
+
+        svg.style.width =
+            footprintLengthPx
+            +
+            "px";
+
+        svg.style.height =
+            footprintWidthPx
+            +
+            "px";
+
+
+        /*
+         * +X apunta a la derecha en el SVG.
+         * Y de pantalla crece hacia abajo:
+         * mismo signo visual usado en Mapear/Pilotada.
+         */
+        svg.style.transform =
             (
                 "translate(-50%, -50%) "
                 +
-                `rotate(${-yawDeg}deg)`
-            );
-
-
-        const x =
-            Number(
-                pose.x
-            );
-
-        const y =
-            Number(
-                pose.y
-            );
-
-        const rawYaw =
-            Number(
-                pose.yaw
-            );
-
-
-        marker.title =
-            (
-                "Robot"
+                "rotate("
                 +
-                (
-                    Number.isFinite(x)
-                        ?
-                        ` | X ${x.toFixed(2)} m`
-                        :
-                        ""
-                )
+                (-yawDeg)
                 +
-                (
-                    Number.isFinite(y)
-                        ?
-                        ` | Y ${y.toFixed(2)} m`
-                        :
-                        ""
-                )
-                +
-                (
-                    Number.isFinite(rawYaw)
-                        ?
-                        (
-                            " | "
-                            +
-                            (
-                                rawYaw
-                                *
-                                180
-                                /
-                                Math.PI
-                            ).toFixed(1)
-                            +
-                            "°"
-                        )
-                        :
-                        ""
-                )
+                "deg)"
             );
 
 
-        marker.hidden =
+        svg.style.transformOrigin =
+            "center center";
+
+
+        svg.setAttribute(
+            "data-length-m",
+            String(
+                ROSMASTER_X3_LENGTH_M
+            )
+        );
+
+        svg.setAttribute(
+            "data-width-m",
+            String(
+                ROSMASTER_X3_WIDTH_M
+            )
+        );
+
+
+        svg.hidden =
             false;
     }
 
