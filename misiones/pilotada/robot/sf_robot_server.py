@@ -34,6 +34,7 @@ from flask import (
 
 import sf_mapping_manager
 import sf_model_manager
+import sf_runtime_manager
 
 
 AUTOMATIC_ROBOT_DIR = (
@@ -455,7 +456,8 @@ def index():
         "level": 2,
         "ip": obtener_ip(),
         "video": "/video_feed",
-        "health": "/health"
+        "health": "/health",
+        "runtime": "/runtime/status"
     })
 
 
@@ -596,6 +598,22 @@ def health():
             "level": 2
         }
     })
+
+
+# =========================================================
+# SAFEVISION RUNTIME MANAGER · ETAPA 1
+# Observabilidad solamente. No arranca ni detiene nodos.
+# =========================================================
+
+@app.route("/runtime/status")
+def runtime_status():
+
+    return jsonify(
+        sf_runtime_manager.status(
+            CONTROL_MODE
+        )
+    )
+
 
 @app.route("/video_feed")
 def video_feed():
