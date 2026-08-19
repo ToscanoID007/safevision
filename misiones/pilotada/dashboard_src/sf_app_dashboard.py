@@ -2106,6 +2106,130 @@ def dashboard_map_pose():
         }), 502
 
 
+# =========================================================
+# MAPEO - SESION
+# Proxy Dashboard -> Robot Server
+# =========================================================
+
+def mapping_session_proxy(
+    method,
+    action,
+    payload=None,
+    timeout=5
+):
+    if not robot_ip:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    url = (
+        "http://{}:8091/mapping/session/{}"
+    ).format(
+        robot_ip,
+        action
+    )
+
+    try:
+        if method == "GET":
+            response = requests.get(
+                url,
+                timeout=timeout
+            )
+
+        else:
+            if payload is None:
+                response = requests.post(
+                    url,
+                    timeout=timeout
+                )
+
+            else:
+                response = requests.post(
+                    url,
+                    json=payload,
+                    timeout=timeout
+                )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {
+                "ok": False,
+                "error": (
+                    "Respuesta inválida del Robot Server."
+                )
+            }
+
+        return jsonify(
+            data
+        ), response.status_code
+
+    except Exception as exc:
+        return error(
+            "Robot no disponible: {}".format(
+                exc
+            ),
+            502
+        )
+
+
+@app.route("/mapping/session/status")
+def mapping_session_status():
+    return mapping_session_proxy(
+        "GET",
+        "status",
+        timeout=3
+    )
+
+
+@app.route(
+    "/mapping/session/start",
+    methods=["POST"]
+)
+def mapping_session_start():
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    return mapping_session_proxy(
+        "POST",
+        "start",
+        payload={
+            "name": data.get(
+                "name",
+                ""
+            )
+        },
+        timeout=45
+    )
+
+
+@app.route(
+    "/mapping/session/save",
+    methods=["POST"]
+)
+def mapping_session_save():
+    return mapping_session_proxy(
+        "POST",
+        "save",
+        timeout=45
+    )
+
+
+@app.route(
+    "/mapping/session/discard",
+    methods=["POST"]
+)
+def mapping_session_discard():
+    return mapping_session_proxy(
+        "POST",
+        "discard",
+        timeout=45
+    )
+
+
 @app.route("/mapping/map")
 def dashboard_mapping_live_map():
 

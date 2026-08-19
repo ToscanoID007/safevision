@@ -1217,3 +1217,725 @@ document.addEventListener(
         );
     }
 );
+
+
+// =========================================================
+// SAFEVISION - SESION DE MAPEO
+// Dashboard -> Robot Server
+// =========================================================
+
+const mappingSessionState = {
+    busy: false,
+    data: null,
+    timer: null
+};
+
+
+function mappingSessionMessage(
+    text
+) {
+    const element =
+        $mp("sessionMessage");
+
+    if (element) {
+        element.textContent =
+            text;
+    }
+}
+
+
+function updateMappingSessionUI(
+    data
+) {
+    mappingSessionState.data =
+        data
+        ||
+        null;
+
+
+    const startButton =
+        $mp("startMapping");
+
+    const saveButton =
+        $mp("saveMapping");
+
+    const discardButton =
+        $mp("discardMapping");
+
+    const nameInput =
+        $mp("mapName");
+
+
+    const valid =
+        Boolean(
+            data
+            &&
+            data.configured
+        );
+
+    const mapping =
+        Boolean(
+            valid
+            &&
+            data.mapping
+        );
+
+    const idle =
+        Boolean(
+            valid
+            &&
+            data.state === "idle"
+            &&
+            !mapping
+        );
+
+
+    const missing =
+        (
+            data
+            &&
+            data.core
+            &&
+            Array.isArray(
+                data.core.missing
+            )
+        )
+            ?
+            data.core.missing
+            :
+            [];
+
+
+    const lidarOk =
+        valid
+        &&
+        !missing.includes(
+            "/rplidarNode"
+        );
+
+    const odomOk =
+        valid
+        &&
+        !missing.includes(
+            "/ekf_localization"
+        )
+        &&
+        !missing.includes(
+            "/odometry_publisher"
+        );
+
+
+    const lidarStatus =
+        $mp("lidarStatus");
+
+    if (lidarStatus) {
+        lidarStatus.textContent =
+            lidarOk
+                ?
+                "● ACTIVO"
+                :
+                "○ NO";
+    }
+
+
+    const odomStatus =
+        $mp("odomStatus");
+
+    if (odomStatus) {
+        odomStatus.textContent =
+            odomOk
+                ?
+                "● ACTIVA"
+                :
+                "○ NO";
+    }
+
+
+    const slamText =
+        mapping
+            ?
+            "MAPEANDO"
+            :
+            "DETENIDO";
+
+
+    const slamStatus =
+        $mp("slamStatus");
+
+    if (slamStatus) {
+        slamStatus.textContent =
+            slamText;
+    }
+
+
+    const slamHeaderStatus =
+        $mp("slamHeaderStatus");
+
+    if (slamHeaderStatus) {
+        slamHeaderStatus.textContent =
+            slamText;
+    }
+
+
+    if (nameInput) {
+        nameInput.disabled =
+            mappingSessionState.busy
+            ||
+            mapping;
+    }
+
+
+    const mapName =
+        nameInput
+            ?
+            nameInput.value.trim()
+            :
+            "";
+
+
+    if (startButton) {
+        startButton.disabled =
+            mappingSessionState.busy
+            ||
+            !idle
+            ||
+            !mapName;
+    }
+
+
+    if (saveButton) {
+        saveButton.disabled =
+            mappingSessionState.busy
+            ||
+            !mapping;
+    }
+
+
+    if (discardButton) {
+        discardButton.disabled =
+            mappingSessionState.busy
+            ||
+            !mapping;
+    }
+
+
+    if (!valid) {
+
+        mappingSessionMessage(
+            "Sesión de mapeo no disponible."
+        );
+
+        return;
+    }
+
+
+    if (data.state === "error") {
+
+        mappingSessionMessage(
+            data.message
+            ||
+            "Error en la sesión de mapeo."
+        );
+
+        return;
+    }
+
+
+    if (mapping) {
+
+        mappingSessionMessage(
+            (
+                "Mapeando"
+                +
+                (
+                    data.name
+                        ?
+                        ": " + data.name
+                        :
+                        ""
+                )
+            )
+        );
+
+        return;
+    }
+
+
+    const currentMap =
+        String(
+            data.current_map
+            ||
+            ""
+        )
+        .split("/")
+        .pop()
+        .replace(
+            /\.yaml$/i,
+            ""
+        );
+
+
+    mappingSessionMessage(
+        currentMap
+            ?
+            "Listo · mapa actual: " + currentMap
+            :
+            "Listo para iniciar mapeo."
+    );
+}
+
+
+function setMappingSessionUnavailable(
+    message
+) {
+    mappingSessionState.data =
+        null;
+
+    [
+        "startMapping",
+        "saveMapping",
+        "discardMapping"
+
+    ].forEach(
+        id => {
+            const button =
+                $mp(id);
+
+            if (button) {
+                button.disabled =
+                    true;
+            }
+        }
+    );
+
+
+    const slamStatus =
+        $mp("slamStatus");
+
+    if (slamStatus) {
+        slamStatus.textContent =
+            "NO DISP.";
+    }
+
+
+    const slamHeaderStatus =
+        $mp("slamHeaderStatus");
+
+    if (slamHeaderStatus) {
+        slamHeaderStatus.textContent =
+            "NO DISP.";
+    }
+
+
+    mappingSessionMessage(
+        message
+        ||
+        "Sesión de mapeo no disponible."
+    );
+}
+
+
+async function mappingSessionFetch(
+    url,
+    options
+) {
+    const response =
+        await fetch(
+            url,
+            Object.assign(
+                {
+                    cache: "no-store"
+                },
+                options
+                ||
+                {}
+            )
+        );
+
+
+    let data = {};
+
+    try {
+        data =
+            await response.json();
+
+    } catch (_) {
+        data = {};
+    }
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            data.error
+            ||
+            data.message
+            ||
+            (
+                "Error HTTP "
+                +
+                response.status
+            )
+        );
+    }
+
+
+    return data;
+}
+
+
+async function refreshMappingSession() {
+
+    try {
+
+        const data =
+            await mappingSessionFetch(
+                "/mapping/session/status"
+            );
+
+        updateMappingSessionUI(
+            data
+        );
+
+        return data;
+
+    } catch (error) {
+
+        setMappingSessionUnavailable(
+            (
+                error
+                &&
+                error.message
+            )
+            ||
+            "Sesión de mapeo no disponible."
+        );
+
+        return null;
+    }
+}
+
+
+async function startMappingSession() {
+
+    if (mappingSessionState.busy) {
+        return;
+    }
+
+
+    const input =
+        $mp("mapName");
+
+    const name =
+        input
+            ?
+            input.value.trim()
+            :
+            "";
+
+
+    if (!name) {
+
+        mappingSessionMessage(
+            "Escribe un nombre para el mapa."
+        );
+
+        updateMappingSessionUI(
+            mappingSessionState.data
+        );
+
+        return;
+    }
+
+
+    mappingSessionState.busy =
+        true;
+
+    updateMappingSessionUI(
+        mappingSessionState.data
+    );
+
+    mappingSessionMessage(
+        "Iniciando mapeo..."
+    );
+
+
+    try {
+
+        await mappingSessionFetch(
+            "/mapping/session/start",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    name: name
+                })
+            }
+        );
+
+
+        await refreshMappingSession();
+
+
+        if (
+            typeof refreshLiveMap
+            === "function"
+        ) {
+            refreshLiveMap();
+        }
+
+    } catch (error) {
+
+        mappingSessionMessage(
+            error.message
+            ||
+            "No se pudo iniciar el mapeo."
+        );
+
+    } finally {
+
+        mappingSessionState.busy =
+            false;
+
+        updateMappingSessionUI(
+            mappingSessionState.data
+        );
+    }
+}
+
+
+async function saveMappingSession() {
+
+    if (
+        mappingSessionState.busy
+        ||
+        !mappingSessionState.data
+        ||
+        !mappingSessionState.data.mapping
+    ) {
+        return;
+    }
+
+
+    mappingSessionState.busy =
+        true;
+
+    updateMappingSessionUI(
+        mappingSessionState.data
+    );
+
+    mappingSessionMessage(
+        "Guardando mapa..."
+    );
+
+
+    try {
+
+        const result =
+            await mappingSessionFetch(
+                "/mapping/session/save",
+                {
+                    method: "POST"
+                }
+            );
+
+
+        await refreshMappingSession();
+
+
+        mappingSessionMessage(
+            result.saved
+                ?
+                "Mapa guardado: " + result.saved
+                :
+                "Mapa guardado."
+        );
+
+
+        if (
+            typeof refreshLiveMap
+            === "function"
+        ) {
+            refreshLiveMap();
+        }
+
+    } catch (error) {
+
+        mappingSessionMessage(
+            error.message
+            ||
+            "No se pudo guardar el mapa."
+        );
+
+    } finally {
+
+        mappingSessionState.busy =
+            false;
+
+        updateMappingSessionUI(
+            mappingSessionState.data
+        );
+    }
+}
+
+
+async function discardMappingSession() {
+
+    if (
+        mappingSessionState.busy
+        ||
+        !mappingSessionState.data
+        ||
+        !mappingSessionState.data.mapping
+    ) {
+        return;
+    }
+
+
+    if (
+        !window.confirm(
+            "¿Descartar esta sesión de mapeo?"
+        )
+    ) {
+        return;
+    }
+
+
+    mappingSessionState.busy =
+        true;
+
+    updateMappingSessionUI(
+        mappingSessionState.data
+    );
+
+    mappingSessionMessage(
+        "Descartando sesión..."
+    );
+
+
+    try {
+
+        await mappingSessionFetch(
+            "/mapping/session/discard",
+            {
+                method: "POST"
+            }
+        );
+
+
+        await refreshMappingSession();
+
+
+        if (
+            typeof refreshLiveMap
+            === "function"
+        ) {
+            refreshLiveMap();
+        }
+
+    } catch (error) {
+
+        mappingSessionMessage(
+            error.message
+            ||
+            "No se pudo descartar la sesión."
+        );
+
+    } finally {
+
+        mappingSessionState.busy =
+            false;
+
+        updateMappingSessionUI(
+            mappingSessionState.data
+        );
+    }
+}
+
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        const nameInput =
+            $mp("mapName");
+
+        const startButton =
+            $mp("startMapping");
+
+        const saveButton =
+            $mp("saveMapping");
+
+        const discardButton =
+            $mp("discardMapping");
+
+
+        if (nameInput) {
+
+            nameInput.addEventListener(
+                "input",
+                () => {
+                    updateMappingSessionUI(
+                        mappingSessionState.data
+                    );
+                }
+            );
+        }
+
+
+        if (startButton) {
+
+            startButton.addEventListener(
+                "click",
+                startMappingSession
+            );
+        }
+
+
+        if (saveButton) {
+
+            saveButton.addEventListener(
+                "click",
+                saveMappingSession
+            );
+        }
+
+
+        if (discardButton) {
+
+            discardButton.addEventListener(
+                "click",
+                discardMappingSession
+            );
+        }
+
+
+        refreshMappingSession();
+
+
+        mappingSessionState.timer =
+            window.setInterval(
+                refreshMappingSession,
+                1000
+            );
+    }
+);
+
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+
+        if (mappingSessionState.timer) {
+
+            window.clearInterval(
+                mappingSessionState.timer
+            );
+        }
+    }
+);
