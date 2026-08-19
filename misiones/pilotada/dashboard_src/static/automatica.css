@@ -293,3 +293,117 @@ body {
         justify-content: flex-end;
     }
 }
+
+
+/* =========================================================
+   MODELO IA LOCAL · MISION AUTOMATICA
+   Bloque acotado: no altera cámara, mapa ni layout principal.
+   ========================================================= */
+
+.auto-model-panel {
+    margin: 4px 0 14px;
+    padding: 12px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius: 8px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.025
+        );
+}
+
+
+.auto-model-title {
+    margin-bottom: 10px;
+
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+
+#autoModelForm {
+    display: grid;
+    gap: 7px;
+}
+
+
+#autoModelForm label,
+.auto-model-confidence label {
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+
+#autoModelPt,
+#autoModelJson {
+    width: 100%;
+    min-width: 0;
+}
+
+
+.auto-model-load {
+    width: 100%;
+    margin-top: 3px;
+}
+
+
+.auto-model-status {
+    min-height: 18px;
+    margin-top: 8px;
+
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+
+.auto-model-status.ready {
+    color: var(--green);
+}
+
+
+.auto-model-status.error {
+    color: var(--red);
+}
+
+
+.auto-model-status.loading {
+    color: var(--yellow);
+}
+
+
+.auto-model-confidence {
+    margin-top: 9px;
+}
+
+
+.auto-model-confidence-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+
+    align-items: center;
+    gap: 9px;
+    margin-top: 5px;
+}
+
+
+#autoConfidence {
+    width: 100%;
+}
+
+
+#autoConfidenceValue {
+    min-width: 38px;
+
+    text-align: right;
+    font-size: 0.78rem;
+}

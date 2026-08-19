@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>SafeVision · Redes neuronales</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='redes.css', v='redes-v3b') }}"
+    >
+</head>
+
+
+<body class="redes-page">
+
+<header class="topbar redes-topbar">
+
+    <div>
+        <h1>SafeVision</h1>
+        <span>Redes neuronales</span>
+    </div>
+
+    <div class="redes-header-actions">
+
+        <span
+            id="redesConnection"
+            class="redes-badge disconnected"
+        >
+            ● DESCONECTADO
+        </span>
+
+        <a
+            href="/"
+            class="dashboard-tab dashboard-tab-link"
+        >
+            ← Menú
+        </a>
+
+    </div>
+
+</header>
+
+
+<main class="redes-page-content">
+
+    <section class="redes-workspace">
+
+        <div class="redes-left-column">
+
+            <article class="redes-panel redes-model-panel">
+
+                <div class="redes-panel-title">
+
+                    <div>
+                        <h2>Probar modelos</h2>
+
+                        <span class="redes-soft-note">
+                            Exportar desde Rosmaster X3 si no hay
+                            .pt, PyTorch, etc.
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <form id="redesLocalModelForm">
+
+                    <div class="redes-file-field">
+
+                        <label for="redesModelPt">
+                            Modelo (.pt)
+                        </label>
+
+                        <input
+                            id="redesModelPt"
+                            name="model_pt"
+                            type="file"
+                            accept=".pt"
+                            required
+                        >
+
+                        <div
+                            id="redesModelPtName"
+                            class="redes-file-name"
+                        >
+                            Ningún modelo seleccionado.
+                        </div>
+
+                    </div>
+
+
+                    <div class="redes-file-field">
+
+                        <label for="redesModelJson">
+                            Metadatos (.json) · opcional
+                        </label>
+
+                        <input
+                            id="redesModelJson"
+                            name="model_json"
+                            type="file"
+                            accept=".json"
+                        >
+
+                        <div
+                            id="redesModelJsonName"
+                            class="redes-file-name"
+                        >
+                            Ningún JSON seleccionado.
+                        </div>
+
+                    </div>
+
+
+                    <div class="redes-local-actions">
+
+                        <button
+                            id="redesOpenPcModels"
+                            type="button"
+                        >
+                            Modelos PC
+                        </button>
+
+                        <button
+                            id="redesLoadLocal"
+                            type="submit"
+                            class="primary"
+                        >
+                            Cargar modelo
+                        </button>
+
+                    </div>
+
+                </form>
+
+
+                <div
+                    id="redesMessage"
+                    class="redes-message"
+                >
+                    Preparado.
+                </div>
+
+            </article>
+
+
+            <article class="redes-panel redes-metadata-panel">
+
+                <div class="redes-metadata-head">
+
+                    <h2>Metadatos</h2>
+
+                    <div class="redes-class-toolbar">
+
+                        <button
+                            id="redesClassSuspend"
+                            type="button"
+                            disabled
+                        >
+                            Suspender
+                        </button>
+
+                        <button
+                            id="redesClassActivate"
+                            type="button"
+                            disabled
+                        >
+                            Activar
+                        </button>
+
+                        <button
+                            id="redesClassDelete"
+                            type="button"
+                            class="danger"
+                            disabled
+                        >
+                            Borrar
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="redes-section-label">
+                    Lista de clases
+                </div>
+
+
+                <div
+                    id="redesClassList"
+                    class="redes-class-list"
+                >
+                    <div class="redes-empty">
+                        Carga un modelo o selecciona un JSON.
+                    </div>
+                </div>
+
+
+                <div class="redes-add-class">
+
+                    <input
+                        id="redesNewClass"
+                        type="text"
+                        maxlength="128"
+                        placeholder="Nueva clase"
+                    >
+
+                    <button
+                        id="redesAddClass"
+                        type="button"
+                    >
+                        + Agregar
+                    </button>
+
+                </div>
+
+
+                <div class="redes-section-label redes-version-title">
+                    Versiones JSON
+                </div>
+
+
+                <div
+                    id="redesVersionList"
+                    class="redes-version-list"
+                >
+                    <div class="redes-empty small">
+                        Sin versiones guardadas.
+                    </div>
+                </div>
+
+
+                <label
+                    class="redes-field-label redes-note-label"
+                    for="redesVersionNote"
+                >
+                    Nota de esta versión
+                </label>
+
+                <textarea
+                    id="redesVersionNote"
+                    rows="2"
+                    maxlength="300"
+                    placeholder="Ej. Versión patrullaje de Paula"
+                ></textarea>
+
+
+                <button
+                    id="redesSaveVersion"
+                    type="button"
+                    class="primary redes-wide"
+                >
+                    Guardar nueva versión JSON
+                </button>
+
+
+                <button
+                    id="redesOpenPiModels"
+                    type="button"
+                    class="redes-wide redes-pi-button"
+                >
+                    Modelos en Rosmaster X3
+                </button>
+
+            </article>
+
+        </div>
+
+
+        <article class="redes-panel redes-inference-panel">
+
+            <div class="redes-panel-title">
+
+                <div>
+                    <h2>Prueba de inferencia</h2>
+                    <span>Procesamiento en esta computadora</span>
+                </div>
+
+            </div>
+
+
+            <div class="redes-confidence-block">
+
+                <div class="redes-confidence-label">
+
+                    <span>Confianza</span>
+
+                    <strong id="redesConfidenceValue">
+                        50%
+                    </strong>
+
+                </div>
+
+                <input
+                    id="redesConfidence"
+                    type="range"
+                    min="5"
+                    max="95"
+                    value="50"
+                >
+
+            </div>
+
+
+            <div class="redes-video-shell">
+
+                <img
+                    id="redesVideo"
+                    alt="Inferencia SafeVision"
+                    hidden
+                >
+
+                <div
+                    id="redesVideoPlaceholder"
+                    class="redes-video-placeholder"
+                >
+                    Conecta el robot para mostrar la cámara.
+                </div>
+
+            </div>
+
+
+            <div class="redes-stats">
+
+                <div>
+                    <span>FPS cámara</span>
+                    <strong id="statStreamFps">—</strong>
+                </div>
+
+                <div>
+                    <span>FPS inferencia</span>
+                    <strong id="statInferenceFps">—</strong>
+                </div>
+
+                <div>
+                    <span>Inferencia</span>
+                    <strong id="statInferenceMs">—</strong>
+                </div>
+
+                <div>
+                    <span>Latencia Pi</span>
+                    <strong id="statLatency">—</strong>
+                </div>
+
+                <div>
+                    <span>Interfaz</span>
+                    <strong id="statInterface">—</strong>
+                </div>
+
+                <div>
+                    <span>Red</span>
+                    <strong id="statNetwork">—</strong>
+                </div>
+
+                <div>
+                    <span>Velocidad enlace</span>
+                    <strong id="statLinkSpeed">—</strong>
+                </div>
+
+            </div>
+
+        </article>
+
+    </section>
+
+</main>
+
+
+<dialog id="redesPiDialog">
+
+    <div class="redes-dialog-shell">
+
+        <div class="redes-dialog-head">
+
+            <div>
+                <h2>Modelos en Rosmaster X3</h2>
+                <span>Biblioteca persistente de la Raspberry Pi</span>
+            </div>
+
+            <button
+                id="redesPiClose"
+                type="button"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="redes-pi-import">
+
+            <input
+                id="redesPiZip"
+                type="file"
+                accept=".zip"
+            >
+
+            <button
+                id="redesPiImport"
+                type="button"
+            >
+                Importar a Rosmaster X3
+            </button>
+
+            <button
+                id="redesPiRefresh"
+                type="button"
+            >
+                Actualizar
+            </button>
+
+        </div>
+
+
+        <div
+            id="redesPiModels"
+            class="redes-pi-list"
+        >
+            <div class="redes-empty">
+                Consultando modelos...
+            </div>
+        </div>
+
+    </div>
+
+</dialog>
+
+
+<script
+    src="{{ url_for('static', filename='redes.js', v='redes-v3b') }}"
+></script>
+
+</body>
+</html>

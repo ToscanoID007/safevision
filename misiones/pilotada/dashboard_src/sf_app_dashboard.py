@@ -3,6 +3,10 @@
 
 import json
 import ipaddress
+import os
+import re
+import subprocess
+import time
 import tempfile
 import threading
 import webbrowser
@@ -63,6 +67,39 @@ TEMP_DIR = Path(
     )
 )
 
+
+
+# =========================================================
+# BIBLIOTECA LOCAL DE MODELOS EN PC
+# =========================================================
+
+DASHBOARD_DIR = Path(
+    __file__
+).resolve().parent
+
+PC_MODELS_DIR = (
+    DASHBOARD_DIR
+    /
+    "modelos"
+)
+
+PC_METADATA_DIR = (
+    PC_MODELS_DIR
+    /
+    "metadata_versions"
+)
+
+
+def _ensure_pc_model_dirs():
+    PC_MODELS_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    PC_METADATA_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
 
 # =========================================================
@@ -538,6 +575,14 @@ def consultar_robot(ip):
 def index():
     return render_template(
         "index.html"
+    )
+
+
+
+@app.route("/redes")
+def redes_gestion():
+    return render_template(
+        "redes.html"
     )
 
 
@@ -1397,6 +1442,1230 @@ def robot_status():
             ),
             502
         )
+
+
+
+# =========================================================
+# REDES V2 - CATALOGO PERSISTENTE EN RASPBERRY
+# =========================================================
+
+def _models_robot_url(path=""):
+    if not robot_ip:
+        return None
+
+    return (
+        "http://{}:8091/models{}"
+    ).format(
+        robot_ip,
+        path
+    )
+
+
+def _models_proxy_json(
+    method,
+    path,
+    payload=None,
+    timeout=8
+):
+    url = _models_robot_url(
+        path
+    )
+
+    if not url:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    try:
+        response = requests.request(
+            method,
+            url,
+            json=payload,
+            timeout=timeout
+        )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {
+                "ok": False,
+                "error": (
+                    "Respuesta invalida del catalogo IA."
+                )
+            }
+
+        return jsonify(
+            data
+        ), response.status_code
+
+    except Exception as exc:
+        return error(
+            (
+                "No se pudo acceder al catalogo IA: {}"
+            ).format(
+                exc
+            ),
+            502
+        )
+
+
+@app.route("/models")
+def dashboard_models_list():
+    return _models_proxy_json(
+        "GET",
+        ""
+    )
+
+
+@app.route("/models/<nombre>")
+def dashboard_models_get(nombre):
+    return _models_proxy_json(
+        "GET",
+        "/{}".format(
+            nombre
+        )
+    )
+
+
+@app.route(
+    "/models/import",
+    methods=["POST"]
+)
+def dashboard_models_import():
+    if not robot_ip:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    upload = request.files.get(
+        "file"
+    )
+
+    if (
+        upload is None
+        or
+        not upload.filename
+    ):
+        return error(
+            "Selecciona un ZIP."
+        )
+
+    filename = secure_filename(
+        upload.filename
+    )
+
+    if not filename.lower().endswith(
+        ".zip"
+    ):
+        return error(
+            "Solo se acepta .zip."
+        )
+
+    try:
+        response = requests.post(
+            _models_robot_url(
+                "/import"
+            ),
+            files={
+                "file": (
+                    filename,
+                    upload.stream,
+                    "application/zip"
+                )
+            },
+            timeout=120
+        )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {
+                "ok": False,
+                "error": (
+                    "Respuesta de importacion invalida."
+                )
+            }
+
+        return jsonify(
+            data
+        ), response.status_code
+
+    except Exception as exc:
+        return error(
+            "No se pudo importar: {}".format(
+                exc
+            ),
+            502
+        )
+
+
+@app.route(
+    "/models/<nombre>/rename",
+    methods=["POST"]
+)
+def dashboard_models_rename(nombre):
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    return _models_proxy_json(
+        "POST",
+        "/{}/rename".format(
+            nombre
+        ),
+        data
+    )
+
+
+@app.route(
+    "/models/<nombre>/metadata",
+    methods=["PUT"]
+)
+def dashboard_models_metadata(nombre):
+    data = request.get_json(
+        silent=True
+    )
+
+    return _models_proxy_json(
+        "PUT",
+        "/{}/metadata".format(
+            nombre
+        ),
+        data
+    )
+
+
+@app.route(
+    "/models/<nombre>",
+    methods=["DELETE"]
+)
+def dashboard_models_delete(nombre):
+    return _models_proxy_json(
+        "DELETE",
+        "/{}".format(
+            nombre
+        )
+    )
+
+
+@app.route(
+    "/models/<nombre>/export"
+)
+def dashboard_models_export(nombre):
+    if not robot_ip:
+        return Response(
+            "Robot no conectado.",
+            status=409,
+            mimetype="text/plain"
+        )
+
+    try:
+        remote = requests.get(
+            _models_robot_url(
+                "/{}/export".format(
+                    nombre
+                )
+            ),
+            stream=True,
+            timeout=30
+        )
+
+        if remote.status_code != 200:
+            try:
+                data = remote.json()
+
+                message = (
+                    data.get("error")
+                    or
+                    data.get("message")
+                    or
+                    "No se pudo exportar."
+                )
+
+            except Exception:
+                message = (
+                    "No se pudo exportar."
+                )
+
+            remote.close()
+
+            return Response(
+                message,
+                status=remote.status_code,
+                mimetype="text/plain"
+            )
+
+        headers = {}
+
+        disposition = remote.headers.get(
+            "Content-Disposition"
+        )
+
+        if disposition:
+            headers[
+                "Content-Disposition"
+            ] = disposition
+
+        def generate():
+            try:
+                for chunk in remote.iter_content(
+                    chunk_size=1024 * 1024
+                ):
+                    if chunk:
+                        yield chunk
+
+            finally:
+                remote.close()
+
+        return Response(
+            generate(),
+            headers=headers,
+            content_type="application/zip"
+        )
+
+    except Exception as exc:
+        return Response(
+            "No se pudo exportar: {}".format(
+                exc
+            ),
+            status=502,
+            mimetype="text/plain"
+        )
+
+
+def _download_model_artifact(
+    nombre,
+    extension,
+    destination
+):
+    response = requests.get(
+        _models_robot_url(
+            "/{}/artifact/{}".format(
+                nombre,
+                extension
+            )
+        ),
+        stream=True,
+        timeout=30
+    )
+
+    if response.status_code != 200:
+        try:
+            data = response.json()
+
+            message = (
+                data.get("error")
+                or
+                data.get("message")
+                or
+                "Artefacto no disponible."
+            )
+
+        except Exception:
+            message = (
+                "Artefacto no disponible."
+            )
+
+        response.close()
+
+        raise RuntimeError(
+            message
+        )
+
+    try:
+        with open(
+            str(destination),
+            "wb"
+        ) as file:
+            for chunk in response.iter_content(
+                chunk_size=1024 * 1024
+            ):
+                if chunk:
+                    file.write(
+                        chunk
+                    )
+
+    finally:
+        response.close()
+
+
+@app.route(
+    "/models/<nombre>/activate",
+    methods=["POST"]
+)
+def dashboard_models_activate(nombre):
+    if not robot_ip:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    try:
+        response = requests.get(
+            _models_robot_url(
+                "/{}".format(
+                    nombre
+                )
+            ),
+            timeout=6
+        )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {}
+
+        if (
+            response.status_code != 200
+            or
+            not data.get("ok")
+        ):
+            return error(
+                (
+                    data.get("error")
+                    or
+                    "Modelo no encontrado."
+                ),
+                response.status_code
+            )
+
+        model = (
+            data.get("model")
+            or
+            {}
+        )
+
+        if (
+            model.get(
+                "primary_extension"
+            )
+            !=
+            ".pt"
+        ):
+            return error(
+                (
+                    "El motor de inferencia actual "
+                    "solo activa modelos .pt."
+                ),
+                409
+            )
+
+        safe_name = secure_filename(
+            model.get(
+                "name",
+                nombre
+            )
+        )
+
+        local_pt = (
+            TEMP_DIR
+            /
+            (
+                "catalog_{}.pt".format(
+                    safe_name
+                )
+            )
+        )
+
+        _download_model_artifact(
+            nombre,
+            "pt",
+            local_pt
+        )
+
+        extensions = {
+            item.get("extension")
+            for item in model.get(
+                "artifacts",
+                []
+            )
+            if isinstance(
+                item,
+                dict
+            )
+        }
+
+        local_json = None
+
+        if ".json" in extensions:
+            local_json = (
+                TEMP_DIR
+                /
+                (
+                    "catalog_{}.json".format(
+                        safe_name
+                    )
+                )
+            )
+
+            _download_model_artifact(
+                nombre,
+                "json",
+                local_json
+            )
+
+        correcto, detalle = (
+            motor_ia.cargar_modelo(
+                str(local_pt),
+                (
+                    str(local_json)
+                    if local_json
+                    else None
+                )
+            )
+        )
+
+        if not correcto:
+            return error(
+                (
+                    "No se pudo activar el modelo: {}"
+                ).format(
+                    detalle
+                ),
+                500
+            )
+
+        return jsonify({
+            "ok": True,
+            "message": "Modelo activado.",
+            "catalog_model": model,
+            "runtime": motor_ia.get_info()
+        })
+
+    except Exception as exc:
+        return error(
+            "No se pudo activar: {}".format(
+                exc
+            ),
+            502
+        )
+
+
+# =========================================================
+# REDES V2 · MODELOS PC / VERSIONES JSON / TELEMETRIA
+# =========================================================
+
+def _metadata_base(value):
+    name = secure_filename(
+        str(
+            value
+            or
+            ""
+        ).strip()
+    )
+
+    stem = Path(
+        name
+    ).stem
+
+    if not stem:
+        stem = "modelo"
+
+    return stem[:128]
+
+
+def _metadata_version_dir(base):
+    _ensure_pc_model_dirs()
+
+    directory = (
+        PC_METADATA_DIR
+        /
+        _metadata_base(
+            base
+        )
+    )
+
+    directory.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return directory
+
+
+def _normalize_class_indices(
+    value,
+    class_count
+):
+    if not isinstance(
+        value,
+        list
+    ):
+        return []
+
+    result = set()
+
+    for item in value:
+        try:
+            index = int(
+                item
+            )
+        except Exception:
+            continue
+
+        if (
+            index >= 0
+            and
+            index < class_count
+        ):
+            result.add(
+                index
+            )
+
+    return sorted(
+        result
+    )
+
+
+def _read_metadata_version(path):
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8"
+        ) as file:
+            data = json.load(
+                file
+            )
+
+        if not isinstance(
+            data,
+            dict
+        ):
+            return None
+
+    except Exception:
+        return None
+
+    info = data.get(
+        "safevision_version"
+    )
+
+    if not isinstance(
+        info,
+        dict
+    ):
+        info = {}
+
+    return {
+        "file": path.name,
+        "version": int(
+            info.get(
+                "number",
+                0
+            )
+            or
+            0
+        ),
+        "created_at": str(
+            info.get(
+                "created_at",
+                ""
+            )
+            or
+            ""
+        ),
+        "note": str(
+            info.get(
+                "note",
+                ""
+            )
+            or
+            ""
+        ),
+        "mtime": path.stat().st_mtime
+    }
+
+
+def _list_metadata_versions(base):
+    directory = (
+        _metadata_version_dir(
+            base
+        )
+    )
+
+    records = []
+
+    for path in directory.glob(
+        "*.json"
+    ):
+        record = (
+            _read_metadata_version(
+                path
+            )
+        )
+
+        if record is not None:
+            records.append(
+                record
+            )
+
+    records.sort(
+        key=lambda item: (
+            item.get(
+                "created_at",
+                ""
+            ),
+            item.get(
+                "mtime",
+                0
+            )
+        ),
+        reverse=True
+    )
+
+    return records
+
+
+@app.route(
+    "/models_pc/open",
+    methods=["POST"]
+)
+def models_pc_open():
+    _ensure_pc_model_dirs()
+
+    try:
+        subprocess.Popen(
+            [
+                "xdg-open",
+                str(
+                    PC_MODELS_DIR
+                )
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+        return jsonify({
+            "ok": True,
+            "path": str(
+                PC_MODELS_DIR
+            )
+        })
+
+    except Exception as exc:
+        return error(
+            (
+                "No se pudo abrir la carpeta: {}"
+            ).format(
+                exc
+            ),
+            500
+        )
+
+
+@app.route(
+    "/models_pc/info"
+)
+def models_pc_info():
+    _ensure_pc_model_dirs()
+
+    return jsonify({
+        "ok": True,
+        "path": str(
+            PC_MODELS_DIR
+        )
+    })
+
+
+@app.route(
+    "/metadata_versions",
+    methods=["GET", "POST"]
+)
+def metadata_versions():
+    if request.method == "GET":
+        base = _metadata_base(
+            request.args.get(
+                "base",
+                ""
+            )
+        )
+
+        return jsonify({
+            "ok": True,
+            "base": base,
+            "versions": (
+                _list_metadata_versions(
+                    base
+                )
+            )
+        })
+
+    payload = request.get_json(
+        silent=True
+    ) or {}
+
+    base = _metadata_base(
+        payload.get(
+            "base",
+            ""
+        )
+    )
+
+    metadata = payload.get(
+        "metadata"
+    )
+
+    if not isinstance(
+        metadata,
+        dict
+    ):
+        return error(
+            "Metadatos invalidos."
+        )
+
+    result = dict(
+        metadata
+    )
+
+    classes = result.get(
+        "clases",
+        []
+    )
+
+    if not isinstance(
+        classes,
+        list
+    ):
+        return error(
+            "'clases' debe ser una lista."
+        )
+
+    clean_classes = []
+
+    for item in classes:
+        name = str(
+            item
+        ).strip()
+
+        if not name:
+            name = (
+                "clase_{}".format(
+                    len(
+                        clean_classes
+                    )
+                )
+            )
+
+        clean_classes.append(
+            name[:128]
+        )
+
+    result[
+        "clases"
+    ] = clean_classes
+
+    result[
+        "clases_suspendidas"
+    ] = _normalize_class_indices(
+        result.get(
+            "clases_suspendidas"
+        ),
+        len(
+            clean_classes
+        )
+    )
+
+    result[
+        "clases_eliminadas"
+    ] = _normalize_class_indices(
+        result.get(
+            "clases_eliminadas"
+        ),
+        len(
+            clean_classes
+        )
+    )
+
+    existing = (
+        _list_metadata_versions(
+            base
+        )
+    )
+
+    next_version = (
+        max(
+            [
+                int(
+                    item.get(
+                        "version",
+                        0
+                    )
+                )
+                for item
+                in existing
+            ]
+            or
+            [0]
+        )
+        +
+        1
+    )
+
+    created_at = (
+        time.strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
+    )
+
+    note = str(
+        payload.get(
+            "note",
+            ""
+        )
+        or
+        ""
+    ).strip()[:300]
+
+    result[
+        "safevision_version"
+    ] = {
+        "number": next_version,
+        "created_at": created_at,
+        "note": note
+    }
+
+    directory = (
+        _metadata_version_dir(
+            base
+        )
+    )
+
+    filename = (
+        "v{:03d}_{}.json".format(
+            next_version,
+            time.strftime(
+                "%Y%m%d_%H%M%S"
+            )
+        )
+    )
+
+    destination = (
+        directory
+        /
+        filename
+    )
+
+    temporary = (
+        directory
+        /
+        (
+            ".{}.tmp".format(
+                filename
+            )
+        )
+    )
+
+    with temporary.open(
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(
+            result,
+            file,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True
+        )
+
+        file.write(
+            "\n"
+        )
+
+    os.replace(
+        str(
+            temporary
+        ),
+        str(
+            destination
+        )
+    )
+
+    return jsonify({
+        "ok": True,
+        "base": base,
+        "version": (
+            _read_metadata_version(
+                destination
+            )
+        ),
+        "metadata": result
+    })
+
+
+@app.route(
+    "/metadata_versions/<base>/<filename>"
+)
+def metadata_version_get(
+    base,
+    filename
+):
+    directory = (
+        _metadata_version_dir(
+            base
+        )
+    )
+
+    safe_filename = secure_filename(
+        filename
+    )
+
+    if (
+        not safe_filename
+        or
+        not safe_filename.lower().endswith(
+            ".json"
+        )
+    ):
+        return error(
+            "Version invalida."
+        )
+
+    path = (
+        directory
+        /
+        safe_filename
+    )
+
+    if not path.is_file():
+        return error(
+            "Version no encontrada.",
+            404
+        )
+
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8"
+        ) as file:
+            data = json.load(
+                file
+            )
+
+        return jsonify({
+            "ok": True,
+            "base": _metadata_base(
+                base
+            ),
+            "file": safe_filename,
+            "metadata": data
+        })
+
+    except Exception as exc:
+        return error(
+            "JSON invalido: {}".format(
+                exc
+            ),
+            500
+        )
+
+
+def _network_interface_for_robot():
+    if not robot_ip:
+        return None
+
+    try:
+        result = subprocess.run(
+            [
+                "ip",
+                "route",
+                "get",
+                robot_ip
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1
+        )
+
+        match = re.search(
+            r"\bdev\s+(\S+)",
+            result.stdout
+        )
+
+        if match:
+            return match.group(
+                1
+            )
+
+    except Exception:
+        pass
+
+    return None
+
+
+def _network_link_info(interface):
+    if not interface:
+        return {
+            "interface": None,
+            "type": None,
+            "ssid": None,
+            "link_mbps": None
+        }
+
+    wireless = (
+        Path(
+            "/sys/class/net"
+        )
+        /
+        interface
+        /
+        "wireless"
+    ).exists()
+
+    network_type = (
+        "Wi-Fi"
+        if wireless
+        else "Ethernet"
+    )
+
+    ssid = None
+    link_mbps = None
+
+    if wireless:
+        try:
+            result = subprocess.run(
+                [
+                    "iwgetid",
+                    interface,
+                    "-r"
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=1
+            )
+
+            value = result.stdout.strip()
+
+            if value:
+                ssid = value
+
+        except Exception:
+            pass
+
+        try:
+            result = subprocess.run(
+                [
+                    "iw",
+                    "dev",
+                    interface,
+                    "link"
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=1
+            )
+
+            match = re.search(
+                r"tx bitrate:\s*([\d.]+)\s*MBit/s",
+                result.stdout
+            )
+
+            if match:
+                link_mbps = float(
+                    match.group(
+                        1
+                    )
+                )
+
+        except Exception:
+            pass
+
+    else:
+        try:
+            speed_path = (
+                Path(
+                    "/sys/class/net"
+                )
+                /
+                interface
+                /
+                "speed"
+            )
+
+            if speed_path.is_file():
+                value = float(
+                    speed_path.read_text().strip()
+                )
+
+                if value > 0:
+                    link_mbps = value
+
+        except Exception:
+            pass
+
+    return {
+        "interface": interface,
+        "type": network_type,
+        "ssid": ssid,
+        "link_mbps": link_mbps
+    }
+
+
+@app.route(
+    "/ia_stats"
+)
+def ia_stats():
+    latency_ms = None
+    robot_connected = False
+
+    if robot_ip:
+        started = time.perf_counter()
+
+        try:
+            response = requests.get(
+                "http://{}:8091/".format(
+                    robot_ip
+                ),
+                timeout=1
+            )
+
+            response.raise_for_status()
+
+            latency_ms = (
+                time.perf_counter()
+                -
+                started
+            ) * 1000.0
+
+            robot_connected = True
+
+        except Exception:
+            robot_connected = False
+
+    interface = (
+        _network_interface_for_robot()
+    )
+
+    network = (
+        _network_link_info(
+            interface
+        )
+    )
+
+    return jsonify({
+        "ok": True,
+        "robot_connected": robot_connected,
+        "robot_ip": robot_ip,
+        "latency_ms": (
+            round(
+                latency_ms,
+                2
+            )
+            if latency_ms is not None
+            else None
+        ),
+        "network": network,
+        "inference": (
+            motor_ia.get_stats()
+        )
+    })
 
 
 # =========================================================

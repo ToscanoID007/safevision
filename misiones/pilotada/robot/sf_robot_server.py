@@ -23,9 +23,17 @@ import numpy as np
 import rospy
 from std_msgs.msg import String
 from nav_msgs.msg import OccupancyGrid
-from flask import Flask, Response, jsonify, request
+from flask import (
+    Flask,
+    Response,
+    after_this_request,
+    jsonify,
+    request,
+    send_file
+)
 
 import sf_mapping_manager
+import sf_model_manager
 
 
 AUTOMATIC_ROBOT_DIR = (
@@ -51,6 +59,8 @@ from sf_mission_executor import (
 app = Flask(__name__)
 
 MISSION_RUNTIME = MissionRuntime()
+
+MODEL_MANAGER = sf_model_manager.ModelManager()
 
 CONTROL_MODE = "desconocido"
 
@@ -4221,6 +4231,262 @@ def nav_clear():
     return nav_simple_command(
         "clear"
     )
+
+
+# =========================================================
+# REDES V2 - MODELOS IA
+# =========================================================
+
+def _model_api_error(exc):
+    if isinstance(
+        exc,
+        sf_model_manager.ModelNotFound
+    ):
+        status = 404
+
+    elif isinstance(
+        exc,
+        sf_model_manager.ModelConflict
+    ):
+        status = 409
+
+    elif isinstance(
+        exc,
+        sf_model_manager.InvalidModel
+    ):
+        status = 400
+
+    else:
+        status = 500
+
+    return jsonify({
+        "ok": False,
+        "error": str(exc)
+    }), status
+
+
+@app.route("/models")
+def models_list():
+    try:
+        return jsonify({
+            "ok": True,
+            "models": (
+                MODEL_MANAGER.list_models()
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route("/models/<nombre>")
+def models_get(nombre):
+    try:
+        return jsonify({
+            "ok": True,
+            "model": (
+                MODEL_MANAGER.get(
+                    nombre
+                )
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/import",
+    methods=["POST"]
+)
+def models_import():
+    upload = request.files.get(
+        "file"
+    )
+
+    if (
+        upload is None
+        or
+        not upload.filename
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Falta ZIP."
+        }), 400
+
+    if not upload.filename.lower().endswith(
+        ".zip"
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "Solo se acepta .zip."
+        }), 400
+
+    try:
+        return jsonify({
+            "ok": True,
+            "models": (
+                MODEL_MANAGER.import_zip(
+                    upload.stream
+                )
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/<nombre>/rename",
+    methods=["POST"]
+)
+def models_rename(nombre):
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    try:
+        return jsonify({
+            "ok": True,
+            "model": (
+                MODEL_MANAGER.rename(
+                    nombre,
+                    data.get(
+                        "name",
+                        ""
+                    )
+                )
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/<nombre>/metadata",
+    methods=["PUT"]
+)
+def models_metadata(nombre):
+    data = request.get_json(
+        silent=True
+    )
+
+    try:
+        return jsonify({
+            "ok": True,
+            "model": (
+                MODEL_MANAGER.update_metadata(
+                    nombre,
+                    data
+                )
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/<nombre>",
+    methods=["DELETE"]
+)
+def models_delete(nombre):
+    try:
+        return jsonify({
+            "ok": True,
+            "deleted": (
+                MODEL_MANAGER.delete(
+                    nombre
+                )
+            )
+        })
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/<nombre>/artifact/<extension>"
+)
+def models_artifact(
+    nombre,
+    extension
+):
+    try:
+        path = (
+            MODEL_MANAGER.artifact_path(
+                nombre,
+                extension
+            )
+        )
+
+        return send_file(
+            str(path),
+            as_attachment=True,
+            download_name=path.name,
+            max_age=0
+        )
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
+
+@app.route(
+    "/models/<nombre>/export"
+)
+def models_export(nombre):
+    try:
+        path = (
+            MODEL_MANAGER.export_to_temp(
+                nombre
+            )
+        )
+
+        @after_this_request
+        def cleanup(response):
+            try:
+                path.unlink()
+            except Exception:
+                pass
+
+            return response
+
+        stem = MODEL_MANAGER.get(
+            nombre
+        )["name"]
+
+        return send_file(
+            str(path),
+            as_attachment=True,
+            download_name=(
+                "{}.zip".format(
+                    stem
+                )
+            ),
+            mimetype="application/zip",
+            max_age=0
+        )
+
+    except Exception as exc:
+        return _model_api_error(
+            exc
+        )
+
 
 
 def main():

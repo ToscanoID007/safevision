@@ -18,7 +18,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='automatica.css', v='automatica-v2') }}"
+        href="{{ url_for('static', filename='automatica.css', v='automatica-v3') }}"
     >
 </head>
 
@@ -139,6 +139,89 @@
             </div>
 
         </div>
+
+
+        <!-- ============================================= -->
+        <!-- IA LOCAL · MISMO MOTOR QUE MISION PILOTADA    -->
+        <!-- ============================================= -->
+
+        <section class="auto-model-panel">
+
+            <div class="auto-model-title">
+                Modelo IA
+            </div>
+
+            <form id="autoModelForm">
+
+                <label for="autoModelPt">
+                    Modelo (.pt)
+                </label>
+
+                <input
+                    id="autoModelPt"
+                    name="model_pt"
+                    type="file"
+                    accept=".pt"
+                    required
+                >
+
+
+                <label for="autoModelJson">
+                    Metadatos (.json) · opcional
+                </label>
+
+                <input
+                    id="autoModelJson"
+                    name="model_json"
+                    type="file"
+                    accept=".json"
+                >
+
+
+                <button
+                    id="autoModelLoad"
+                    type="submit"
+                    class="auto-model-load"
+                >
+                    Cargar modelo
+                </button>
+
+            </form>
+
+
+            <div
+                id="autoModelStatus"
+                class="auto-model-status"
+            >
+                Sin modelo seleccionado.
+            </div>
+
+
+            <div class="auto-model-confidence">
+
+                <label for="autoConfidence">
+                    Confianza
+                </label>
+
+                <div class="auto-model-confidence-row">
+
+                    <input
+                        id="autoConfidence"
+                        type="range"
+                        min="5"
+                        max="95"
+                        value="50"
+                    >
+
+                    <strong id="autoConfidenceValue">
+                        50%
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
 
 
         <label>

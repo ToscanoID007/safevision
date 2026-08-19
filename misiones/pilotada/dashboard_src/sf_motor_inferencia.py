@@ -21,7 +21,50 @@ class MotorInferencia:
         self.metadata = {}
         self.clases = []
 
+        # Índices de clase. Preservan IDs YOLO.
+        self.clases_suspendidas = set()
+        self.clases_eliminadas = set()
+
+        self.model_class_count = 0
+
         self.confianza = 0.50
+
+        # Telemetría ligera.
+        self.inference_ms = None
+        self.inference_fps = None
+        self.stream_fps = None
+        self._last_stream_frame_at = None
+
+
+    @staticmethod
+    def _normalizar_indices(value):
+        if not isinstance(value, list):
+            return set()
+
+        result = set()
+
+        for item in value:
+            try:
+                index = int(item)
+            except Exception:
+                continue
+
+            if index >= 0:
+                result.add(index)
+
+        return result
+
+
+    @staticmethod
+    def _smooth(previous, current, alpha=0.22):
+        if previous is None:
+            return float(current)
+
+        return (
+            (1.0 - alpha) * float(previous)
+            +
+            alpha * float(current)
+        )
 
 
     def cargar_modelo(self, modelo_path, json_path=None):
@@ -38,6 +81,25 @@ class MotorInferencia:
 
             metadata = {}
             clases = []
+            suspendidas = set()
+            eliminadas = set()
+
+            nombres_modelo = getattr(
+                nuevo_modelo,
+                "names",
+                {}
+            )
+
+            if isinstance(nombres_modelo, dict):
+                model_class_count = len(
+                    nombres_modelo
+                )
+            elif isinstance(nombres_modelo, list):
+                model_class_count = len(
+                    nombres_modelo
+                )
+            else:
+                model_class_count = 0
 
 
             # ---------------------------------------------
@@ -56,6 +118,9 @@ class MotorInferencia:
                         archivo
                     )
 
+                if not isinstance(metadata, dict):
+                    metadata = {}
+
                 clases_json = metadata.get(
                     "clases"
                 )
@@ -69,36 +134,44 @@ class MotorInferencia:
                         for nombre in clases_json
                     ]
 
+                suspendidas = self._normalizar_indices(
+                    metadata.get(
+                        "clases_suspendidas"
+                    )
+                )
+
+                eliminadas = self._normalizar_indices(
+                    metadata.get(
+                        "clases_eliminadas"
+                    )
+                )
+
 
             # ---------------------------------------------
             # SI NO HAY CLASES EN JSON, USAR LAS DEL .PT
             # ---------------------------------------------
 
             if not clases:
-                nombres = getattr(
-                    nuevo_modelo,
-                    "names",
-                    {}
-                )
-
                 if isinstance(
-                    nombres,
+                    nombres_modelo,
                     dict
                 ):
                     clases = [
-                        str(nombres[k])
+                        str(
+                            nombres_modelo[k]
+                        )
                         for k in sorted(
-                            nombres.keys()
+                            nombres_modelo.keys()
                         )
                     ]
 
                 elif isinstance(
-                    nombres,
+                    nombres_modelo,
                     list
                 ):
                     clases = [
                         str(x)
-                        for x in nombres
+                        for x in nombres_modelo
                     ]
 
 
@@ -118,13 +191,28 @@ class MotorInferencia:
                 self.metadata = metadata
                 self.clases = clases
 
+                self.clases_suspendidas = (
+                    suspendidas
+                )
+
+                self.clases_eliminadas = (
+                    eliminadas
+                )
+
+                self.model_class_count = (
+                    model_class_count
+                )
+
+                self.inference_ms = None
+                self.inference_fps = None
+
 
             print(
                 "[IA] Modelo cargado."
             )
 
             print(
-                "[IA] Clases: {}".format(
+                "[IA] Clases metadata: {}".format(
                     len(clases)
                 )
             )
@@ -165,6 +253,38 @@ class MotorInferencia:
         return True
 
 
+    def get_stats(self):
+        with self.lock:
+            return {
+                "stream_fps": (
+                    round(
+                        self.stream_fps,
+                        2
+                    )
+                    if self.stream_fps is not None
+                    else None
+                ),
+
+                "inference_fps": (
+                    round(
+                        self.inference_fps,
+                        2
+                    )
+                    if self.inference_fps is not None
+                    else None
+                ),
+
+                "inference_ms": (
+                    round(
+                        self.inference_ms,
+                        2
+                    )
+                    if self.inference_ms is not None
+                    else None
+                )
+            }
+
+
     def get_info(self):
         with self.lock:
             metadata = dict(
@@ -200,7 +320,21 @@ class MotorInferencia:
                     self.clases
                 ),
 
-                "metadata": metadata
+                "suspended_classes": sorted(
+                    self.clases_suspendidas
+                ),
+
+                "deleted_classes": sorted(
+                    self.clases_eliminadas
+                ),
+
+                "model_class_count": (
+                    self.model_class_count
+                ),
+
+                "metadata": metadata,
+
+                "stats": self.get_stats()
             }
 
 
@@ -211,17 +345,90 @@ class MotorInferencia:
             clases = list(
                 self.clases
             )
+            suspendidas = set(
+                self.clases_suspendidas
+            )
+            eliminadas = set(
+                self.clases_eliminadas
+            )
+            model_class_count = int(
+                self.model_class_count
+                or
+                0
+            )
 
         if modelo is None:
             return frame
 
 
+        blocked = (
+            suspendidas
+            |
+            eliminadas
+        )
+
+        kwargs = {
+            "conf": confianza,
+            "verbose": False
+        }
+
+        if (
+            blocked
+            and
+            model_class_count > 0
+        ):
+            active_ids = [
+                index
+                for index in range(
+                    model_class_count
+                )
+                if index not in blocked
+            ]
+
+            # Todas las clases reales están suspendidas/eliminadas.
+            if not active_ids:
+                return frame
+
+            kwargs[
+                "classes"
+            ] = active_ids
+
+
+        started = time.perf_counter()
+
         try:
             resultados = modelo(
                 frame,
-                conf=confianza,
-                verbose=False
+                **kwargs
             )
+
+            elapsed_ms = (
+                time.perf_counter()
+                -
+                started
+            ) * 1000.0
+
+            instantaneous_fps = (
+                1000.0 / elapsed_ms
+                if elapsed_ms > 0
+                else None
+            )
+
+            with self.lock:
+                self.inference_ms = (
+                    self._smooth(
+                        self.inference_ms,
+                        elapsed_ms
+                    )
+                )
+
+                if instantaneous_fps is not None:
+                    self.inference_fps = (
+                        self._smooth(
+                            self.inference_fps,
+                            instantaneous_fps
+                        )
+                    )
 
             if not resultados:
                 return frame
@@ -230,18 +437,40 @@ class MotorInferencia:
 
 
             # ---------------------------------------------
-            # NOMBRES DEL JSON, SI EXISTEN
+            # NOMBRES DEL JSON SIN ROMPER IDS DEL MODELO
             # ---------------------------------------------
 
             if clases:
                 try:
-                    resultado.names = {
-                        i: nombre
-                        for i, nombre
-                        in enumerate(
-                            clases
+                    original = getattr(
+                        resultado,
+                        "names",
+                        {}
+                    )
+
+                    if isinstance(
+                        original,
+                        dict
+                    ):
+                        names = dict(
+                            original
                         )
-                    }
+                    else:
+                        names = {}
+
+                    for index, nombre in enumerate(
+                        clases
+                    ):
+                        if (
+                            model_class_count <= 0
+                            or
+                            index < model_class_count
+                        ):
+                            names[
+                                index
+                            ] = nombre
+
+                    resultado.names = names
 
                 except Exception:
                     pass
@@ -291,6 +520,9 @@ class MotorInferencia:
 
                         continue
 
+                    with self.lock:
+                        self._last_stream_frame_at = None
+
 
                 ok, frame = cap.read()
 
@@ -304,6 +536,34 @@ class MotorInferencia:
                     )
 
                     continue
+
+
+                now = time.perf_counter()
+
+                with self.lock:
+                    previous = (
+                        self._last_stream_frame_at
+                    )
+
+                    self._last_stream_frame_at = now
+
+                    if (
+                        previous is not None
+                        and
+                        now > previous
+                    ):
+                        instant_stream_fps = (
+                            1.0
+                            /
+                            (now - previous)
+                        )
+
+                        self.stream_fps = (
+                            self._smooth(
+                                self.stream_fps,
+                                instant_stream_fps
+                            )
+                        )
 
 
                 frame = self.procesar_frame(

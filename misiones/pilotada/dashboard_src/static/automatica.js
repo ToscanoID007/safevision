@@ -165,6 +165,340 @@
 
 
     // =====================================================
+    // MODELO IA LOCAL · REUTILIZA PILOTADA
+    // =====================================================
+
+    const autoModelForm =
+        document.getElementById(
+            "autoModelForm"
+        );
+
+    const autoModelPt =
+        document.getElementById(
+            "autoModelPt"
+        );
+
+    const autoModelJson =
+        document.getElementById(
+            "autoModelJson"
+        );
+
+    const autoModelStatus =
+        document.getElementById(
+            "autoModelStatus"
+        );
+
+    const autoConfidence =
+        document.getElementById(
+            "autoConfidence"
+        );
+
+    const autoConfidenceValue =
+        document.getElementById(
+            "autoConfidenceValue"
+        );
+
+    let autoConfidenceTimer =
+        null;
+
+
+    function setAutoModelStatus(
+        message,
+        state=""
+    ) {
+        if (!autoModelStatus) {
+            return;
+        }
+
+        autoModelStatus.textContent =
+            message;
+
+        autoModelStatus.className =
+            "auto-model-status";
+
+        if (state) {
+            autoModelStatus.classList.add(
+                state
+            );
+        }
+    }
+
+
+    async function uploadAutomaticModel(
+        event
+    ) {
+        event.preventDefault();
+
+        const pt =
+            autoModelPt
+            &&
+            autoModelPt.files[0];
+
+        const json =
+            autoModelJson
+            &&
+            autoModelJson.files[0];
+
+        if (!pt) {
+            setAutoModelStatus(
+                "Selecciona un archivo .pt.",
+                "error"
+            );
+
+            return;
+        }
+
+        const form =
+            new FormData();
+
+        form.append(
+            "model_pt",
+            pt
+        );
+
+        if (json) {
+            form.append(
+                "model_json",
+                json
+            );
+        }
+
+        setAutoModelStatus(
+            `Cargando ${pt.name}...`,
+            "loading"
+        );
+
+        try {
+            const response =
+                await fetch(
+                    "/upload_model",
+                    {
+                        method: "POST",
+                        body: form
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message
+                    ||
+                    "Error cargando modelo."
+                );
+            }
+
+            const info =
+                data.model
+                ||
+                {};
+
+            setAutoModelStatus(
+                (
+                    "Modelo listo: "
+                    +
+                    (
+                        info.model
+                        ||
+                        pt.name
+                    )
+                ),
+                "ready"
+            );
+
+            const confidence =
+                Number(
+                    info.confidence
+                );
+
+            if (
+                autoConfidence
+                &&
+                autoConfidenceValue
+                &&
+                Number.isFinite(
+                    confidence
+                )
+            ) {
+                const percent =
+                    Math.round(
+                        confidence * 100
+                    );
+
+                autoConfidence.value =
+                    String(percent);
+
+                autoConfidenceValue.textContent =
+                    `${percent}%`;
+            }
+
+        } catch (error) {
+            setAutoModelStatus(
+                (
+                    "Error IA: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function loadAutomaticModelInfo() {
+        if (
+            !autoConfidence
+            ||
+            !autoConfidenceValue
+        ) {
+            return;
+        }
+
+        try {
+            const response =
+                await fetch(
+                    "/model_info",
+                    {
+                        cache: "no-store"
+                    }
+                );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const info =
+                await response.json();
+
+            const confidence =
+                Number(
+                    info.confidence
+                );
+
+            if (Number.isFinite(confidence)) {
+                const percent =
+                    Math.round(
+                        confidence * 100
+                    );
+
+                autoConfidence.value =
+                    String(percent);
+
+                autoConfidenceValue.textContent =
+                    `${percent}%`;
+            }
+
+            if (
+                info.loaded
+                &&
+                info.model
+            ) {
+                setAutoModelStatus(
+                    (
+                        "Motor IA listo: "
+                        +
+                        info.model
+                    ),
+                    "ready"
+                );
+            }
+
+        } catch (_) {
+            // La misión sigue funcionando aunque IA no esté cargada.
+        }
+    }
+
+
+    function scheduleAutomaticConfidence() {
+        if (
+            !autoConfidence
+            ||
+            !autoConfidenceValue
+        ) {
+            return;
+        }
+
+        const value =
+            Number(
+                autoConfidence.value
+            );
+
+        autoConfidenceValue.textContent =
+            `${value}%`;
+
+        if (autoConfidenceTimer) {
+            clearTimeout(
+                autoConfidenceTimer
+            );
+        }
+
+        autoConfidenceTimer =
+            window.setTimeout(
+                async () => {
+                    try {
+                        const response =
+                            await fetch(
+                                "/confidence",
+                                {
+                                    method: "POST",
+
+                                    headers: {
+                                        "Content-Type":
+                                            "application/json"
+                                    },
+
+                                    body:
+                                        JSON.stringify({
+                                            confidence:
+                                                value / 100
+                                        })
+                                }
+                            );
+
+                        const data =
+                            await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(
+                                data.message
+                                ||
+                                "Confianza inválida."
+                            );
+                        }
+
+                    } catch (error) {
+                        setAutoModelStatus(
+                            (
+                                "Error confianza: "
+                                +
+                                error.message
+                            ),
+                            "error"
+                        );
+                    }
+                },
+                180
+            );
+    }
+
+
+    if (autoModelForm) {
+        autoModelForm.addEventListener(
+            "submit",
+            uploadAutomaticModel
+        );
+    }
+
+    if (autoConfidence) {
+        autoConfidence.addEventListener(
+            "input",
+            scheduleAutomaticConfidence
+        );
+    }
+
+
+    // =====================================================
     // CAMARA + MAPA + RUTA DE MISION
     // =====================================================
 
@@ -5158,5 +5492,6 @@
 
 
     initializeAutomaticPage();
+    loadAutomaticModelInfo();
 
 })();

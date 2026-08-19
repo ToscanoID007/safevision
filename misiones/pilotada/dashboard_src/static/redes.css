@@ -1,0 +1,582 @@
+.redes-page {
+    height: 100vh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #070b12;
+    color: #eef3f8;
+}
+
+.redes-topbar {
+    flex: 0 0 auto;
+}
+
+.redes-topbar,
+.redes-header-actions,
+.redes-panel-title,
+.redes-confidence-label,
+.redes-local-actions,
+.redes-dialog-head,
+.redes-pi-import,
+.redes-metadata-head,
+.redes-class-toolbar {
+    display: flex;
+    align-items: center;
+}
+
+.redes-topbar,
+.redes-panel-title,
+.redes-confidence-label,
+.redes-dialog-head,
+.redes-metadata-head {
+    justify-content: space-between;
+}
+
+.redes-topbar,
+.redes-header-actions {
+    gap: 12px;
+}
+
+.redes-badge {
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.redes-badge.connected {
+    color: #4ade80;
+}
+
+.redes-badge.disconnected {
+    color: #fb7185;
+}
+
+.redes-page-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.redes-workspace {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns:
+        minmax(330px, 30%)
+        minmax(0, 70%);
+    gap: 10px;
+}
+
+.redes-left-column {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.redes-panel {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid #243042;
+    border-radius: 12px;
+    background: #0d1420;
+    padding: 11px;
+    box-sizing: border-box;
+}
+
+.redes-model-panel {
+    flex: 0 0 auto;
+}
+
+.redes-metadata-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.redes-inference-panel {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.redes-panel-title {
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.redes-panel-title h2,
+.redes-metadata-head h2,
+.redes-dialog-head h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.redes-panel-title span,
+.redes-dialog-head span {
+    display: block;
+    margin-top: 3px;
+    color: #8da0b6;
+    font-size: 11px;
+}
+
+.redes-soft-note {
+    opacity: 0.6;
+    font-size: 10px !important;
+}
+
+#redesLocalModelForm {
+    display: grid;
+    gap: 7px;
+}
+
+.redes-file-field {
+    display: grid;
+    gap: 3px;
+}
+
+.redes-file-field label,
+.redes-field-label,
+.redes-section-label {
+    color: #9eb0c4;
+    font-size: 11px;
+}
+
+.redes-file-field input {
+    min-width: 0;
+}
+
+.redes-file-name {
+    min-height: 14px;
+    color: #7f92a8;
+    font-size: 10px;
+    overflow-wrap: anywhere;
+}
+
+.redes-local-actions {
+    justify-content: flex-end;
+    gap: 7px;
+}
+
+.redes-page button {
+    border: 1px solid #33445c;
+    border-radius: 7px;
+    background: #162235;
+    color: #edf4fb;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.redes-page button:hover:not(:disabled) {
+    background: #1d2d46;
+}
+
+.redes-page button.primary {
+    border-color: #2574d9;
+    background: #135db7;
+}
+
+.redes-page button.danger {
+    border-color: #7f2634;
+    background: #4d1922;
+}
+
+.redes-page button:disabled {
+    opacity: 0.38;
+    cursor: default;
+}
+
+.redes-message {
+    min-height: 15px;
+    margin-top: 7px;
+    color: #91a4ba;
+    font-size: 10px;
+}
+
+.redes-message.success {
+    color: #4ade80;
+}
+
+.redes-message.error {
+    color: #fb7185;
+}
+
+
+/* METADATOS */
+
+.redes-metadata-head {
+    flex: 0 0 auto;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.redes-class-toolbar {
+    gap: 5px;
+}
+
+.redes-section-label {
+    flex: 0 0 auto;
+    margin-bottom: 4px;
+    font-weight: 650;
+}
+
+.redes-class-list {
+    flex: 1 1 160px;
+    min-height: 86px;
+    max-height: 190px;
+    overflow-y: auto;
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    padding: 2px 3px 2px 0;
+}
+
+.redes-class-row {
+    display: grid;
+    grid-template-columns:
+        40px
+        minmax(0, 1fr)
+        78px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    border: 1px solid #233249;
+    border-radius: 7px;
+    background: #0a1019;
+    cursor: pointer;
+}
+
+.redes-class-row:hover {
+    border-color: #37516f;
+}
+
+.redes-class-row.selected {
+    border-color: #2d8cff;
+    background: #102b4c;
+    box-shadow: inset 0 0 0 1px rgba(45, 140, 255, 0.18);
+}
+
+.redes-class-index {
+    color: #73869d;
+    font-size: 10px;
+}
+
+.redes-class-name {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: #eef3f8;
+    padding: 5px 6px;
+    font-size: 11px;
+}
+
+.redes-class-row.selected .redes-class-name,
+.redes-class-name:focus {
+    border-color: #304159;
+    background: #080e17;
+    outline: none;
+}
+
+.redes-class-state {
+    justify-self: end;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.redes-class-state.active {
+    color: #4ade80;
+}
+
+.redes-class-state.suspended {
+    color: #fbbf24;
+}
+
+.redes-add-class {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+.redes-add-class input,
+#redesVersionNote {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #304159;
+    border-radius: 7px;
+    background: #080e17;
+    color: #eef3f8;
+    padding: 6px 7px;
+    font-size: 11px;
+}
+
+.redes-version-title {
+    margin-top: 7px;
+}
+
+.redes-version-list {
+    flex: 0 1 112px;
+    min-height: 58px;
+    max-height: 112px;
+    overflow-y: auto;
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    padding: 2px 3px 2px 0;
+}
+
+.redes-version-item {
+    width: 100%;
+    display: grid;
+    grid-template-columns:
+        44px
+        112px
+        minmax(0, 1fr);
+    gap: 6px;
+    text-align: left;
+}
+
+.redes-version-item.selected {
+    border-color: #2d8cff;
+    background: #123a69;
+}
+
+.redes-note-label {
+    flex: 0 0 auto;
+    margin-top: 6px;
+    margin-bottom: 3px;
+}
+
+#redesVersionNote {
+    flex: 0 0 auto;
+    min-height: 44px;
+    max-height: 54px;
+    resize: none;
+}
+
+.redes-wide {
+    flex: 0 0 auto;
+    width: 100%;
+    margin-top: 6px;
+}
+
+.redes-pi-button {
+    margin-top: 6px;
+}
+
+
+/* INFERENCIA */
+
+.redes-confidence-block {
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+}
+
+.redes-confidence-label {
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+#redesConfidence {
+    width: 100%;
+}
+
+.redes-video-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid #26364b;
+    border-radius: 10px;
+    background: #05080d;
+}
+
+#redesVideo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.redes-video-placeholder {
+    color: #75869b;
+    font-size: 12px;
+}
+
+.redes-stats {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns:
+        repeat(
+            7,
+            minmax(0, 1fr)
+        );
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.redes-stats > div {
+    min-width: 0;
+    padding: 5px 6px;
+    border: 1px solid #223148;
+    border-radius: 7px;
+    background: #0a1019;
+}
+
+.redes-stats span {
+    display: block;
+    color: #8194aa;
+    font-size: 8px;
+}
+
+.redes-stats strong {
+    display: block;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+    font-size: 10px;
+}
+
+
+/* VACÍOS / MODAL */
+
+.redes-empty {
+    padding: 14px;
+    border: 1px dashed #2c3d53;
+    border-radius: 8px;
+    color: #8395aa;
+    text-align: center;
+    font-size: 11px;
+}
+
+.redes-empty.small {
+    padding: 8px;
+    font-size: 10px;
+}
+
+#redesPiDialog {
+    width: min(900px, calc(100vw - 34px));
+    max-height: min(760px, calc(100vh - 34px));
+    border: 1px solid #33445c;
+    border-radius: 14px;
+    background: #0d1420;
+    color: #eef3f8;
+    padding: 0;
+}
+
+#redesPiDialog::backdrop {
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.redes-dialog-shell {
+    padding: 16px;
+}
+
+.redes-dialog-head {
+    gap: 14px;
+}
+
+#redesPiClose {
+    font-size: 18px;
+}
+
+.redes-pi-import {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.redes-pi-list {
+    max-height: 530px;
+    overflow-y: auto;
+    display: grid;
+    gap: 8px;
+    margin-top: 13px;
+    padding-right: 3px;
+}
+
+.redes-pi-row {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+    gap: 12px;
+    padding: 11px;
+    border: 1px solid #26364b;
+    border-radius: 9px;
+    background: #0a1019;
+}
+
+.redes-pi-name {
+    font-weight: 700;
+}
+
+.redes-pi-detail {
+    margin-top: 4px;
+    color: #8194aa;
+    font-size: 11px;
+}
+
+.redes-pi-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 1050px) {
+    .redes-workspace {
+        grid-template-columns:
+            minmax(320px, 36%)
+            minmax(0, 64%);
+    }
+
+    .redes-stats {
+        grid-template-columns:
+            repeat(
+                4,
+                minmax(0, 1fr)
+            );
+    }
+}
+
+@media (max-width: 820px) {
+    .redes-page {
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+    }
+
+    .redes-page-content {
+        overflow: visible;
+    }
+
+    .redes-workspace {
+        height: auto;
+        grid-template-columns: 1fr;
+    }
+
+    .redes-left-column,
+    .redes-inference-panel {
+        min-height: 650px;
+    }
+}
