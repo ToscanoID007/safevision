@@ -229,13 +229,57 @@ def _wait(predicate, timeout, interval=0.2):
     return bool(predicate())
 
 
+def _node_alive(node):
+    # Un registro en ROS Master no basta:
+    # el nodo debe responder realmente a getPid().
+    try:
+        uri = "http://{}:11311".format(_robot_ip())
+
+        master = xmlrpc.client.ServerProxy(
+            uri,
+            transport=TimeoutTransport(1.0),
+            allow_none=True,
+        )
+
+        code, _message, node_uri = master.lookupNode(
+            "/safevision_runtime_manager",
+            node,
+        )
+
+        if code != 1 or not node_uri:
+            return False
+
+        node_api = xmlrpc.client.ServerProxy(
+            node_uri,
+            transport=TimeoutTransport(1.0),
+            allow_none=True,
+        )
+
+        code, _message, pid = node_api.getPid(
+            "/safevision_runtime_manager"
+        )
+
+        return bool(
+            code == 1
+            and int(pid) > 0
+        )
+
+    except Exception:
+        return False
+
+
 def _nodes_present(names):
-    return set(names).issubset(_master_state()[1])
+    return all(
+        _node_alive(node)
+        for node in names
+    )
 
 
 def _nodes_absent(names):
-    nodes = _master_state()[1]
-    return not any(name in nodes for name in names)
+    return not any(
+        _node_alive(node)
+        for node in names
+    )
 
 
 def _topic_present(name):
@@ -367,6 +411,441 @@ def _ensure_nav_queue():
     return _wait(lambda: _nodes_present({"/sf_nav_queue"}), 8)
 
 
+def _topic_has_message(
+    topic,
+    timeout=10
+):
+
+    result = _run_ros(
+        (
+            "timeout "
+            + str(int(timeout))
+            + " rostopic echo -n 1 "
+            + shlex.quote(topic)
+            + " >/dev/null 2>&1"
+        ),
+        timeout=(
+            int(timeout)
+            + 2
+        )
+    )
+
+    return (
+        result.returncode
+        ==
+        0
+    )
+
+
+def _ensure_driver():
+
+    if _nodes_present(
+        {
+            "/driver_node"
+        }
+    ):
+        return True
+
+    _spawn(
+        "driver",
+        (
+            "rosrun "
+            "yahboomcar_bringup "
+            "Mcnamu_driver.py "
+            "/pub_vel:=/vel_raw "
+            "/pub_imu:=/imu/imu_raw "
+            "/pub_mag:=/mag/mag_raw"
+        )
+    )
+
+    return _wait(
+        lambda:
+            _nodes_present(
+                {
+                    "/driver_node"
+                }
+            ),
+        10
+    )
+
+
+def _ensure_core():
+
+    required = {
+        "/odometry_publisher",
+        "/imu_filter_madgwick",
+        "/ekf_localization",
+    }
+
+    if (
+        _nodes_present(required)
+        and
+        _topic_has_message(
+            "/imu/imu_data",
+            timeout=3
+        )
+    ):
+        return True
+
+    launch = (
+        ROBOT_DIR
+        /
+        "sf_runtime_core.launch"
+    )
+
+    _spawn(
+        "core",
+        (
+            "roslaunch "
+            +
+            shlex.quote(
+                str(launch)
+            )
+        )
+    )
+
+    nodes_ok = _wait(
+        lambda:
+            _nodes_present(
+                required
+            ),
+        20
+    )
+
+    if not nodes_ok:
+        return False
+
+    return _topic_has_message(
+        "/imu/imu_data",
+        timeout=15
+    )
+
+
+def _ensure_selector():
+
+    if (
+        _nodes_present(
+            {
+                "/sf_cmd_vel_selector"
+            }
+        )
+        and
+        _service_present(
+            "/safevision/set_navigation_mode"
+        )
+    ):
+        return True
+
+    script = (
+        ROBOT_DIR
+        /
+        "sf_cmd_vel_selector.py"
+    )
+
+    _spawn(
+        "selector",
+        (
+            "python3 "
+            +
+            shlex.quote(
+                str(script)
+            )
+        )
+    )
+
+    return _wait(
+        lambda:
+            (
+                _nodes_present(
+                    {
+                        "/sf_cmd_vel_selector"
+                    }
+                )
+                and
+                _service_present(
+                    "/safevision/set_navigation_mode"
+                )
+            ),
+        10
+    )
+
+
+def _stop_mando():
+
+    _rosnode_kill(
+        "/yahboom_joy",
+        "/joy_node"
+    )
+
+    _terminate_owned(
+        "mando"
+    )
+
+    return _wait(
+        lambda:
+            _nodes_absent(
+                {
+                    "/yahboom_joy",
+                    "/joy_node"
+                }
+            ),
+        7
+    )
+
+
+def _ensure_mando():
+
+    if not os.path.exists("/dev/input/js0"):
+        return False
+
+    if _nodes_present(
+        {
+            "/joy_node",
+            "/yahboom_joy"
+        }
+    ):
+        return True
+
+    launch = (
+        ROBOT_DIR
+        /
+        "sf_control_mando.launch"
+    )
+
+    _spawn(
+        "mando",
+        (
+            "roslaunch "
+            +
+            shlex.quote(
+                str(launch)
+            )
+        )
+    )
+
+    return _wait(
+        lambda:
+            _nodes_present(
+                {
+                    "/joy_node",
+                    "/yahboom_joy"
+                }
+            ),
+        10
+    )
+
+
+def set_control_mode(
+    mode
+):
+
+    mode = str(
+        mode
+        or
+        ""
+    ).strip().lower()
+
+    if mode not in (
+        "mando",
+        "teclado"
+    ):
+        return _result(
+            False,
+            "Control invalido."
+        )
+
+    with _LOCK:
+
+        _set_selector_manual()
+
+        if mode == "mando":
+
+            if not _ensure_mando():
+                return _result(
+                    False,
+                    (
+                        "No se pudo activar el mando "
+                        "o no existe /dev/input/js0."
+                    ),
+                    status=status()
+                )
+
+        else:
+
+            if not _stop_mando():
+                return _result(
+                    False,
+                    "No se pudo desactivar el mando.",
+                    status=status()
+                )
+
+        state = _load_state()
+
+        state[
+            "control_mode"
+        ] = mode
+
+        _save_state(
+            state
+        )
+
+        final = status(
+            mode
+        )
+
+        if mode == "mando":
+            ok = bool(
+                final[
+                    "resources"
+                ][
+                    "mando"
+                ][
+                    "active"
+                ]
+            )
+        else:
+            ok = bool(
+                final[
+                    "resources"
+                ][
+                    "teclado"
+                ][
+                    "active"
+                ]
+                and
+                not final[
+                    "resources"
+                ][
+                    "mando"
+                ][
+                    "active"
+                ]
+            )
+
+        return _result(
+            ok,
+            (
+                "Control {} activo.".format(
+                    mode.upper()
+                )
+                if ok
+                else
+                "No se pudo confirmar el control."
+            ),
+            status=final
+        )
+
+
+def _ensure_base(
+    control_mode=None
+):
+
+    ros = _master_state()[0]
+
+    if not ros:
+        return _result(
+            False,
+            "ROS Master no esta disponible."
+        )
+
+    requested_control = (
+        str(
+            control_mode
+            or
+            _load_state().get(
+                "control_mode"
+            )
+            or
+            "mando"
+        )
+        .strip()
+        .lower()
+    )
+
+    steps = []
+
+    for name, action in [
+        (
+            "driver",
+            _ensure_driver
+        ),
+        (
+            "core",
+            _ensure_core
+        ),
+        (
+            "selector",
+            _ensure_selector
+        ),
+    ]:
+
+        ok = bool(
+            action()
+        )
+
+        steps.append({
+            "resource": name,
+            "ok": ok,
+        })
+
+        if not ok:
+            return _result(
+                False,
+                (
+                    "No se pudo iniciar "
+                    +
+                    name
+                ),
+                steps=steps,
+                status=status(
+                    requested_control
+                )
+            )
+
+    control_result = set_control_mode(
+        requested_control
+    )
+
+    steps.append({
+        "resource":
+            "control",
+
+        "mode":
+            requested_control,
+
+        "ok":
+            bool(
+                control_result.get(
+                    "ok"
+                )
+            ),
+    })
+
+    if not control_result.get(
+        "ok"
+    ):
+        return _result(
+            False,
+            control_result.get(
+                "message",
+                "No se pudo activar control."
+            ),
+            steps=steps,
+            status=status(
+                requested_control
+            )
+        )
+
+    return _result(
+        True,
+        "Base SafeVision lista.",
+        steps=steps,
+        status=status(
+            requested_control
+        )
+    )
+
+
 def infer_profile(resources):
     if resources["mapping"]["active"]:
         return "mapear"
@@ -382,49 +861,106 @@ def infer_profile(resources):
 def status(control_mode=None):
     ros, nodes, topics, services = _master_state()
     state = _load_state()
-    core_nodes = {"/odometry_publisher", "/imu_filter_madgwick", "/ekf_localization"}
-    localization_nodes = {"/sf_map_server", "/amcl"}
-    effective_control = state.get("control_mode") or control_mode or "desactivado"
+
+    core_nodes = {
+        "/odometry_publisher",
+        "/imu_filter_madgwick",
+        "/ekf_localization",
+    }
+
+    localization_nodes = {
+        "/sf_map_server",
+        "/amcl",
+    }
+
+    effective_control = (
+        state.get("control_mode")
+        or control_mode
+        or "desactivado"
+    )
 
     resources = {
         "ros_master": _resource(ros),
-        "robot_server": _resource(True, port=8091),
-        "camera": _resource(os.path.exists("/dev/video0") or os.path.exists("/dev/video1")),
-        "driver": _resource("/driver_node" in nodes),
-        "core": _resource(core_nodes.issubset(nodes), nodes=sorted(core_nodes)),
-        "lidar": _resource("/rplidarNode" in nodes and "/scan" in topics),
-        "localization": _resource(
-            localization_nodes.issubset(nodes),
-            map_server="/sf_map_server" in nodes,
-            amcl="/amcl" in nodes,
+
+        "robot_server": _resource(
+            True,
+            port=8091,
         ),
-        "pose_exporter": _resource("/safevision_pose_exporter" in nodes),
+
+        "camera": _resource(
+            os.path.exists("/dev/video0")
+            or os.path.exists("/dev/video1")
+        ),
+
+        "driver": _resource(
+            _node_alive("/driver_node")
+        ),
+
+        "core": _resource(
+            all(
+                _node_alive(node)
+                for node in core_nodes
+            ),
+            nodes=sorted(core_nodes),
+        ),
+
+        "lidar": _resource(
+            _node_alive("/rplidarNode")
+            and "/scan" in topics
+        ),
+
+        "localization": _resource(
+            all(
+                _node_alive(node)
+                for node in localization_nodes
+            ),
+            map_server=_node_alive("/sf_map_server"),
+            amcl=_node_alive("/amcl"),
+        ),
+
+        "pose_exporter": _resource(
+            _node_alive("/safevision_pose_exporter")
+        ),
+
         "selector": _resource(
-            "/sf_cmd_vel_selector" in nodes
+            _node_alive("/sf_cmd_vel_selector")
             and "/safevision/set_navigation_mode" in services
         ),
+
         "navigation": _resource(
-            "/move_base" in nodes
+            _node_alive("/move_base")
             and "/move_base/make_plan" in services
         ),
-        "nav_queue": _resource("/sf_nav_queue" in nodes),
+
+        "nav_queue": _resource(
+            _node_alive("/sf_nav_queue")
+        ),
+
         "mando": _resource(
-            "/joy_node" in nodes and "/yahboom_joy" in nodes,
+            _node_alive("/joy_node")
+            and _node_alive("/yahboom_joy"),
             connected=os.path.exists("/dev/input/js0"),
         ),
+
         "teclado": _resource(
             effective_control == "teclado",
             implementation="dashboard_keyboard",
         ),
-        "mapping": _resource("/slam_gmapping" in nodes and "/map" in topics),
+
+        "mapping": _resource(
+            _node_alive("/slam_gmapping")
+            and "/map" in topics
+        ),
     }
 
     return {
         "ok": True,
-        "manager_version": 2,
+        "manager_version": 3,
         "mode": "active_profiles",
         "hostname": socket.gethostname(),
-        "ros_master_uri": "http://{}:11311".format(_robot_ip()),
+        "ros_master_uri": (
+            "http://{}:11311".format(_robot_ip())
+        ),
         "control_mode": effective_control,
         "profile": {
             "requested": state.get("requested_profile"),
@@ -433,6 +969,7 @@ def status(control_mode=None):
         },
         "resources": resources,
     }
+
 
 
 def _result(ok, message, **extra):
@@ -447,18 +984,20 @@ def apply_profile(profile, map_name=None, control_mode=None):
         return _result(False, "Etapa 2 solo habilita libre y pilotada.")
 
     with _LOCK:
-        before = status(control_mode)
-        required_base = ["ros_master", "driver", "core", "selector"]
-        missing = [
-            name for name in required_base
-            if not before["resources"][name]["active"]
-        ]
-        if missing:
+        base = _ensure_base(control_mode)
+
+        if not base.get("ok"):
             return _result(
                 False,
-                "Base SafeVision incompleta: " + ", ".join(missing),
-                status=before,
+                base.get(
+                    "message",
+                    "No se pudo preparar la base."
+                ),
+                base=base,
+                status=status(control_mode),
             )
+
+        before = status(control_mode)
 
         _set_selector_manual()
 

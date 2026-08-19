@@ -458,7 +458,8 @@ def index():
         "video": "/video_feed",
         "health": "/health",
         "runtime": "/runtime/status",
-        "runtime_profile": "/runtime/profile"
+        "runtime_profile": "/runtime/profile",
+        "runtime_control": "/runtime/control"
     })
 
 
@@ -642,6 +643,42 @@ def runtime_profile():
         CONTROL_MODE = control
 
     return jsonify(result), (200 if result.get("ok") else 409)
+
+
+@app.route(
+    "/runtime/control",
+    methods=["POST"]
+)
+def runtime_control():
+
+    global CONTROL_MODE
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    mode = data.get(
+        "mode"
+    )
+
+    result = sf_runtime_manager.set_control_mode(
+        mode
+    )
+
+    if result.get(
+        "ok"
+    ):
+        CONTROL_MODE = str(
+            mode
+        ).strip().lower()
+
+    return jsonify(
+        result
+    ), (
+        200
+        if result.get("ok")
+        else 409
+    )
 
 
 @app.route("/video_feed")
