@@ -955,7 +955,7 @@ def status(control_mode=None):
 
     return {
         "ok": True,
-        "manager_version": 3,
+        "manager_version": 4,
         "mode": "active_profiles",
         "hostname": socket.gethostname(),
         "ros_master_uri": (
@@ -980,8 +980,15 @@ def _result(ok, message, **extra):
 
 def apply_profile(profile, map_name=None, control_mode=None):
     profile = str(profile or "").strip().lower()
-    if profile not in ("libre", "pilotada"):
-        return _result(False, "Etapa 2 solo habilita libre y pilotada.")
+    if profile not in (
+        "libre",
+        "pilotada",
+        "automatica",
+    ):
+        return _result(
+            False,
+            "Perfil no soportado: {}".format(profile),
+        )
 
     with _LOCK:
         base = _ensure_base(control_mode)
@@ -1062,7 +1069,7 @@ def apply_profile(profile, map_name=None, control_mode=None):
                 )
 
         state = _load_state()
-        state["requested_profile"] = "pilotada"
+        state["requested_profile"] = profile
         state["map_name"] = safe_name
         if control_mode:
             state["control_mode"] = control_mode
@@ -1079,9 +1086,18 @@ def apply_profile(profile, map_name=None, control_mode=None):
                 status=final,
             )
 
+        profile_label = (
+            "Mision Automatica"
+            if profile == "automatica"
+            else "Mision Pilotada"
+        )
+
         return _result(
             True,
-            "Mision Pilotada lista con mapa {}.".format(safe_name),
+            "{} lista con mapa {}.".format(
+                profile_label,
+                safe_name,
+            ),
             steps=steps,
             status=final,
         )
