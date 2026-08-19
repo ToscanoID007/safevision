@@ -1564,20 +1564,45 @@ def dashboard_models_import():
             "Solo se acepta .zip."
         )
 
-    try:
-        response = requests.post(
-            _models_robot_url(
-                "/import"
-            ),
-            files={
-                "file": (
-                    filename,
-                    upload.stream,
-                    "application/zip"
-                )
-            },
-            timeout=120
+    temp_upload = (
+        TEMP_DIR
+        /
+        (
+            "model_import_{}_{}".format(
+                int(
+                    time.time() * 1000
+                ),
+                filename
+            )
         )
+    )
+
+    try:
+        upload.save(
+            str(
+                temp_upload
+            )
+        )
+
+        with open(
+            str(
+                temp_upload
+            ),
+            "rb"
+        ) as file_handle:
+            response = requests.post(
+                _models_robot_url(
+                    "/import"
+                ),
+                files={
+                    "file": (
+                        filename,
+                        file_handle,
+                        "application/zip"
+                    )
+                },
+                timeout=120
+            )
 
         try:
             data = response.json()
@@ -1601,6 +1626,12 @@ def dashboard_models_import():
             ),
             502
         )
+
+    finally:
+        try:
+            temp_upload.unlink()
+        except Exception:
+            pass
 
 
 @app.route(

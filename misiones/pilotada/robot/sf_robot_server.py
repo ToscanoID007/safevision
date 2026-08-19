@@ -4326,20 +4326,48 @@ def models_import():
             "error": "Solo se acepta .zip."
         }), 400
 
+    temp_upload = (
+        Path("/tmp")
+        /
+        (
+            "safevision_model_upload_{}.zip".format(
+                uuid.uuid4().hex
+            )
+        )
+    )
+
     try:
-        return jsonify({
-            "ok": True,
-            "models": (
+        upload.save(
+            str(
+                temp_upload
+            )
+        )
+
+        with temp_upload.open(
+            "rb"
+        ) as file_handle:
+            imported = (
                 MODEL_MANAGER.import_zip(
-                    upload.stream
+                    file_handle
                 )
             )
+
+        return jsonify({
+            "ok": True,
+            "models": imported
         })
 
     except Exception as exc:
         return _model_api_error(
             exc
         )
+
+    finally:
+        try:
+            if temp_upload.exists():
+                temp_upload.unlink()
+        except Exception:
+            pass
 
 
 @app.route(

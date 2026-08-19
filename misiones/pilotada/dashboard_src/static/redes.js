@@ -1897,3 +1897,294 @@
     }
 
 })();
+
+
+// =========================================================
+// SAFEVISION REDES · ESTADO INLINE DE OPERACIONES
+// =========================================================
+
+(() => {
+    const nativeFetch =
+        window.fetch.bind(
+            window
+        );
+
+    let importContext = null;
+    let exportTimer = null;
+
+
+    function findModelsWindow(
+        control
+    ) {
+        let node =
+            control
+            ?
+            control.parentElement
+            :
+            null;
+
+        while (
+            node
+            &&
+            node !== document.body
+        ) {
+            const text =
+                (
+                    node.textContent
+                    ||
+                    ""
+                );
+
+            if (
+                text.includes(
+                    "Modelos en Rosmaster X3"
+                )
+            ) {
+                return node;
+            }
+
+            node =
+                node.parentElement;
+        }
+
+        return null;
+    }
+
+
+    function ensureStatus(
+        windowElement
+    ) {
+        if (!windowElement) {
+            return null;
+        }
+
+        let status =
+            windowElement.querySelector(
+                ".redes-inline-operation-status"
+            );
+
+        if (status) {
+            return status;
+        }
+
+        status =
+            document.createElement(
+                "div"
+            );
+
+        status.className =
+            "redes-inline-operation-status";
+
+        status.hidden = true;
+
+        status.setAttribute(
+            "role",
+            "status"
+        );
+
+        status.setAttribute(
+            "aria-live",
+            "polite"
+        );
+
+        windowElement.insertBefore(
+            status,
+            windowElement.firstChild
+        );
+
+        return status;
+    }
+
+
+    function showStatus(
+        control,
+        message
+    ) {
+        const windowElement =
+            findModelsWindow(
+                control
+            );
+
+        const status =
+            ensureStatus(
+                windowElement
+            );
+
+        if (!status) {
+            return null;
+        }
+
+        status.textContent =
+            message;
+
+        status.hidden =
+            false;
+
+        status.classList.add(
+            "is-busy"
+        );
+
+        return {
+            status,
+            control
+        };
+    }
+
+
+    function hideStatus(
+        context
+    ) {
+        if (
+            !context
+            ||
+            !context.status
+        ) {
+            return;
+        }
+
+        context.status.classList.remove(
+            "is-busy"
+        );
+
+        context.status.hidden =
+            true;
+
+        context.status.textContent =
+            "";
+    }
+
+
+    document.addEventListener(
+        "click",
+        event => {
+            const control =
+                event.target.closest(
+                    "button, a"
+                );
+
+            if (!control) {
+                return;
+            }
+
+            const text =
+                (
+                    control.textContent
+                    ||
+                    ""
+                )
+                .trim()
+                .toLowerCase();
+
+            if (
+                text.includes(
+                    "importar a rosmaster"
+                )
+                ||
+                text === "importar"
+            ) {
+                importContext =
+                    showStatus(
+                        control,
+                        "Importando..."
+                    );
+
+                return;
+            }
+
+            if (
+                text.includes(
+                    "exportar a pc"
+                )
+                ||
+                text.includes(
+                    "exportar"
+                )
+            ) {
+                if (exportTimer) {
+                    clearTimeout(
+                        exportTimer
+                    );
+                }
+
+                const context =
+                    showStatus(
+                        control,
+                        "Descargando..."
+                    );
+
+                exportTimer =
+                    window.setTimeout(
+                        () => {
+                            hideStatus(
+                                context
+                            );
+
+                            exportTimer = null;
+                        },
+                        3500
+                    );
+            }
+        },
+        true
+    );
+
+
+    window.fetch =
+        async function(
+            input,
+            init = {}
+        ) {
+            const url =
+                (
+                    typeof input === "string"
+                        ? input
+                        : (
+                            input
+                            &&
+                            input.url
+                        )
+                )
+                ||
+                "";
+
+            const method =
+                String(
+                    init.method
+                    ||
+                    (
+                        input
+                        &&
+                        input.method
+                    )
+                    ||
+                    "GET"
+                )
+                .toUpperCase();
+
+            const isImport =
+                (
+                    method === "POST"
+                    &&
+                    url.includes(
+                        "/models/import"
+                    )
+                );
+
+            try {
+                return await nativeFetch(
+                    input,
+                    init
+                );
+
+            } finally {
+                if (isImport) {
+                    hideStatus(
+                        importContext
+                    );
+
+                    importContext =
+                        null;
+                }
+            }
+        };
+})();
