@@ -35,34 +35,35 @@ flowchart LR
 
 ---
 
-## 2. Aviso principal: dos acciones no se ejecutan
+## 2. Dos acciones retiradas del lenguaje
 
-> ⚠️ **`girar()` y `relocalizar()` se escriben y se validan, pero el robot NO las ejecuta.**
+`girar()` y `relocalizar()` **ya no forman parte del lenguaje**. El validador las rechaza
+al escribirlas, con un mensaje que explica la alternativa:
 
-**CONFIRMADO** en `sf_mission_executor.py:596-615`:
+```
+girar() no esta implementada: el robot no la ejecuta.
+Para cambiar la orientacion usa orientar().
 
-```python
-supported = {"esperar", "ir", "orientar"}
-
-unsupported = [a["name"] for a in self.plan["actions"] if a["name"] not in supported]
-
-if unsupported:
-    raise MissionPlanError("Acción todavía no habilitada: {}".format(unsupported[0]))
+relocalizar() no esta implementada: el robot no la ejecuta.
+Fija la pose inicial desde el dashboard antes de lanzar la mision.
 ```
 
-Es decir: el editor las acepta, el validador las da por buenas, el simulador las dibuja…
-y al pulsar "Ejecutar" **la misión entera se rechaza** con
-*"Acción todavía no habilitada: girar"*. No se ejecuta a medias: no arranca.
+**Por qué se retiraron.** Existían en el analizador pero el ejecutor nunca las implementó:
+`sf_mission_executor.py:596-615` sólo admite `{esperar, ir, orientar}` y **rechaza la misión
+entera** al arrancar con *"Acción todavía no habilitada"*. El resultado era una trampa: el
+editor las aceptaba, el validador las daba por buenas, el simulador las dibujaba, y el fallo
+aparecía al final, después de preparar la misión.
 
-**Sólo `ir`, `esperar` y `orientar` funcionan físicamente.** Está así documentado en el
-handoff §38 y en la regla 9 de `CLAUDE.md`.
+Ahora el error llega **en el momento de escribirlas**, que es cuando sirve de algo.
 
-**[PENDIENTE: decidir si `girar()` y `relocalizar()` se implementan, o se retiran del
-lenguaje para que el editor no las ofrezca. Hoy son una trampa para el estudiante.]**
+> Los nombres siguen reservados: no se puede llamar `girar` a una variable. Y el ejecutor
+> del robot no se ha tocado, así que sigue rechazando cualquier misión antigua que las use.
 
----
+**[PENDIENTE: si algún día se implementan físicamente, hay que revertir este cambio en
+`sf_mission_lang.py` (`RETIRED_COMMANDS`) y reactivar las ramas correspondientes del
+ejecutor. Lo que haría falta está en `docs/analisis-alcance.md`.]**
 
-## 3. Las cinco acciones
+## 3. Las tres acciones
 
 ### 3.1 `ir(destino)` ✅ funciona
 
@@ -123,17 +124,9 @@ orientar(-45, velocidad=0.5)
 marco `map` o relativo al punto anterior, y si los grados son positivos en sentido
 antihorario. Requiere la prueba V-8 de `docs/validacion.md`.]**
 
-### 3.4 `girar(angulo, velocidad=…)` ❌ NO se ejecuta
+### 3.4 Acciones retiradas
 
-Sintaxis idéntica a `orientar()`. **El ejecutor la rechaza.** No la uses.
-
-### 3.5 `relocalizar()` ❌ NO se ejecuta
-
-```python
-relocalizar()     # sin parámetros
-```
-
-**El ejecutor la rechaza.** No la uses.
+`girar()` y `relocalizar()` ya no existen en el lenguaje. Ver §2.
 
 ---
 
@@ -234,14 +227,15 @@ legible y sobrevive mejor a la reordenación.
 
 | Mensaje | Causa | Solución |
 |---|---|---|
+| `girar() no esta implementada…` | La misión usa `girar()` | Usa `orientar()`. §2 |
+| `relocalizar() no esta implementada…` | La misión usa `relocalizar()` | Fija la pose inicial desde el dashboard. §2 |
 | `El punto 'X' no existe en esta misión.` | Alias o id mal escrito, o punto borrado | Revisa la lista de puntos |
 | `Uso: ir("0x000") o ir("alias").` | Cero o varios argumentos, o keyword | `ir()` toma exactamente una cadena |
 | `La referencia de ir() debe ser texto.` | Se pasó una variable o un número | Debe ser literal entre comillas |
 | `El tiempo debe ser un número literal mayor o igual a 0.` | Variable, negativo o expresión | `esperar(3)`, no `esperar(t)` |
 | `El ángulo debe ser un número literal.` | Variable o expresión | Usa un número |
 | `Solo se permite el parámetro velocidad.` | Más de un keyword | Sólo `velocidad=` |
-| `Uso: relocalizar().` | Se pasaron argumentos | No admite ninguno — y además no se ejecuta |
-| **`Acción todavía no habilitada: girar`** | La misión usa `girar()` o `relocalizar()` | **Quítalas.** §2 |
+| **`Acción todavía no habilitada: girar`** | Misión antigua guardada antes del cambio | Ábrela, quita esas líneas y vuelve a validarla |
 | `La misión no está en estado ready` | Falta `POST /mission/prepare` | Prepara antes de ejecutar |
 
 ---

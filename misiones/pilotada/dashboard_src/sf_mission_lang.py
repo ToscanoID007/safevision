@@ -18,16 +18,32 @@ VARIABLE_RE = re.compile(
     r"^[A-Za-z][A-Za-z0-9_]*$"
 )
 
+# Acciones que el robot ejecuta realmente.
 ALLOWED_COMMANDS = {
     "ir",
     "esperar",
-    "orientar",
-    "girar",
-    "relocalizar"
+    "orientar"
+}
+
+# Acciones que el lenguaje reconocia pero que el ejecutor nunca llego a
+# implementar: sf_mission_executor.py solo admite {esperar, ir, orientar} y
+# rechaza la mision entera al arrancar. Se retiran del validador para que el
+# error aparezca al escribir y no despues de preparar la mision.
+RETIRED_COMMANDS = {
+    "girar": (
+        "girar() no esta implementada: el robot no la ejecuta. "
+        "Para cambiar la orientacion usa orientar()."
+    ),
+    "relocalizar": (
+        "relocalizar() no esta implementada: el robot no la ejecuta. "
+        "Fija la pose inicial desde el dashboard antes de lanzar la mision."
+    )
 }
 
 RESERVED_NAMES = (
     ALLOWED_COMMANDS
+    |
+    set(RETIRED_COMMANDS)
     |
     {
         "range",
@@ -921,6 +937,16 @@ def _validate_command(
         return
 
     command = call.func.id
+
+    if command in RETIRED_COMMANDS:
+        errors.append(
+            _error(
+                call,
+                RETIRED_COMMANDS[command]
+            )
+        )
+
+        return
 
     if command not in ALLOWED_COMMANDS:
         errors.append(

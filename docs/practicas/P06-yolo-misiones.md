@@ -63,8 +63,8 @@ Acciones:
 | `ir("punto")` | ✅ funciona |
 | `esperar(segundos)` | ✅ funciona |
 | `orientar(angulo)` | ✅ funciona |
-| `girar(angulo)` | ❌ **se valida pero NO se ejecuta** |
-| `relocalizar()` | ❌ **se valida pero NO se ejecuta** |
+| `girar(angulo)` | ❌ **retirada del lenguaje**: el validador la rechaza |
+| `relocalizar()` | ❌ **retirada del lenguaje**: el validador la rechaza |
 
 Permite variables, aritmética, `for ... in range(...)` (máximo 10 000 iteraciones) e `if`.
 
@@ -218,18 +218,21 @@ for vuelta in range(2):
 > 📝 **Captura del recorrido simulado.** ¿Cuántas acciones genera el plan? Compáralo con lo
 > que esperabas.
 
-**C.8** **Las acciones no implementadas.** Escribe:
+**C.8** **Las acciones retiradas.** Escribe:
 
 ```python
 ir("entrada")
 girar(90)
 ```
 
-Valida (pasará) y después **intenta ejecutarla**.
+y **valida**.
 
-> 📝 **Anota el mensaje exacto.** Debe ser *"Acción todavía no habilitada: girar"*.
-> **¿En qué momento se rechaza: al validar, al preparar o al arrancar?** ¿La misión se
-> ejecuta a medias o no arranca?
+> 📝 **Anota el mensaje exacto.** Debe rechazarla al validar, diciendo que `girar()` no
+> está implementada y sugiriendo `orientar()`.
+>
+> **Contexto para la pregunta 4 del análisis:** hasta hace poco esta misión *pasaba* la
+> validación y la simulación, y sólo fallaba al arrancar, con el mensaje *"Acción todavía
+> no habilitada"*. Se retiró del lenguaje precisamente para que el error llegue antes.
 
 **C.9** Cancela una misión a mitad y anota el estado resultante.
 
@@ -271,9 +274,9 @@ entrenada **en el camino del robot** (con el mando en la mano, listo para parar)
    seguridad: ¿qué pasaría si un falso positivo de YOLO pudiera frenar el robot?
 3. El DSL se analiza con `ast` y **no** usa `eval`. **¿Qué riesgo concreto evita?** Escribe
    un ejemplo de lo que un usuario malintencionado podría hacer si se usara `eval`.
-4. `girar()` y `relocalizar()` se validan pero no se ejecutan. **¿Es peor esto que no
-   ofrecerlas en absoluto?** Argumenta desde el punto de vista del diseño de herramientas y
-   propón qué harías tú.
+4. `girar()` y `relocalizar()` se aceptaban al escribir y al simular, pero fallaban al
+   ejecutar; ahora se rechazan al escribir. **¿Por qué es mejor fallar antes?** Argumenta
+   desde el diseño de herramientas, y di qué se pierde con el cambio.
 5. **Diseña** (sólo en papel) una modificación que conecte percepción y acción: por ejemplo,
    que el robot se detenga al detectar una persona. Indica: qué componente lo decidiría,
    **dónde debería ejecutarse** (PC o robot), y por qué. Relaciónalo con el principio de que
