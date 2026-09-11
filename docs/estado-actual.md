@@ -401,9 +401,10 @@ Esto **confirma la regla 1 de `CLAUDE.md`** desde la evidencia, no desde la prec
 > Robot Server quedará hablando con un Master nuevo y el estado en `/tmp` quedará
 > desincronizado: todo deja de responder sin un error claro.
 >
-> **SOLUCIÓN PREPARADA:** `scripts/robot_desactivar_alias.sh` comenta (no borra) los
-> **cuatro** alias de riesgo de ambos niveles, con copia de seguridad fechada y diff.
-> Es idempotente y reversible; los scripts siguen accesibles por su ruta completa.
+> **APLICADO Y VERIFICADO el 2026-09-11.** `scripts/robot_desactivar_alias.sh` comentó
+> (no borró) los **cuatro** alias de riesgo de ambos niveles, con copia de seguridad en
+> `/home/pi/.bashrc.safevision-20260911_135236.bak`. Sobreviven a un reinicio. Los scripts
+> siguen accesibles por su ruta completa: se retiró el atajo, no la herramienta.
 > Instrucciones en `docs/solucion-problemas.md` §10.1.
 >
 > **Corrección respecto a la primera versión de este documento:** se dijo que eran *tres*
