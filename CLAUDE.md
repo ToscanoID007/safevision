@@ -36,18 +36,27 @@ them that way; do not "translate" code.
 | `mapeo_denso.sh`, `auto_mapeo.sh`, `emisor_sensores.sh`, Astra/RTAB-Map scripts | 3D/depth experiments. Not integrated. Do not build on them. |
 | `yahboomcar_ws` (outside this repo, on the Pi) | Hard dependency. Copy of `src/` lives at `~/yahboomcar_ws-src` on the dev laptop. |
 
-## Known drift: the handoff doc is behind the code
+## Known drift: the handoff doc is behind the code — RESOLVED 2026-09-10
 
-The doc audited tag `safevision-return-2026-08-19-73b187d`. Since then
-(see `git diff --stat safevision-return-2026-08-19-73b187d wip-handoff`):
+The doc audited tag `safevision-return-2026-08-19-73b187d`. The drift it left
+open has now been traced in the code and **verified on the robot itself**. See
+`docs/runtime-boot.md` and `docs/estado-actual.md`.
 
-- `sf_runtime_manager.py` (~1,600 lines) is **new** and not described in the
-  doc. It likely supersedes parts of `sf_operacion_pilotada.sh` (section 11).
-  Establish which one actually boots the runtime before refactoring either.
-- `sf_runtime_core.launch` and `sf_runtime_lidar.launch` are new.
-- `sf_robot_server.py` grew by ~476 lines (now ~4,800).
-- systemd units `safevision-roscore.service` and
-  `safevision-robot-server.service` exist. Anything they reference is live.
+- **`sf_runtime_manager.py` (1,610 lines) supersedes `sf_operacion_pilotada.sh`
+  entirely**, and adds capabilities the script never had (profiles, selective
+  teardown, LiDAR silent-failure recovery, the mapping handoff). It is an
+  imported module, not an executable — no `__main__`.
+- **The live boot path is systemd**: `safevision-roscore.service` →
+  `safevision-robot-server.service` → `sf_robot_server.py --control mando`.
+  Both units are installed, `enabled`, and byte-identical to the repo copies
+  (verified). `sf_operacion_pilotada.sh` is a secondary path, still reachable
+  from `api/main_menu.py`, and the two are mutually exclusive.
+- **After boot only `roscore` + Robot Server run.** Everything that moves the
+  robot is started on demand by `POST /runtime/profile`. Confirmed on a real
+  cold boot: 1 h 55 min of uptime with `profile.requested` still `null`.
+- `sf_runtime_core.launch` and `sf_runtime_lidar.launch` are new: together with
+  `sf_localizacion_mapa.launch` they decompose the old `sf_localizacion.launch`.
+- `sf_robot_server.py` is **5,060 lines** (the doc said ~4,300).
 - `sf_model_manager.py` exists in `robot/` and is not covered by the doc.
 
 Treat the doc as an audited baseline, not as ground truth for these files.
@@ -77,9 +86,17 @@ Treat the doc as an audited baseline, not as ground truth for these files.
    until a hardware baseline exists (section 30).
 9. **`girar()` and `relocalizar()` are not physically implemented** in the
    automatic runtime (section 38). Do not document them as working.
-10. Python is mixed: ROS-side code runs under Melodic's Python (2.7-era
-    `rospy`), dashboard code under Python 3. Check the shebang and the
-    launcher before assuming which interpreter runs a file.
+10. **Python is mixed, but not the way you would expect** (verified on the
+    robot, 2026-09-10). Three interpreters coexist:
+    `/usr/local/bin/python3` = **3.7.3**, a local build, runs the Robot Server
+    and every SafeVision node; `/usr/bin/python` = 2.7.17 runs `roscore` and
+    **`sf_pose_exporter.py`**; `/usr/bin/python3` = 3.6.9 is unused.
+    `rospy` is installed **only** in the Python 2 tree and 3.7 imports it via
+    `PYTHONPATH` — that works because `rospy` is pure Python.
+    **`sf_pose_exporter.py` is the one file that MUST stay on Python 2**: it is
+    the only one importing `tf`, whose `_tf2.so` is a Python-2 C extension
+    (`ImportError: ... PyInit__tf2` under 3.7). Porting it breaks the robot's
+    pose on the map. See `docs/anexo-dependencias-robot.md` §2.
 
 ## Deleting code (section 77)
 
@@ -103,8 +120,12 @@ tests. Record the evidence in the commit message. The acceptance test
 - Remotes: `origin` = GitHub (hub), `pi` = the robot's working copy.
   Never push to `pi`; the Pi pulls from GitHub.
 - Baseline: tag `pre-refactor-baseline` on branch `wip-handoff`.
-- Raw filesystem copy of the Pi (incl. untracked weights/logs):
-  `~/safevision-raw/`. Read-only reference.
+- Raw copy of the Pi's **`robot_custom` directory** (incl. untracked weights
+  and logs): `~/safevision-raw/`. Read-only reference. Note it is *not* a copy
+  of the Pi's filesystem — it holds no `/etc`, `crontab` or `.bashrc`.
+- The robot is reachable at `pi@yahboom.local`. SSH needs a password; there is
+  no key installed for non-interactive access. The Robot Server answers
+  read-only HTTP GETs on `:8091` without any credential.
 
 ## Workflow
 
@@ -136,7 +157,28 @@ tests. Record the evidence in the commit message. The acceptance test
 8. Cloud control plane (auth, fleet, registries, telemetry).
 9. Depth camera integration.
 
-## First tasks for the agent
+## Current priority: the social-service deliverable
+
+**The refactor roadmap above is NOT the current goal.** The professor who owns
+the robot asked for three things: everything working, a documented and
+easy-to-install repo, and a structured final report. **No cloud, no containers,
+no refactor.** Work on branch `docs/entrega`; see `docs/README.md` for the map
+of what exists.
+
+What is still open, in priority order (details in `docs/analisis-alcance.md` §6):
+
+1. **Version the working dashboard.** `~/SafeVision_Dashboard_dev/` on the dev
+   laptop is a day newer than the committed one and is the only thing that can
+   apply a runtime profile from the UI (71 routes vs 66, a strict superset).
+   Until it is committed, the robot is only operable via `curl`.
+   Run test V-1 of `docs/validacion.md` first.
+2. **Execute `docs/validacion.md`** (87 tests) and record the results.
+3. **Rotate the exposed credentials** (`docs/security-scan.md`): the robot's SSH
+   password and the Wi-Fi PSK are on GitHub's default branch.
+4. Optional, recommended: RGB-D fusion, option A (`docs/analisis-alcance.md` §4).
+   The Astra Pro is already mounted and `depthimage_to_laserscan` is installed.
+
+## Earlier agent tasks — done 2026-09-10
 
 1. Read `docs/handoff-2026-09.md` sections 0–1, 11–14, 43–45, 57, 62, 75–78.
 2. Read `sf_runtime_manager.py`, `sf_operacion_pilotada.sh` and both systemd
@@ -145,7 +187,14 @@ tests. Record the evidence in the commit message. The acceptance test
 3. Produce `docs/inventory.md`: every file under `api/` classified as
    *used by current runtime / used only by legacy path / tool / unreferenced*,
    with the `git grep` evidence for each.
-4. Propose (do not execute) a Phase 1 directory layout, mapping each current
-   file to its new location, as `docs/phase1-plan.md`.
-5. Only after 2–4 are reviewed by a human: start Phase 1 moves, one directory
-   per commit.
+4. ~~Propose a Phase 1 directory layout as `docs/phase1-plan.md`~~ —
+   **not done, and deliberately so.** The repo-cleanup phase was superseded by
+   the deliverable above: structure now comes from documentation, not from
+   moving files. Do not start it without the professor asking.
+5. ~~Start Phase 1 moves~~ — same: out of scope.
+
+> One correction worth carrying forward: `docs/inventory.md` classified several
+> files as "unreferenced" using `git grep` alone. Verification on the robot found
+> the invoker lives **outside the repo** — 13 aliases in `/home/pi/.bashrc`.
+> **No file under `api/` or at the repo root meets the deletion criteria.**
+> See `docs/estado-actual.md` §6.

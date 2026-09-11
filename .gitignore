@@ -15,3 +15,9 @@ arbol_direcciones.txt
 *.save
 # runtime
 **/logs/
+
+# configuracion local de cada PC (scripts/robot.env.example si se versiona)
+scripts/robot.env
+# entorno virtual del dashboard en la PC
+misiones/pilotada/dashboard_src/.venv/
+.venv/
