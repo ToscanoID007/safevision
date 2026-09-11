@@ -549,3 +549,283 @@ body {
     shape-rendering:
         geometricPrecision;
 }
+
+
+/* =========================================================
+   SAFEVISION AUTOMATICA · RUNTIME DIAGNOSTICO V1
+   Cámara/Mapa conservados + diagnóstico debajo.
+   ========================================================= */
+
+.sv-auto-runtime-stack {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-rows:
+        minmax(0, 82%)
+        minmax(118px, 18%);
+    gap: 10px;
+}
+
+.sv-auto-runtime-stack > .panel,
+.sv-auto-runtime-stack > section,
+.sv-auto-runtime-stack > article {
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+}
+
+.sv-auto-runtime-card {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid #263a4a;
+    border-radius: 10px;
+    background: #101c29;
+    color: #eef6ff;
+}
+
+.sv-auto-runtime-head {
+    min-height: 34px;
+    padding: 5px 9px;
+    border-bottom: 1px solid #263a4a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.sv-auto-runtime-head strong {
+    font-size: 0.76rem;
+    line-height: 1.2;
+}
+
+.sv-auto-runtime-head small {
+    display: block;
+    margin-top: 2px;
+    color: #88a0b4;
+    font-size: 0.64rem;
+}
+
+.sv-auto-runtime-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #4ed783;
+    font-size: 0.64rem;
+    font-weight: 800;
+}
+
+.sv-auto-runtime-live::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.sv-auto-terminal {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.sv-auto-terminal-body {
+    min-height: 0;
+    overflow: auto;
+    padding: 6px 8px;
+    background: #03080c;
+    color: #9fb7c9;
+    white-space: pre-wrap;
+    font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Consolas,
+        monospace;
+    font-size: 0.60rem;
+    line-height: 1.40;
+    scrollbar-width: thin;
+}
+
+.sv-auto-terminal-line {
+    display: block;
+}
+
+.sv-auto-terminal-line[data-level="ok"] {
+    color: #64d894;
+}
+
+.sv-auto-terminal-line[data-level="info"] {
+    color: #79aff3;
+}
+
+.sv-auto-terminal-line[data-level="warn"] {
+    color: #e3b650;
+}
+
+.sv-auto-terminal-line[data-level="error"] {
+    color: #e97886;
+}
+
+.sv-auto-state-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.sv-auto-state-grid {
+    min-height: 0;
+    overflow: auto;
+    padding: 6px;
+    display: grid;
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+    gap: 3px;
+    align-content: start;
+    scrollbar-width: thin;
+}
+
+.sv-auto-state-card {
+    min-width: 0;
+    min-height: 40px;
+    padding: 5px 7px;
+    border: 1px solid #263a4a;
+    border-radius: 8px;
+    background: #0a1721;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+}
+
+.sv-auto-state-card span {
+    overflow: hidden;
+    color: #879fb2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.59rem;
+}
+
+.sv-auto-state-card b {
+    overflow: hidden;
+    color: #7f95a8;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.61rem;
+}
+
+.sv-auto-state-card[data-state="ok"] b {
+    color: #4ed783;
+}
+
+.sv-auto-state-card[data-state="warn"] b {
+    color: #e3b64e;
+}
+
+.sv-auto-state-card[data-state="error"] b {
+    color: #e97886;
+}
+
+.sv-auto-state-card[data-state="unknown"] b {
+    color: #7f95a8;
+}
+
+@media (max-width: 1180px) {
+    .sv-auto-runtime-stack {
+        grid-template-rows:
+            minmax(430px, 1fr)
+            minmax(190px, auto);
+    }
+
+    .sv-auto-state-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* SAFEVISION AUTOMATICA · RUNTIME COMPACTO V1
+   Terminal y panel de estados reducidos para vista 100% sin scroll. */
+
+/* =========================================================
+   SAFEVISION AUTOMATICA · AJUSTE VIEWPORT V2
+
+   Objetivo:
+   - no ocultar contenido con overflow;
+   - no agrandar Cámara/Mapa;
+   - hacer más baja la columna completa centro/derecha;
+   - mantener Terminal y Estado compactos;
+   - caber dentro del viewport del navegador.
+   ========================================================= */
+
+@media (min-width: 1181px) {
+    .sv-auto-runtime-stack {
+        /*
+         * 100vh ya representa solamente el área útil del navegador.
+         * Restamos cabecera + márgenes del Dashboard.
+         */
+        height: calc(100vh - 96px) !important;
+        max-height: calc(100vh - 96px) !important;
+
+        /*
+         * Diagnóstico fijo y compacto.
+         * El espacio restante queda para Cámara / Mapa.
+         */
+        grid-template-rows:
+            minmax(0, 1fr)
+            112px !important;
+
+        min-height: 0 !important;
+        align-self: start !important;
+    }
+
+    .sv-auto-runtime-stack > :first-child {
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: hidden !important;
+    }
+
+    .sv-auto-runtime-card {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
+    .sv-auto-terminal {
+        min-height: 112px !important;
+        max-height: 112px !important;
+    }
+
+    .sv-auto-state-panel {
+        min-height: 112px !important;
+        max-height: 112px !important;
+    }
+
+    .sv-auto-runtime-head {
+        min-height: 31px !important;
+        padding: 4px 8px !important;
+    }
+
+    .sv-auto-terminal-body {
+        padding: 5px 8px !important;
+        font-size: 0.58rem !important;
+        line-height: 1.34 !important;
+    }
+
+    .sv-auto-state-grid {
+        padding: 5px !important;
+        gap: 4px !important;
+    }
+
+    .sv-auto-state-card {
+        min-height: 34px !important;
+        padding: 4px 6px !important;
+        gap: 2px !important;
+    }
+
+    .sv-auto-state-card span {
+        font-size: 0.56rem !important;
+    }
+
+    .sv-auto-state-card b {
+        font-size: 0.58rem !important;
+    }
+}

@@ -15,6 +15,11 @@ set -euo pipefail
 
 PYTHON_MINIMO="3.8"
 
+# Interprete a usar. Se puede forzar, util en Ubuntu 18.04 donde `python3`
+# puede ser 3.6 pero existe un python3.8 aparte:
+#     PYTHON_BIN=python3.8 ./scripts/install_dashboard.sh
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
 AZUL=$'\033[1;34m'; VERDE=$'\033[1;32m'; AMARILLO=$'\033[1;33m'
 ROJO=$'\033[1;31m'; NEUTRO=$'\033[0m'
 
@@ -51,19 +56,35 @@ ok "Estructura del repositorio correcta"
 # ---------------------------------------------------------------
 info "2/6  Comprobando Python (se requiere >= $PYTHON_MINIMO)"
 
-command -v python3 >/dev/null 2>&1 || fatal "No hay python3. Instalalo con: sudo apt install python3"
+command -v "$PYTHON_BIN" >/dev/null 2>&1 || \
+    fatal "No se encontro '$PYTHON_BIN'.
+       Instalalo, o indica otro con:  PYTHON_BIN=python3.8 $0"
 
-PY_VER="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+PY_VER="$("$PYTHON_BIN" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 
-if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,8) else 1)'; then
-    fatal "Python $PY_VER es demasiado antiguo. Se requiere >= $PYTHON_MINIMO."
+if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,8) else 1)'; then
+    fatal "Python $PY_VER es demasiado antiguo (se requiere >= $PYTHON_MINIMO).
+       Si tienes otro interprete mas nuevo instalado, usalo:
+           PYTHON_BIN=python3.8 $0"
 fi
-ok "Python $PY_VER en $(command -v python3)"
+ok "Python $PY_VER en $(command -v "$PYTHON_BIN")"
 
-if ! python3 -c 'import venv' 2>/dev/null; then
-    fatal "Falta el modulo venv. Instalalo con: sudo apt install python3-venv"
+# No basta con que exista el modulo venv: Debian/Ubuntu separan `ensurepip`
+# en el paquete python3-venv, y sin el la creacion del entorno falla a medias.
+if ! "$PYTHON_BIN" -c 'import venv' 2>/dev/null; then
+    fatal "Falta el modulo venv.
+       Instalalo con:  sudo apt install -y python${PY_VER}-venv"
 fi
-ok "Modulo venv disponible"
+
+if ! "$PYTHON_BIN" -c 'import ensurepip' 2>/dev/null; then
+    fatal "Falta 'ensurepip' (el modulo venv existe pero esta incompleto).
+       Es lo habitual en Debian/Ubuntu. Instala:
+
+           sudo apt install -y python${PY_VER}-venv
+
+       y vuelve a ejecutar este script."
+fi
+ok "Modulo venv completo (con ensurepip)"
 
 # ---------------------------------------------------------------
 # 3. Entorno virtual
@@ -75,7 +96,13 @@ if [ -d "$VENV" ] && [ -x "$VENV/bin/python" ]; then
 else
     [ -e "$VENV" ] && [ ! -x "$VENV/bin/python" ] && \
         fatal "Existe $VENV pero esta incompleto. Borralo y vuelve a ejecutar: rm -rf '$VENV'"
-    python3 -m venv "$VENV"
+    if ! "$PYTHON_BIN" -m venv "$VENV"; then
+        rm -rf "$VENV"
+        fatal "No se pudo crear el entorno virtual.
+       Casi siempre falta el paquete del sistema:
+
+           sudo apt install -y python${PY_VER}-venv"
+    fi
     ok "Entorno virtual creado en $VENV"
 fi
 

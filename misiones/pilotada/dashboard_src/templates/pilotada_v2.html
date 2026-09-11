@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SafeVision · Misión Pilotada</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
+</head>
+
+<body class="pilotada-v2-body">
+
+<header class="pv2-topbar">
+    <div class="pv2-brand">
+        <div class="pv2-brand-mark">SV</div>
+        <div>
+            <h1>SafeVision</h1>
+            <span>Misión Pilotada</span>
+        </div>
+    </div>
+
+    <nav class="pv2-nav">
+        <a href="/redes">Redes</a>
+        <a href="/mapas">Mapas</a>
+        <a href="/automatica">Automática</a>
+        <a href="/programar">Programar</a>
+    </nav>
+
+    <div class="pv2-top-status">
+        <span id="pv2ProfileBadge" class="pv2-chip">CARGANDO</span>
+        <div id="connectionBadge" class="badge badge-off">DESCONECTADO</div>
+    </div>
+</header>
+
+<div class="pv2-compat" aria-hidden="true">
+    <input id="robotIp" type="text" value="192.168.1.75">
+    <button id="connectButton" type="button">Conectar</button>
+</div>
+
+<main class="pv2-shell">
+
+    <aside class="pv2-sidebar">
+
+        <section class="pv2-card pv2-mode-card">
+            <div class="pv2-section-title">
+                <div>
+                    <span class="pv2-eyebrow">OPERACIÓN</span>
+                    <h2>Modo de trabajo</h2>
+                </div>
+            </div>
+
+            <div class="pv2-segmented">
+                <button id="profileLibreButton" type="button" class="pv2-segment">
+                    Modo Libre
+                </button>
+                <button id="profilePilotadaButton" type="button" class="pv2-segment">
+                    Misión Pilotada
+                </button>
+            </div>
+
+            <div class="pv2-mini-label">Control manual</div>
+
+            <div class="pv2-segmented">
+                <button id="controlMandoButton" type="button" class="pv2-segment">
+                    Mando
+                </button>
+                <button id="controlKeyboardButton" type="button" class="pv2-segment">
+                    Teclado
+                </button>
+            </div>
+
+            <div class="pv2-mode-footer">
+                <span>Perfil</span>
+                <strong id="pv2ProfileText">—</strong>
+            </div>
+
+            <div class="pv2-mode-footer">
+                <span>Control</span>
+                <strong id="manualControlMode">—</strong>
+            </div>
+
+            <button
+                id="keyboardHelpButton"
+                type="button"
+                class="pv2-secondary-button"
+                disabled
+            >
+                Abrir teclado
+            </button>
+
+            <div id="keyboardControlHint" class="pv2-hint">
+                El teclado solo publica cuando el Runtime confirma modo TECLADO.
+            </div>
+        </section>
+
+
+        <section class="pv2-card pv2-model-card">
+            <div class="pv2-section-title">
+                <div>
+                    <span class="pv2-eyebrow">VISIÓN</span>
+                    <h2>Modelo IA</h2>
+                </div>
+                <strong id="modelName">Ninguno</strong>
+            </div>
+
+            <form id="modelForm" class="pv2-model-form">
+                <label>
+                    Pesos .pt
+                    <input
+                        id="modelPt"
+                        name="model_pt"
+                        type="file"
+                        accept=".pt"
+                        required
+                    >
+                </label>
+
+                <label>
+                    Metadatos .json
+                    <input
+                        id="modelJson"
+                        name="model_json"
+                        type="file"
+                        accept=".json"
+                    >
+                </label>
+
+                <button type="submit">Cargar</button>
+            </form>
+
+            <div class="pv2-confidence">
+                <div>
+                    <span>Confianza</span>
+                    <strong id="confidenceValue">50%</strong>
+                </div>
+
+                <input
+                    id="confidence"
+                    type="range"
+                    min="5"
+                    max="95"
+                    value="50"
+                >
+            </div>
+
+            <div id="modelMetadata" class="pv2-model-meta">
+                Sin modelo.
+            </div>
+        </section>
+
+
+        <section class="pv2-card pv2-status-card">
+            <div class="pv2-section-title">
+                <div>
+                    <span class="pv2-eyebrow">RUNTIME</span>
+                    <h2>Estado</h2>
+                </div>
+                <span id="pv2RuntimeVersion" class="pv2-runtime-version">—</span>
+            </div>
+
+            <div class="pv2-status-grid">
+                <div><span>ROS</span><strong id="rosStatus">—</strong></div>
+                <div><span>Driver</span><strong id="driverStatus">—</strong></div>
+                <div><span>LiDAR</span><strong id="lidarStatus">—</strong></div>
+                <div><span>Cámara</span><strong id="cameraStatus">—</strong></div>
+                <div><span>Mando</span><strong id="pv2MandoStatus">—</strong></div>
+                <div><span>Teclado</span><strong id="pv2KeyboardStatus">—</strong></div>
+                <div><span>Localización</span><strong id="pv2LocalizationStatus">—</strong></div>
+                <div><span>Navegación</span><strong id="pv2NavigationStatus">—</strong></div>
+            </div>
+
+            <div class="pv2-compat">
+                <strong id="mapStatus">—</strong>
+                <strong id="controlStatus">—</strong>
+            </div>
+        </section>
+
+
+        <section class="pv2-card pv2-classes-card">
+            <div class="pv2-section-title">
+                <div>
+                    <span class="pv2-eyebrow">DETECCIÓN</span>
+                    <h2>Clases</h2>
+                </div>
+            </div>
+
+            <div id="classes" class="classes pv2-classes">
+                <span class="muted">Sin clases disponibles.</span>
+            </div>
+        </section>
+
+    </aside>
+
+
+    <section class="pv2-workspace">
+
+        <div class="pv2-visual-grid">
+
+            <section class="pv2-card pv2-camera-card">
+                <div class="pv2-view-header">
+                    <div>
+                        <span class="pv2-eyebrow">CÁMARA + IA</span>
+                        <h2>Vista del robot</h2>
+                    </div>
+                    <div class="pv2-live"><span></span>VIDEO</div>
+                </div>
+
+                <div class="pv2-camera-view">
+                    <div id="videoPlaceholder" class="placeholder">
+                        Esperando cámara del robot.
+                    </div>
+
+                    <img
+                        id="videoFeed"
+                        alt="SafeVision Video"
+                        hidden
+                    >
+                </div>
+            </section>
+
+
+            <section class="pv2-card pv2-map-card">
+                <div class="pv2-view-header">
+                    <div>
+                        <span class="pv2-eyebrow">LOCALIZACIÓN</span>
+                        <h2>Mapa</h2>
+                    </div>
+                    <span id="pv2MapMode" class="pv2-chip">BLOQUEADO</span>
+                </div>
+
+                <div class="map-toolbar pv2-map-toolbar">
+                    <select id="mapSelect">
+                        <option value="">Seleccionar mapa...</option>
+                    </select>
+
+                    <button id="loadMapButton" type="button">Mostrar</button>
+                    <button id="mapZoomOut" type="button" title="Alejar">−</button>
+                    <button id="mapZoomIn" type="button" title="Acercar">+</button>
+                    <button id="mapReset" type="button" title="Encuadrar mapa">Ajustar</button>
+                    <button id="mapAreaZoom" type="button" title="Seleccionar zona">Área</button>
+                    <button id="mapLock" type="button" title="Bloquear encuadre">Bloquear</button>
+                </div>
+
+                <div id="mapViewport" class="viewer map pv2-map-view">
+                    <div id="mapPlaceholder" class="placeholder">
+                        Esperando mapa.
+                    </div>
+
+                    <div id="mapScene" class="map-scene" hidden>
+                        <img
+                            id="mapImage"
+                            alt="Mapa SafeVision"
+                            draggable="false"
+                        >
+
+                        <div
+                            id="robotMarker"
+                            class="robot-marker"
+                            title="Posición del robot"
+                            hidden
+                        >
+                            ▲
+                        </div>
+                    </div>
+
+                    <div id="pilotMapGate" class="pv2-map-gate">
+                        <div>
+                            <strong>Mapa en solo lectura</strong>
+                            <span>
+                                Activa Misión Pilotada para calibrar,
+                                agregar puntos o ejecutar navegación.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+
+        <section class="pv2-card pv2-activity-card">
+            <div class="pv2-activity-header">
+                <div>
+                    <span class="pv2-eyebrow">ACTIVIDAD</span>
+                    <h2>Runtime Manager</h2>
+                </div>
+
+                <div class="pv2-activity-summary">
+                    <span id="pv2MapName">Mapa —</span>
+                    <span id="pv2QueueState">Cola —</span>
+                </div>
+            </div>
+
+            <div id="log" class="log pv2-log">
+                SafeVision Pilotada preparada.
+            </div>
+        </section>
+
+    </section>
+
+</main>
+
+
+<div
+    id="keyboardControlModal"
+    class="keyboard-modal"
+    hidden
+    aria-hidden="true"
+>
+    <div class="keyboard-modal-backdrop" data-keyboard-close="1"></div>
+
+    <section
+        class="keyboard-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboardModalTitle"
+    >
+        <div class="keyboard-modal-header">
+            <div>
+                <h2 id="keyboardModalTitle">Control por teclado</h2>
+                <span>Publicación manual · watchdog 0.5 s</span>
+            </div>
+
+            <button
+                id="keyboardModalClose"
+                type="button"
+                class="keyboard-modal-close"
+                aria-label="Cerrar control por teclado"
+                title="Cerrar"
+            >
+                ×
+            </button>
+        </div>
+
+        <div class="keyboard-live-status">
+            <div><span>Lineal</span><strong id="keyboardLinearSpeed">0.20 m/s</strong></div>
+            <div><span>Angular</span><strong id="keyboardAngularSpeed">1.00 rad/s</strong></div>
+            <div><span>Eje</span><strong id="keyboardAxis">X · frontal</strong></div>
+            <div><span>Estado</span><strong id="keyboardDriveState">LISTO</strong></div>
+        </div>
+
+        <div class="keyboard-layout">
+
+            <div class="keyboard-movement">
+                <div class="keyboard-row">
+                    <kbd>U</kbd><kbd>I</kbd><kbd>O</kbd>
+                </div>
+                <div class="keyboard-row">
+                    <kbd>J</kbd><kbd class="keyboard-stop-key">K</kbd><kbd>L</kbd>
+                </div>
+                <div class="keyboard-row">
+                    <kbd>M</kbd><kbd>,</kbd><kbd>.</kbd>
+                </div>
+                <div class="keyboard-space-row">
+                    <kbd>ESPACIO</kbd><span>Parada inmediata</span>
+                </div>
+            </div>
+
+            <div class="keyboard-help-grid">
+                <div><kbd>Q</kbd>/<kbd>Z</kbd><span>±10% lineal y angular</span></div>
+                <div><kbd>W</kbd>/<kbd>X</kbd><span>±10% lineal</span></div>
+                <div><kbd>E</kbd>/<kbd>C</kbd><span>±10% angular</span></div>
+                <div><kbd>T</kbd><span>Cambiar X/Y</span></div>
+                <div><kbd>S</kbd><span>Pausar/reanudar</span></div>
+                <div><kbd>ESC</kbd><span>Cerrar y detener</span></div>
+            </div>
+
+        </div>
+
+        <div id="keyboardCommandStatus" class="keyboard-command-status">
+            Esperando una tecla de movimiento.
+        </div>
+    </section>
+</div>
+
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='pilotada_v2.js') }}"></script>
+
+</body>
+</html>
