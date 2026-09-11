@@ -4,3 +4,14 @@ misiones/pilotada/logs/
 modelos/*.pt
 modelos/*.torchscript
 mapping/maps/.safevision_edit_backup/
+# generated exports / build artifacts
+codigo_completo.txt
+arbol_direcciones.txt
+**/payload/
+*.zip
+*.tar.gz
+*.bak
+*.old
+*.save
+# runtime
+**/logs/

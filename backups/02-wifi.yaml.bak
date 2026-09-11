@@ -1,9 +1,0 @@
-network:
-    version: 2
-    wifis:
-        wlan0:
-            dhcp4: true
-            optional: true
-            access-points:
-                "INFINITUMEB8A":
-                    password: "XXJFF4kAxf"
