@@ -397,8 +397,8 @@ imagen de respaldo de la microSD.
 
 > ⚠️ **Causa real, difícil de diagnosticar y fácil de provocar.**
 
-El `.bashrc` del robot tiene 13 alias heredados (`docs/estado-actual.md` §6). Tres de ellos
-—`mapeo_ligero`, `mapeo_denso`, `sensores`— ejecutan scripts que empiezan por:
+El `.bashrc` del robot tiene 13 alias heredados (`docs/estado-actual.md` §6). **Dos** de
+ellos —`mapeo_denso` y `sensores`— ejecutan scripts que empiezan por:
 
 ```bash
 killall -9 roslaunch rviz roscore
@@ -406,6 +406,9 @@ killall -9 roslaunch rviz roscore
 
 **Si alguien los teclea con los servicios activos, mata el `roscore` gestionado por
 systemd.**
+
+Otros dos, `mapeo_ligero` y `mapear`, no matan `roscore` pero lanzan LiDAR y chasis por su
+cuenta, compitiendo con el runtime por los mismos dispositivos.
 
 **Síntomas:** todo deja de responder de golpe; `/runtime/status` da `ros_master: false`;
 poco después el `roscore` reaparece (systemd lo reinicia) pero **nada funciona**, porque el
@@ -419,8 +422,19 @@ ssh pi@yahboom.local 'sudo systemctl restart safevision-robot-server'
 
 Y después aplica el perfil de nuevo (§2.1).
 
-**Prevención:** renombra esos alias con prefijo `legacy_` en `~/.bashrc`.
-**[PENDIENTE: decisión del profesor.]**
+**Prevención — ya hay un script listo.** `scripts/robot_desactivar_alias.sh` comenta (no
+borra) los dos alias destructivos, guarda copia de seguridad fechada de `~/.bashrc` y
+muestra el diff. Es idempotente y reversible.
+
+Desde la PC, en una sola línea:
+
+```bash
+scp scripts/robot_desactivar_alias.sh pi@<IP-ROBOT>:/tmp/ && \
+  ssh -t pi@<IP-ROBOT> 'bash /tmp/robot_desactivar_alias.sh && source ~/.bashrc'
+```
+
+Pide confirmación antes de tocar nada. Para revertir, el propio script imprime la orden
+exacta con la ruta de la copia de seguridad.
 
 ### 10.2 Tras reiniciar, el robot no hace nada
 
