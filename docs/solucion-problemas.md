@@ -423,8 +423,9 @@ ssh pi@yahboom.local 'sudo systemctl restart safevision-robot-server'
 Y después aplica el perfil de nuevo (§2.1).
 
 **Prevención — ya hay un script listo.** `scripts/robot_desactivar_alias.sh` comenta (no
-borra) los dos alias destructivos, guarda copia de seguridad fechada de `~/.bashrc` y
-muestra el diff. Es idempotente y reversible.
+borra) los **cuatro** alias de riesgo —los dos destructivos y los dos conflictivos—,
+guarda copia de seguridad fechada de `~/.bashrc` y muestra el diff. Es idempotente y
+reversible. Los scripts siguen ahí: lo que se retira es el atajo, no la herramienta.
 
 Desde la PC, en una sola línea:
 

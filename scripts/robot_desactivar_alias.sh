@@ -38,14 +38,18 @@ aviso() { printf '%s  !!%s %s\n' "$AMARILLO" "$NEUTRO" "$1"; }
 fatal() { printf '%s ERROR%s %s\n' "$ROJO"   "$NEUTRO" "$1" >&2; exit 1; }
 
 BASHRC="${HOME}/.bashrc"
-MARCA="# [SafeVision] alias desactivado: destruye el runtime gestionado por systemd"
+MARCA_D="# [SafeVision] desactivado: mata el roscore gestionado por systemd"
+MARCA_C="# [SafeVision] desactivado: lanza LiDAR y chasis y compite con el runtime"
 
-# Alias cuyos scripts ejecutan 'killall -9 ... roscore'
+# Nivel 1 - destructivos: sus scripts ejecutan 'killall -9 ... roscore'
 ALIAS_DESTRUCTIVOS=(mapeo_denso sensores)
 
-# Alias que no matan roscore pero lanzan nodos que competirian con el runtime
-# (LiDAR, chasis). No se tocan: solo se avisa.
+# Nivel 2 - conflictivos: no matan roscore, pero lanzan por su cuenta nodos que
+# se disputan el LiDAR y el chasis con el runtime.
 ALIAS_CONFLICTIVOS=(mapeo_ligero mapear)
+
+# Ambos niveles se desactivan.
+ALIAS_TODOS=("${ALIAS_DESTRUCTIVOS[@]}" "${ALIAS_CONFLICTIVOS[@]}")
 
 echo
 echo "==========================================================="
@@ -61,10 +65,12 @@ echo
 info "Analizando $BASHRC"
 
 PENDIENTES=()
-for a in "${ALIAS_DESTRUCTIVOS[@]}"; do
+for a in "${ALIAS_TODOS[@]}"; do
     if grep -qE "^[[:space:]]*alias[[:space:]]+${a}=" "$BASHRC"; then
         PENDIENTES+=("$a")
-        echo "      [a desactivar] alias ${a}"
+        nivel="conflictivo"
+        for d in "${ALIAS_DESTRUCTIVOS[@]}"; do [ "$d" = "$a" ] && nivel="DESTRUCTIVO"; done
+        printf "      [a desactivar] alias %-14s (%s)\n" "$a" "$nivel"
     elif grep -qE "^[[:space:]]*#[[:space:]]*alias[[:space:]]+${a}=" "$BASHRC"; then
         echo "      [ya desactivado] alias ${a}"
     else
@@ -103,8 +109,10 @@ ok "Copia de seguridad: $COPIA"
 # ------------------------------------------------------------------
 info "Comentando alias"
 for a in "${PENDIENTES[@]}"; do
+    marca="$MARCA_C"
+    for d in "${ALIAS_DESTRUCTIVOS[@]}"; do [ "$d" = "$a" ] && marca="$MARCA_D"; done
     # Inserta la nota justo antes y comenta la linea del alias.
-    sed -i -E "s|^([[:space:]]*)(alias[[:space:]]+${a}=.*)$|\1${MARCA}\n\1# \2|" "$BASHRC"
+    sed -i -E "s|^([[:space:]]*)(alias[[:space:]]+${a}=.*)$|\1${marca}\n\1# \2|" "$BASHRC"
     ok "alias ${a} desactivado"
 done
 
@@ -122,12 +130,8 @@ fi
 # 5. Avisos y siguiente paso
 # ------------------------------------------------------------------
 echo
-aviso "Estos otros alias NO se han tocado, pero tambien entran en conflicto"
-aviso "con el runtime (lanzan LiDAR y chasis por su cuenta):"
-for a in "${ALIAS_CONFLICTIVOS[@]}"; do
-    grep -qE "^[[:space:]]*alias[[:space:]]+${a}=" "$BASHRC" && aviso "    - ${a}"
-done
-aviso "No los uses con los servicios de SafeVision activos."
+aviso "Los scripts siguen ahi y se pueden ejecutar a mano por su ruta completa."
+aviso "Lo que se ha quitado es el atajo, no la herramienta."
 
 echo
 echo "==========================================================="
