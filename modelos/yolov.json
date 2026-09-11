@@ -1,0 +1,10 @@
+{
+  "clases": [
+    "persona",
+    "telefono",
+    "lentes",
+    "botas"
+  ],
+  "nombre_modelo": "YOLOv8 Prueba (Persona, Telefono, Lentes, Botas)",
+  "version": "1.0"
+}

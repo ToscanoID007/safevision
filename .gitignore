@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 misiones/pilotada/logs/
+modelos/*.pt
+modelos/*.torchscript
+mapping/maps/.safevision_edit_backup/
