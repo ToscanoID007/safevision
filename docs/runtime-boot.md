@@ -124,9 +124,7 @@ KillMode=control-group
 - `KillMode=control-group` mata todo el cgroup al parar el servicio. **Esto importa**:
   los nodos ROS que lanza `sf_runtime_manager._spawn()` usan `start_new_session=True`
   (`sf_runtime_manager.py:179`), lo que los saca de la sesión pero **no** del cgroup de
-  systemd. **INCONCLUSO** si al hacer `systemctl stop` se apagan también driver, LiDAR,
-  AMCL y `move_base`. Lo resolvería, en el robot:
-  `systemctl stop safevision-robot-server && sleep 3 && rosnode list`.
+  systemd. **RESUELTO (verificado 2026-09-13):** sí. Al reiniciar `safevision-robot-server`, `KillMode=control-group` mata **todos** los nodos lanzados por `sf_runtime_manager` (driver, LiDAR, AMCL, `move_base`, cola): tras el reinicio `/runtime/status` mostró los nueve recursos inactivos con el estado en `/tmp` aún diciendo `pilotada`. Desde v1.1 el gestor reconstruye ese estado solo al pedir el perfil (prueba T4.1).
 
 ### 2.4 `sf_robot_server_service.sh`
 

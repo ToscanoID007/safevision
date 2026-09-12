@@ -487,6 +487,32 @@ Por orden, del menos al más drástico:
 
 ---
 
+## 10.6 Un nodo murió por fuera y el perfil ya no arranca
+
+**Síntoma.** `POST /runtime/profile` responde `409` con *"No se pudo iniciar driver"* (o
+`localization`, `core`…) aunque el robot esté bien, y `runtime/status` muestra ese recurso
+inactivo. Sólo el vídeo funciona.
+
+**Causa.** Un nodo de SafeVision murió por fuera del gestor. Los dos casos vistos:
+
+1. **Colisión de nombres.** Alguien lanzó un *launch* de fábrica de Yahboom
+   (`laser_bringup.launch`, `amcl.launch`…) desde el menú antiguo `api/gestor_nodos.py` o
+   desde un script heredado. Registran `driver_node`, `odometry_publisher`, `rplidarNode`
+   con los mismos nombres que SafeVision, y ROS mata al que ya estaba (`driver.log`: *"new
+   node registered with same name"*).
+2. **`rosnode kill`, un apagado a medias o una caída del nodo.**
+
+Hasta `v1-validado-pilotada`, el gestor daba por vivo al proceso muerto (zombi) y se negaba
+a relanzarlo. **Desde `v1.1-gestor-robusto` se recupera solo**: basta con volver a pedir el
+perfil (verificado: driver, LiDAR y AMCL matados a propósito, relanzados en 16-18 s).
+
+**Qué hacer.** Volver a aplicar el perfil desde la página *Pilotada* o con
+`POST /runtime/profile`. Y **no usar el menú antiguo ni los scripts heredados con SafeVision
+en marcha**: no consultan al gestor y pisan sus nodos.
+
+**Verificación de la versión.** En el robot: `cd ~/robot_custom && git describe --tags`.
+Debe ser `v1.1-gestor-robusto` o posterior.
+
 ## 11. Dónde están los registros
 
 | Qué | Dónde |
