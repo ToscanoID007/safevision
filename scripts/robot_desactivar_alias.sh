@@ -48,8 +48,15 @@ ALIAS_DESTRUCTIVOS=(mapeo_denso sensores)
 # se disputan el LiDAR y el chasis con el runtime.
 ALIAS_CONFLICTIVOS=(mapeo_ligero mapear)
 
-# Ambos niveles se desactivan.
-ALIAS_TODOS=("${ALIAS_DESTRUCTIVOS[@]}" "${ALIAS_CONFLICTIVOS[@]}")
+# Nivel 3 - menu antiguo: api/main_menu.py y sus submenus lanzan launch de
+# fabrica (laser_bringup, amcl...) con los mismos nombres de nodo que SafeVision
+# y provocan su cierre (incidente del 2026-09-13). Desde v1.2 la pagina Nodos
+# del dashboard cubre esa funcion.
+ALIAS_MENU=(api api_sfv menu_mapas mapear_2d)
+MARCA_M="# [SafeVision] desactivado: menu antiguo; usa la pagina Nodos del dashboard"
+
+# Los tres niveles se desactivan.
+ALIAS_TODOS=("${ALIAS_DESTRUCTIVOS[@]}" "${ALIAS_CONFLICTIVOS[@]}" "${ALIAS_MENU[@]}")
 
 echo
 echo "==========================================================="
@@ -70,6 +77,7 @@ for a in "${ALIAS_TODOS[@]}"; do
         PENDIENTES+=("$a")
         nivel="conflictivo"
         for d in "${ALIAS_DESTRUCTIVOS[@]}"; do [ "$d" = "$a" ] && nivel="DESTRUCTIVO"; done
+        for d in "${ALIAS_MENU[@]}"; do [ "$d" = "$a" ] && nivel="menu antiguo"; done
         printf "      [a desactivar] alias %-14s (%s)\n" "$a" "$nivel"
     elif grep -qE "^[[:space:]]*#[[:space:]]*alias[[:space:]]+${a}=" "$BASHRC"; then
         echo "      [ya desactivado] alias ${a}"
@@ -111,6 +119,7 @@ info "Comentando alias"
 for a in "${PENDIENTES[@]}"; do
     marca="$MARCA_C"
     for d in "${ALIAS_DESTRUCTIVOS[@]}"; do [ "$d" = "$a" ] && marca="$MARCA_D"; done
+    for d in "${ALIAS_MENU[@]}"; do [ "$d" = "$a" ] && marca="$MARCA_M"; done
     # Inserta la nota justo antes y comenta la linea del alias.
     sed -i -E "s|^([[:space:]]*)(alias[[:space:]]+${a}=.*)$|\1${marca}\n\1# \2|" "$BASHRC"
     ok "alias ${a} desactivado"
