@@ -3754,7 +3754,7 @@ def mapping_session_start():
                 ""
             )
         },
-        timeout=45
+        timeout=150
     )
 
 
@@ -3766,7 +3766,7 @@ def mapping_session_save():
     return mapping_session_proxy(
         "POST",
         "save",
-        timeout=45
+        timeout=150
     )
 
 
@@ -3778,7 +3778,7 @@ def mapping_session_discard():
     return mapping_session_proxy(
         "POST",
         "discard",
-        timeout=45
+        timeout=150
     )
 
 
