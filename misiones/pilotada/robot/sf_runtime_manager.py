@@ -1654,3 +1654,241 @@ def apply_profile(profile, map_name=None, control_mode=None):
             steps=steps,
             status=final,
         )
+
+
+# =========================================================
+# GESTOR DE NODOS · recursos individuales con dependencias
+#
+# Permite arrancar y parar cada recurso por separado desde
+# la API, respetando el mismo orden que apply_profile y sin
+# saltarse la propiedad de los procesos ni la unicidad de
+# nombres. Es la alternativa segura al menu antiguo
+# (api/gestor_nodos.py), que lanzaba launch de fabrica con
+# los mismos nombres de nodo y pisaba los de SafeVision.
+# =========================================================
+
+START_ORDER = [
+    "driver",
+    "core",
+    "selector",
+    "mando",
+    "lidar",
+    "localization",
+    "pose_exporter",
+    "navigation",
+    "nav_queue",
+]
+
+# Requisitos directos. El driver es la base de todo: pararlo apaga el robot.
+RESOURCE_DEPS = {
+    "driver": (),
+    "core": ("driver",),
+    "selector": ("driver",),
+    "mando": ("driver", "selector"),
+    "lidar": ("driver",),
+    "localization": ("core", "lidar"),
+    "pose_exporter": ("localization",),
+    "navigation": ("core", "localization", "selector"),
+    "nav_queue": ("navigation",),
+}
+
+# Se muestran pero no se operan desde aqui: el mapeo tiene su propio ciclo
+# con rollback (sf_mapping_manager) y el teclado no es un proceso.
+READ_ONLY_RESOURCES = ("ros_master", "robot_server", "camera", "teclado", "mapping")
+
+
+def transitive_deps(name):
+    vistos = set()
+    pendientes = list(RESOURCE_DEPS.get(name, ()))
+    while pendientes:
+        d = pendientes.pop()
+        if d not in vistos:
+            vistos.add(d)
+            pendientes.extend(RESOURCE_DEPS.get(d, ()))
+    return vistos
+
+
+def _dependents(name):
+    return {r for r in RESOURCE_DEPS if name in transitive_deps(r)}
+
+
+def _map_path_actual():
+    nombre = _load_state().get("map_name")
+    if not nombre:
+        try:
+            nombre = json.loads(ACTIVE_MAP_FILE.read_text()).get("name")
+        except Exception:
+            nombre = None
+    if not nombre:
+        return None
+    try:
+        return _safe_map(nombre)[1]
+    except Exception:
+        return None
+
+
+def _start_localization():
+    ruta = _map_path_actual()
+    if not ruta:
+        return False
+    return _ensure_localization(ruta)
+
+
+def _stop_selector():
+    _rosnode_kill("/sf_cmd_vel_selector")
+    _terminate_owned("selector")
+    return _wait(lambda: _nodes_absent({"/sf_cmd_vel_selector"}), 5)
+
+
+def _stop_core():
+    _rosnode_kill(
+        "/odometry_publisher",
+        "/imu_filter_madgwick",
+        "/ekf_localization",
+        "/apply_calib",
+        "/robot_state_publisher",
+        "/joint_state_publisher",
+    )
+    _terminate_owned("core")
+    return _wait(
+        lambda: _nodes_absent({"/odometry_publisher", "/imu_filter_madgwick", "/ekf_localization"}),
+        7,
+    )
+
+
+def _stop_driver():
+    _set_selector_manual()
+    _rosnode_kill("/driver_node")
+    _terminate_owned("driver")
+    return _wait(lambda: _nodes_absent({"/driver_node"}), 7)
+
+
+_STARTERS = {
+    "driver": _ensure_driver,
+    "core": _ensure_core,
+    "selector": _ensure_selector,
+    "mando": lambda: bool(set_control_mode("mando").get("ok")),
+    "lidar": _ensure_lidar,
+    "localization": _start_localization,
+    "pose_exporter": _ensure_pose_exporter,
+    "navigation": _ensure_navigation,
+    "nav_queue": _ensure_nav_queue,
+}
+
+_STOPPERS = {
+    "driver": _stop_driver,
+    "core": _stop_core,
+    "selector": _stop_selector,
+    "mando": lambda: bool(set_control_mode("teclado").get("ok")),
+    "lidar": _stop_lidar,
+    "localization": _stop_localization,
+    "pose_exporter": _stop_pose_exporter,
+    "navigation": _stop_navigation,
+    "nav_queue": _stop_nav_queue,
+}
+
+
+def _active_set():
+    return {k for k, v in status()["resources"].items() if v.get("active")}
+
+
+def _mapping_active():
+    return "mapping" in _active_set()
+
+
+def _validar_recurso(name):
+    name = str(name or "").strip().lower()
+    if name in READ_ONLY_RESOURCES:
+        return name, _result(False, "El recurso '{}' es de solo lectura.".format(name))
+    if name not in RESOURCE_DEPS:
+        return name, _result(False, "Recurso desconocido: {}".format(name))
+    return name, None
+
+
+def start_resource(name):
+    name, err = _validar_recurso(name)
+    if err:
+        return err
+    with _LOCK:
+        if _mapping_active():
+            return _result(False, "Hay una sesión de mapeo activa; gestiona los nodos desde Mapear.")
+        activos = _active_set()
+        objetivo = transitive_deps(name) | {name}
+        plan = [r for r in START_ORDER if r in objetivo and r not in activos]
+        steps = []
+        for r in plan:
+            ok = bool(_STARTERS[r]())
+            steps.append({"resource": r, "ok": ok})
+            if not ok:
+                if r == name:
+                    msg = "No se pudo iniciar {}".format(r)
+                else:
+                    msg = "No se pudo iniciar {} (requisito de {})".format(r, name)
+                return _result(False, msg, steps=steps)
+        msg = "{} activo.".format(name) if plan else "{} ya estaba activo.".format(name)
+        return _result(True, msg, steps=steps)
+
+
+def stop_resource(name):
+    name, err = _validar_recurso(name)
+    if err:
+        return err
+    with _LOCK:
+        if _mapping_active():
+            return _result(False, "Hay una sesión de mapeo activa; gestiona los nodos desde Mapear.")
+        activos = _active_set()
+        objetivo = _dependents(name) | {name}
+        plan = [r for r in reversed(START_ORDER) if r in objetivo and r in activos]
+        steps = []
+        for r in plan:
+            ok = bool(_STOPPERS[r]())
+            steps.append({"resource": r, "ok": ok})
+            if not ok:
+                return _result(False, "No se pudo detener {}".format(r), steps=steps)
+        msg = "{} detenido.".format(name) if plan else "{} ya estaba detenido.".format(name)
+        return _result(True, msg, steps=steps)
+
+
+def resources_view(control_mode=None):
+    st = status(control_mode)
+    res = st["resources"]
+    activos = {k for k, v in res.items() if v.get("active")}
+    mapeando = "mapping" in activos
+    poseidos = _load_state().get("owned", {})
+    filas = []
+    for name in ["ros_master", "robot_server", "camera"] + START_ORDER + ["teclado", "mapping"]:
+        v = res.get(name, {})
+        activo = bool(v.get("active"))
+        ro = name in READ_ONLY_RESOURCES
+        gestionable = name in RESOURCE_DEPS
+        deps = sorted(transitive_deps(name), key=START_ORDER.index) if gestionable else []
+        dependientes = sorted(_dependents(name), key=START_ORDER.index) if gestionable else []
+        if ro:
+            razon = "solo lectura"
+        elif mapeando:
+            razon = "sesión de mapeo activa"
+        else:
+            razon = ""
+        filas.append({
+            "name": name,
+            "active": activo,
+            "state": v.get("state"),
+            "read_only": ro,
+            "pid": (poseidos.get(name) or {}).get("pid"),
+            "deps": deps,
+            "missing_deps": [d for d in deps if d not in activos],
+            "dependents": dependientes,
+            "active_dependents": [d for d in dependientes if d in activos],
+            "can_start": gestionable and not ro and not mapeando and not activo,
+            "can_stop": gestionable and not ro and not mapeando and activo,
+            "reason": razon,
+            "extra": {k: v[k] for k in v if k not in ("active", "state")},
+        })
+    return {
+        "ok": True,
+        "mapping_active": mapeando,
+        "profile": st["profile"],
+        "control_mode": st["control_mode"],
+        "start_order": list(START_ORDER),
+        "resources": filas,
+    }

@@ -101,7 +101,7 @@ class RecursosTest(unittest.TestCase):
 
     def test_fallo_a_mitad_detiene_la_cadena(self):
         e = self._con(activos=set(), fallan={"core"})
-        r = rm.start_resource("lidar" if "core" not in rm.transitive_deps("lidar") else "localization")
+        r = rm.start_resource("localization")
         self.assertFalse(r["ok"])
         self.assertIn("core", r["message"])
         self.assertNotIn("+localization", e.llamadas)
