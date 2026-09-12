@@ -507,6 +507,43 @@ consultar `docs/solucion-problemas.md`.
 
 ---
 
+## 9-bis. Corrección v1.1 — gestor de runtime robusto (verificado 2026-09-13)
+
+**Defecto encontrado y reproducido.** El gestor no distinguía un proceso zombi de uno vivo
+(`os.kill(pid, 0)` acepta zombis) y se negaba a relanzar un nodo que hubiera muerto por
+fuera. Además sólo `_ensure_lidar` limpiaba antes de relanzar; las otras ocho `_ensure_*` no.
+Desencadenante real: el menú antiguo `api/gestor_nodos.py` lanzó `laser_bringup.launch` y
+`amcl.launch` de Yahboom, que registran nodos con los mismos nombres que SafeVision, y ROS
+mató los nuestros. Evidencia: `driver.log` (*"new node registered with same name"*),
+`master.log` (dos URIs para `/driver_node`) y `/tmp/ros_nodo_actual.log`.
+
+**Pruebas antes de la corrección** (código `v1-validado-pilotada`):
+
+| Prueba | Resultado |
+|---|---|
+| T1 — matar `/driver_node` desde fuera y pedir el perfil | PID 17478 en estado `Z`; perfil rechazado en 10,5 s con *"No se pudo iniciar driver"*; **no relanzó** |
+| T1b — LiDAR | Se curó solo al segundo intento, 36 s |
+| T1b — AMCL | **Falló** (`roslaunch` vivo con sólo `map_server`) |
+| T3 — prueba unitaria en la PC | Roja: un zombi se reporta vivo |
+
+**Corrección** (`3b8333d`, rama `fix/gestor-zombis`): `_pid_alive` recoge al hijo y lee
+`/proc/<pid>/status`; `_spawn` termina y relanza cualquier proceso poseído cuyo nodo no esté
+registrado; `_ensure_driver` exige que el driver publique `/imu/imu_raw`.
+
+**Pruebas después** (T4, sobre el robot):
+
+| Prueba | Resultado |
+|---|---|
+| T4.1 — reconstruir desde PIDs muertos (tras `systemctl restart`) | OK, 51 s |
+| T4.2 — driver matado desde fuera | **OK, 16 s**, PID 18162 → 20343 |
+| T4.3 — LiDAR matado desde fuera | OK, 18 s (antes 36 s) |
+| T4.4 — AMCL matado desde fuera | **OK, 18 s**, PID 19386 → 23279 |
+| T4.5 — grafo | 19 nodos, `/scan` 7,75 Hz, `/odom` 19,95 Hz, `/imu/imu_data` 19,4 Hz |
+| T4.6 — ciclo de mapeo iniciar → descartar | OK, restaurado `pilotada` / `HAB2` |
+| T3 | 5 casos en verde |
+
+**Etiqueta:** `v1.1-gestor-robusto`. **Robot sincronizado** a esa etiqueta.
+
 ## 10. Documentos relacionados
 
 - `docs/runtime-boot.md` — cómo arranca el runtime y por qué hay dos caminos.

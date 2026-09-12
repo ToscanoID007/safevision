@@ -138,8 +138,40 @@ def _resource(active, **extra):
 
 
 def _pid_alive(pid):
+    # Que un PID exista no significa que el proceso viva: un hijo muerto que
+    # nadie ha recogido queda como zombi y os.kill(pid, 0) lo acepta igual.
+    # Reproducido en el robot (2026-09-13): el driver muerto desde fuera quedo
+    # en estado Z y el gestor se nego a relanzarlo. Por eso, primero se recoge
+    # al hijo si es nuestro y despues se consulta el estado real en /proc.
     try:
-        os.kill(int(pid), 0)
+        pid = int(pid)
+    except Exception:
+        return False
+    if pid <= 0:
+        return False
+
+    try:
+        recogido, _estado = os.waitpid(pid, os.WNOHANG)
+        if recogido == pid:
+            return False
+    except ChildProcessError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        with open("/proc/{}/status".format(pid)) as handle:
+            for line in handle:
+                if line.startswith("State:"):
+                    estado = line.split(":", 1)[1].strip()[:1]
+                    return estado not in ("Z", "X")
+    except FileNotFoundError:
+        return False
+    except Exception:
+        pass
+
+    try:
+        os.kill(pid, 0)
         return True
     except Exception:
         return False
@@ -164,8 +196,16 @@ def _forget_process(name):
 def _spawn(name, command):
     state = _load_state()
     current = state.get("owned", {}).get(name)
-    if isinstance(current, dict) and _pid_alive(current.get("pid")):
-        return int(current["pid"])
+    if isinstance(current, dict):
+        # Todos los _ensure_* comprueban en el Master que el nodo NO esta antes
+        # de llegar aqui. Un proceso poseido que siga vivo es, por tanto, un
+        # resto: un roslaunch parcial, un nodo mudo o un apagado a medias.
+        # Antes se daba por bueno y se devolvia sin relanzar; ahora se termina
+        # y se relanza limpio. Si ya esta muerto, solo se olvida.
+        if _pid_alive(current.get("pid")):
+            _terminate_owned(name)
+        else:
+            _forget_process(name)
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = LOG_DIR / "{}.log".format(name)
@@ -516,10 +556,16 @@ def _topic_has_message(
 
 def _ensure_driver():
 
+    # Igual que el LiDAR con /scan y el core con /imu/imu_data: un driver
+    # registrado pero mudo (por ejemplo, uno ajeno en pleno apagado) no cuenta
+    # como presente, o el core esperaria una IMU que nunca publica.
     if _nodes_present(
         {
             "/driver_node"
         }
+    ) and _topic_has_message(
+        "/imu/imu_raw",
+        timeout=3
     ):
         return True
 
