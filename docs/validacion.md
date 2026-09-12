@@ -282,6 +282,23 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 
 ---
 
+## 11-bis. Pruebas automatizadas ejecutadas (2026-09-13)
+
+Ejecutadas por el agente contra el robot real, con salidas guardadas. Son independientes de
+las 87 pruebas manuales anteriores, que siguen pendientes de ejecución por una persona.
+
+| Serie | Qué | Resultado |
+|---|---|---|
+| V-1 | Perfil `pilotada` con `HAB2` y mando | OK, 51 s directo; 54 s por el dashboard |
+| T1 / T1b | Nodos matados desde fuera con el gestor original | Reproducido el bloqueo (driver, AMCL); LiDAR se curaba en 36 s |
+| T3 | Unitaria: zombi reportado como vivo | Roja antes, verde después (5 casos) |
+| T4 | Recuperación con el gestor corregido | Driver 16 s, LiDAR 18 s, AMCL 18 s; reconstrucción tras reinicio 51 s; ciclo de mapeo OK |
+| T5 | Unitaria: dependencias del gestor de nodos | 9 casos en verde |
+| T6 | Gestor de nodos por el dashboard | Cascadas y resoluciones en el orden previsto; 409 en mapeo/solo lectura; mando conmutado |
+| PF.1–PF.10 | Prueba final del sistema completo | Todo OK tras corregir el tiempo de espera del mapeo en el dashboard (PF.5) |
+
+Detalle y tiempos en `docs/estado-actual.md`, secciones 9-bis a 9-quater.
+
 ## 12. Resumen de resultados
 
 Rellenar al terminar.

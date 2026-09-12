@@ -59,9 +59,7 @@ Ahora el error llega **en el momento de escribirlas**, que es cuando sirve de al
 > Los nombres siguen reservados: no se puede llamar `girar` a una variable. Y el ejecutor
 > del robot no se ha tocado, así que sigue rechazando cualquier misión antigua que las use.
 
-**[PENDIENTE: si algún día se implementan físicamente, hay que revertir este cambio en
-`sf_mission_lang.py` (`RETIRED_COMMANDS`) y reactivar las ramas correspondientes del
-ejecutor. Lo que haría falta está en `docs/analisis-alcance.md`.]**
+> Si algún día se implementan físicamente, hay que revertir este cambio en `sf_mission_lang.py` (`RETIRED_COMMANDS`) y reactivar las ramas correspondientes del ejecutor.
 
 ## 3. Las tres acciones
 

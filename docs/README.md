@@ -131,67 +131,47 @@ grep -rn "\[PENDIENTE:" docs README.md scripts
 
 ## 4. Lo que falta, y quién debe resolverlo
 
-**51 marcas accionables.** Agrupadas por responsable.
+Estado al cierre de `v2.0-sistema-validado` (2026-09-13). Las decisiones de alcance las tomó
+el estudiante prestador; quedan registradas como tales.
 
-### 4.1 Estudiante, con el robot delante (19)
-
-Requieren estar físicamente frente al robot o ejecutar pruebas sobre él.
+### 4.1 Estudiante, con el robot delante
 
 | # | Qué falta | Dónde |
 |---|---|---|
-| 1 | **Ejecutar la prueba V-1**: ¿queda el robot operable desde el dashboard? | `estado-actual.md` §8, `validacion.md` §4 |
-| 2 | **Ejecutar el protocolo completo de validación** (87 pruebas) | `validacion.md` §3-§11 |
-| 3 | Rellenar los datos de la sesión de validación (fecha, lugar, responsables, commit) | `validacion.md` §2 |
-| 4 | Anotar quién sostiene el mando y la palabra de parada | `validacion.md` §1.4 |
-| 5 | Definir qué error de deriva es "aceptable" — medirlo primero | `validacion.md` P-7 |
-| 6 | Determinar la semántica de `orientar()`: ¿absoluto o relativo? ¿grados? ¿sentido? | `validacion.md` S-13, `lenguaje-misiones.md` §3.3 |
-| 7 | Redactar la conclusión de la validación | `validacion.md` §12.1 |
-| 8 | Listar las evidencias generadas | `validacion.md` §12.2 |
-| 9 | **Crear la imagen de respaldo de la microSD** y anotar fecha, tamaño y ubicación | `instalacion-robot.md` §2.1 |
-| 10 | Copiar `/etc/udev/rules.d/` del robot (necesita `sudo`) | `instalacion-robot.md` §3.5, `anexo-dependencias-robot.md` §5 |
-| 11 | Documentar el origen de `library_ws` y `world_canvas` | `instalacion-robot.md` §3.3 |
-| 12 | Verificar el procedimiento de compilación de Python 3.7.3 | `instalacion-robot.md` §3.4 |
-| 13 | Probar el `.tar.gz` del dashboard en una PC limpia | `instalacion-pc.md` §9, `estado-actual.md` §7 |
-| 14 | Fotografías del robot, el laboratorio y las sesiones | `reporte-final.md` §13.F |
-| 15 | Capturas del dashboard, el mapa y el costmap con y sin obstáculo | `reporte-final.md` §8.4 |
-| 16 | Trasladar los resultados de la validación al reporte | `reporte-final.md` §8.4 |
-| 17 | Añadir la conclusión cuantitativa al reporte | `reporte-final.md` §10 |
-| 18 | Completar las referencias bibliográficas consultadas | `reporte-final.md` §12 |
-| 19 | Anotar el modelo YOLO disponible y sus clases para P06 | `practicas/P06-yolo-misiones.md` §4 |
+| 1 | Ejecutar el protocolo manual de 87 pruebas y rellenar resultados, fecha, responsable y evidencia | `validacion.md` §3-§11 |
+| 2 | Datos de la sesión de validación, persona con el mando, palabra de parada | `validacion.md` §1.4, §2 |
+| 3 | Definir el error de deriva aceptable (P-7) y la semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
+| 4 | Construir el mapa del laboratorio (P03) y anotar su nombre | `estado-actual.md` §2.2, `practicas/README.md` §3 |
+| 5 | Crear la imagen de respaldo de la microSD y anotar dónde queda | `instalacion-robot.md` §2.1 |
+| 6 | Copiar `/etc/udev/rules.d/` y documentar el origen de `library_ws`/`world_canvas` y la compilación de Python 3.7.3 | `instalacion-robot.md` §3 |
+| 7 | Configurar la reserva DHCP en el módem | `red.md` §3 |
+| 8 | Probar el `.tar.gz` del dashboard en una PC limpia, o retirarlo | `instalacion-pc.md` §9, `scripts/LEEME-empaquetado.md` |
+| 9 | Fotografías, capturas, conclusión cuantitativa, referencias, firmas y datos generales del reporte | `reporte-final.md` §1, §8.4, §10, §12, §13 |
+| 10 | Nombres, asesor y periodo en los créditos | `README.md` §15 |
+| 11 | Anotar el modelo YOLO disponible en P06 | `practicas/P06-yolo-misiones.md` §4 |
+| 12 | **Rotar la contraseña SSH del robot y la PSK del Wi-Fi** | `security-scan.md` §5 |
 
-### 4.2 Profesor — decisiones (14)
+### 4.2 Decisiones tomadas
 
-| # | Decisión | Dónde |
+| Decisión | Resultado | Registrado en |
 |---|---|---|
-| 20 | **Qué camino tomar con la fusión RGB-D** (entregar, cerrar opción A, o RTAB-Map) | `analisis-alcance.md` §5, `reporte-final.md` §9.5 |
-| 21 | Si se acomete la opción A antes de la entrega o se declara trabajo futuro | `analisis-alcance.md` §4.4 |
-| 22 | Si `girar()` y `relocalizar()` se implementan o se retiran del lenguaje | `lenguaje-misiones.md` §2 |
-| 23 | Qué mapas conservar de los 6 que hay | `estado-actual.md` §2.2 |
-| 24 | Renombrar a `legacy_*` los alias del `.bashrc` que ejecutan `killall -9 roscore` | `estado-actual.md` §6.1, `solucion-problemas.md` §10.1 |
-| 25 | Si se crea un servicio que aplique un perfil por defecto al arrancar | `solucion-problemas.md` §10.2 |
-| 26 | Si se reserva una IP fija para el robot en el router | `red.md` §3 |
-| 27 | Si se instala Tailscale y quién administra la cuenta | `red.md` §7.1 |
-| 28 | Nombre del mapa de referencia del laboratorio para las prácticas | `practicas/README.md` §3 |
-| 29 | Revisar antes de cada semestre si los dos avisos de las prácticas siguen vigentes | `practicas/README.md` §8 |
-| 30 | Nombres de los prestadores y números de control | `README.md`, `reporte-final.md` §1 |
-| 31 | Nombre y cargo del asesor responsable | `README.md`, `reporte-final.md` §1 |
-| 32 | Fechas de inicio y término del servicio social | `README.md`, `reporte-final.md` §1 |
-| 33 | Firmas y fechas del formato institucional del TecNM | `reporte-final.md` §13 |
+| Fusión RGB-D | Opción A, después de la validación con LiDAR solo; trabajo futuro en esta entrega | `analisis-alcance.md` §4.4, `reporte-final.md` §9.5 |
+| `girar()` / `relocalizar()` | Retiradas del validador | `lenguaje-misiones.md` §2 |
+| Mapas | Sólo `HAB2`; el del laboratorio se construye en P03 | `estado-actual.md` §2.2 |
+| Alias del robot | Los 8 de riesgo desactivados (destructivos, conflictivos y menú antiguo) | `estado-actual.md` §6.1 |
+| Servicio de perfil por defecto | No | `solucion-problemas.md` §10.2 |
+| Reserva DHCP / Tailscale | Reserva sí (pendiente de hacer); Tailscale no | `red.md` §3, §7.1 |
+| Dashboard | Versionada la instantánea completa de desarrollo | `estado-actual.md` §5 |
+| `SafeVision.spec` | Versionada en `scripts/` | `scripts/LEEME-empaquetado.md` |
 
-### 4.3 Acciones que no admiten demora (3)
+### 4.3 Trabajo futuro (código, en su propia rama)
 
-Independientes del alcance técnico. **No deberían quedar abiertas en la entrega.**
-
-| # | Acción | Dónde |
-|---|---|---|
-| 34 | 🔒 **Rotar la contraseña SSH del robot y la PSK del Wi-Fi.** Están publicadas en la rama por defecto de GitHub | `security-scan.md` §5, `reporte-final.md` §7.9 |
-| 35 | **Versionar el dashboard operativo** de `~/SafeVision_Dashboard_dev/` (tras la prueba V-1) | `estado-actual.md` §5.5, `reporte-final.md` §8.3 |
-| 36 | Actualizar los apartados del manual que hoy remiten a `curl` porque el botón no está versionado | `manual-operacion.md` §2, `instalacion-pc.md` §7.4 |
-
-> Las marcas restantes hasta 51 son referencias cruzadas a estas mismas tareas desde otros
-> documentos, más la nota metodológica de `reporte-final.md` §0 que explica la convención.
-
----
+| Mejora | Dónde se describe |
+|---|---|
+| `ros_master_uri` de `/runtime/status` debe informar del valor real del proceso | `red.md` §4-ter.7 |
+| Doble restauración de la localización al cerrar el mapeo (gestor de mapeo + gestor de runtime) | `estado-actual.md` §9-quater |
+| Conectar la sesión del dashboard desde cualquier página | `solucion-problemas.md` §10.7 |
+| Fusión RGB-D, opción A | `analisis-alcance.md` §4.4 |
 
 ## 5. Qué NO está en este alcance
 

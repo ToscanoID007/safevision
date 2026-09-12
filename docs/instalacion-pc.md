@@ -191,9 +191,7 @@ devuelve `ok: false`.
 Hace falta **aplicar un perfil de runtime**. Ver `docs/manual-operacion.md`, sección
 "Aplicar un perfil", y `docs/estado-actual.md` §1 para la explicación completa.
 
-> **[PENDIENTE: el botón para aplicar el perfil existe en una versión del dashboard que
-> todavía no está versionada en este repositorio (`docs/estado-actual.md` §5). Hasta que
-> se publique, el perfil se aplica con `curl` — ver `docs/manual-operacion.md`.]**
+> El botón está en la página **Pilotada** del dashboard desde `v1-validado-pilotada`. Ver `docs/manual-operacion.md`, sección 2.
 
 ## 8. Desinstalar
 

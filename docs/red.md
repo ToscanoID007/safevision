@@ -95,7 +95,7 @@ ssh pi@yahboom.local "ip -o link show wlan0 | awk '{print \$17}'"
 echo "ROBOT_HOST=192.168.1.50" > scripts/robot.env
 ```
 
-**[PENDIENTE: decidir con el profesor si se reserva una IP fija, y anotarla aquí.]**
+**Decisión tomada:** sí conviene la reserva DHCP. **[PENDIENTE (estudiante): configurarla en el módem y anotar aquí la IP.]** Mientras tanto la red autónoma y `run_dashboard.sh` hacen que no sea imprescindible.
 
 ## 4. Alternativa: IP estática en el robot
 
@@ -239,7 +239,7 @@ El robot sigue teniendo el puerto Ethernet: vuelve a enchufar el cable, espera u
 entra por la IP de `eth0`. Por eso **el cable se retira sólo después** de comprobar que el
 Wi-Fi funciona.
 
-**[PENDIENTE: ejecutar este procedimiento y anotar aquí la red elegida y la IP resultante.]**
+**Ejecutado el 2026-09-11:** red `Mega_2.4G_38FE` guardada con `autoconnect` y prioridad 10; el robot arranca sin cable y obtiene su dirección por DHCP (`.15`, después `.10`), que `run_dashboard.sh` resuelve por `yahboom.local`.
 ## 4-ter. Red autónoma: el robot crea su propia red cuando no hay ninguna
 
 **El problema.** El robot cambia de sitio: laboratorio, casa, un pasillo, un patio sin
@@ -501,7 +501,7 @@ sudo tailscale up
 Ambos quedan en una red privada cifrada. El robot sigue **sin** exponer nada a Internet:
 sólo es accesible desde los dispositivos de tu cuenta.
 
-**[PENDIENTE: decidir si se instala Tailscale, y quién administra la cuenta.]**
+**Decisión tomada:** no se instala Tailscale por ahora; añadiría superficie a un sistema sin autenticación. La red autónoma cubre el uso sin infraestructura.
 
 ## 8. Referencia rápida
 

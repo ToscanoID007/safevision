@@ -449,7 +449,7 @@ se vacía en cada reinicio y el estado del runtime nace vacío.
 > publicar el dashboard que ya tiene el botón (`docs/estado-actual.md` §5.5), o crear una
 > unidad `safevision-runtime-default.service` que aplique un perfil por defecto tras
 > arrancar el Robot Server.
-> **[PENDIENTE: decisión de alcance del profesor.]**
+> **Decisión tomada:** no se crea un servicio de perfil por defecto. El arranque sin motores es seguro por diseño, y con la página *Pilotada* aplicar el perfil es un clic.
 
 ### 10.3 Los servicios no arrancan al encender
 
@@ -512,6 +512,18 @@ en marcha**: no consultan al gestor y pisan sus nodos.
 
 **Verificación de la versión.** En el robot: `cd ~/robot_custom && git describe --tags`.
 Debe ser `v1.1-gestor-robusto` o posterior.
+
+## 10.7 "Robot no conectado" nada más arrancar el dashboard
+
+**Síntoma.** Recién arrancado el dashboard, las páginas *Mapear*, *Mapas* o *Programar*
+responden *"Robot no conectado"* aunque el robot esté en la red.
+
+**Causa.** La sesión del dashboard se asocia al robot al visitar **Pilotada** o **Nodos**,
+que toman la dirección del entorno (`run_dashboard.sh` la exporta). Las demás páginas no lo
+hacen por sí solas.
+
+**Qué hacer.** Abre primero la portada, *Pilotada* o *Nodos*. Es un comportamiento
+heredado del dashboard; queda como mejora futura conectar en cualquier página.
 
 ## 11. Dónde están los registros
 
