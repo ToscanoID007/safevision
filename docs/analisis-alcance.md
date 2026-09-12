@@ -278,9 +278,9 @@ Por orden de importancia:
    → `docs/estado-actual.md` §5.5
 2. **Ejecutar `docs/validacion.md`** y registrar resultados con fecha y responsable. Sin
    esto, el objetivo 8 y el producto 6 se quedan sin evidencia.
-3. **Rotar las credenciales expuestas** (`docs/security-scan.md`): la contraseña SSH del
-   robot y la PSK del Wi-Fi están publicadas en GitHub, en la rama por defecto. Es
-   independiente del alcance técnico y **no debería entregarse el proyecto sin esto**.
+3. ~~Rotar las credenciales expuestas~~ (`docs/security-scan.md`). **Descartado por
+   decisión del estudiante el 2026-09-12**: se mantienen. Ese mismo día la rama por
+   defecto de GitHub pasó a ser `wip-handoff`.
 4. **Depurar los mapas** y dejar uno de referencia documentado.
 5. **Sincronizar el repositorio del robot** (`ec0c02b` → `HEAD`).
 
