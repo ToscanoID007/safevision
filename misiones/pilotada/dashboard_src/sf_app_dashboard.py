@@ -1552,6 +1552,55 @@ def _runtime_proxy_json(
         )
 
 
+@app.route("/nodos")
+def nodos():
+    global robot_ip
+    global robot_estado
+
+    # Igual que Pilotada: sin panel de IP, se toma del entorno si la sesion
+    # aun no conoce el robot.
+    if not robot_ip:
+        candidate = os.environ.get(
+            "SAFEVISION_ROBOT_IP",
+            ""
+        ).strip()
+        ip = validar_ip(candidate) if candidate else None
+        if ip:
+            try:
+                robot_estado = consultar_robot(ip)
+                robot_ip = ip
+            except Exception:
+                pass
+
+    return render_template("nodos.html")
+
+
+@app.route("/runtime/resources")
+def dashboard_runtime_resources():
+    return _runtime_proxy_json(
+        "GET",
+        "/resources",
+        timeout=6
+    )
+
+
+@app.route(
+    "/runtime/resource/<nombre>",
+    methods=["POST"]
+)
+def dashboard_runtime_resource(nombre):
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    return _runtime_proxy_json(
+        "POST",
+        "/resource/" + nombre,
+        payload={"action": data.get("action")},
+        timeout=150
+    )
+
+
 @app.route(
     "/runtime/status"
 )

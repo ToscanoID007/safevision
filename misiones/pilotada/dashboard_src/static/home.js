@@ -183,7 +183,8 @@ const routes = {
   "Misión Automática": "/automatica",
   "Mapear": "/mapas/mapear",
   "Programar misión": "/programar",
-  "Mapas": "/mapas"
+  "Mapas": "/mapas",
+  "Nodos": "/nodos"
 };
 
 document.querySelectorAll("[data-name]").forEach(button => {
