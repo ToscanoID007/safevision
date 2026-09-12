@@ -74,3 +74,41 @@ class PidAliveTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SpawnReconciliaTest(unittest.TestCase):
+    """_spawn debe terminar un proceso poseido cuyo nodo no esta, y relanzar.
+
+    Se ejecuta en la PC redirigiendo el estado y los registros a un directorio
+    temporal; el comando lanzado es un `sleep`, no un nodo ROS.
+    """
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        self.tmp = tempfile.mkdtemp(prefix="sf_rm_test_")
+        self._state, self._logs = rm.STATE_FILE, rm.LOG_DIR
+        rm.STATE_FILE = Path(self.tmp) / "estado.json"
+        rm.LOG_DIR = Path(self.tmp) / "logs"
+
+    def tearDown(self):
+        import shutil
+        rm._terminate_owned("recurso_test")
+        rm.STATE_FILE, rm.LOG_DIR = self._state, self._logs
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_proceso_poseido_vivo_se_reemplaza(self):
+        primero = rm._spawn("recurso_test", "sleep 30")
+        self.assertTrue(rm._pid_alive(primero))
+        segundo = rm._spawn("recurso_test", "sleep 30")
+        self.assertNotEqual(primero, segundo, "no relanzo: devolvio el mismo proceso")
+        self.assertFalse(rm._pid_alive(primero), "el resto anterior sigue vivo")
+        self.assertTrue(rm._pid_alive(segundo))
+
+    def test_proceso_poseido_zombi_se_olvida_y_relanza(self):
+        primero = rm._spawn("recurso_test", "sleep 30")
+        os.kill(primero, signal.SIGKILL)
+        time.sleep(0.2)
+        segundo = rm._spawn("recurso_test", "sleep 30")
+        self.assertNotEqual(primero, segundo)
+        self.assertTrue(rm._pid_alive(segundo))
