@@ -17,7 +17,7 @@ Consúltalo como referencia; no hace falta leerlo entero.
 
 ---
 
-## 1. Índice de los 44 endpoints
+## 1. Índice de los 46 endpoints
 
 | Método | Ruta | Sección |
 |---|---|---|
@@ -27,6 +27,8 @@ Consúltalo como referencia; no hace falta leerlo entero.
 | POST | `/runtime/profile` | [Runtime](#3-runtime) |
 | POST | `/runtime/control` | [Runtime](#3-runtime) |
 | POST | `/runtime/keyboard` | [Runtime](#3-runtime) |
+| GET | `/runtime/resources` | [Runtime](#3-runtime) |
+| POST | `/runtime/resource/<nombre>` | [Runtime](#3-runtime) |
 | GET | `/video_feed` | [Vídeo](#4-vídeo) |
 | GET | `/maps` | [Mapas](#5-mapas) |
 | GET | `/maps/<nombre>/image` | [Mapas](#5-mapas) |
@@ -255,6 +257,45 @@ curl -X POST http://192.168.1.13:8091/runtime/keyboard \
 > **intencionado**: así el robot se detiene si el operador se desconecta.
 
 ---
+
+### `GET /runtime/resources` — recursos individuales (v1.2)
+
+Lista de los 14 recursos que conoce el gestor, con estado real, PID poseído, requisitos que
+faltan, dependientes activos y acciones permitidas. Es lo que consume la página *Nodos*.
+
+```json
+{"ok": true, "mapping_active": false,
+ "profile": {"requested": "pilotada", "inferred": "navegacion", "map": "HAB2"},
+ "start_order": ["driver","core","selector","mando","lidar","localization","pose_exporter","navigation","nav_queue"],
+ "resources": [
+   {"name": "lidar", "active": true, "pid": 21941, "read_only": false,
+    "deps": ["driver"], "missing_deps": [],
+    "dependents": ["localization","pose_exporter","navigation","nav_queue"],
+    "active_dependents": ["localization","pose_exporter","navigation","nav_queue"],
+    "can_start": false, "can_stop": true, "reason": ""}
+ ]}
+```
+
+### `POST /runtime/resource/<nombre>` — arrancar o detener un recurso (v1.2)
+
+Body: `{"action": "start"}` o `{"action": "stop"}`.
+
+```bash
+curl -X POST $R/runtime/resource/lidar -H 'Content-Type: application/json' -d '{"action":"stop"}'
+```
+
+```json
+{"ok": true, "message": "lidar detenido.",
+ "steps": [{"resource":"nav_queue","ok":true},{"resource":"navigation","ok":true},
+           {"resource":"pose_exporter","ok":true},{"resource":"localization","ok":true},
+           {"resource":"lidar","ok":true}]}
+```
+
+*Arrancar* resuelve antes los requisitos que falten (`start navigation` → `lidar`,
+`localization`, `navigation`); *detener* apaga antes los dependientes en orden inverso.
+Errores: `409` con `steps` hasta el paso que falló; `409` si hay una sesión de mapeo activa,
+si el recurso es de solo lectura o no existe; `400` si la acción no es `start`/`stop`.
+Verificado en el robot (T6, 2026-09-13).
 
 ## 4. Vídeo
 

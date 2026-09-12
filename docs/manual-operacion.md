@@ -164,6 +164,34 @@ Los fallos frecuentes:
 
 ---
 
+## 2-bis. Gestor de nodos (página *Nodos*)
+
+Desde v1.2 el dashboard tiene una página **Nodos** (portada, tarjeta 07; o `/nodos`) que
+muestra cada recurso del gestor de runtime con su estado real, su PID, lo que requiere y lo
+que depende de él, y permite **arrancarlo o detenerlo por separado**.
+
+| Acción | Efecto |
+|---|---|
+| *Arrancar* un recurso | Arranca antes sus requisitos que falten, en el orden del gestor |
+| *Detener* un recurso | Detiene antes todo lo que depende de él, en orden inverso |
+| Detener `driver` | Apaga el robot entero (todo depende del driver) |
+| Detener `mando` | Pasa el control al teclado web; *Arrancar* lo devuelve al mando |
+
+**Precondiciones.** Robot conectado. **Con una sesión de mapeo activa todas las acciones se
+deshabilitan**: el mapeo tiene su propio ciclo con *rollback* y se gestiona desde *Mapear*.
+`ros_master`, `robot_server`, `camera`, `teclado` y `mapping` son de solo lectura.
+
+**Resultado esperado.** El registro de la página muestra cada paso ejecutado (`✓` o `✗`) y la
+fila cambia de color. Arrancar una cadena completa tarda hasta un minuto.
+
+**Si falla.** El mensaje indica el recurso concreto que no arrancó; las causas son las de
+la sección 2 (`core`: robot movido durante la calibración; `lidar`: USB; `localization`:
+sin mapa activo — aplica antes un perfil con mapa).
+
+> Es la alternativa al menú antiguo `api/gestor_nodos.py` de la terminal del robot, que
+> lanzaba *launch* de fábrica con los mismos nombres de nodo y pisaba los de SafeVision.
+> **No uses ese menú con SafeVision en marcha.**
+
 ## 3. Teleoperación
 
 ### 3.1 Con mando

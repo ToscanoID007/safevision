@@ -4981,6 +4981,51 @@ def models_export(nombre):
 
 
 
+# =========================================================
+# GESTOR DE NODOS · recursos individuales
+# Alternativa segura al menu antiguo api/gestor_nodos.py.
+# =========================================================
+
+@app.route("/runtime/resources")
+def runtime_resources():
+    return jsonify(
+        sf_runtime_manager.resources_view(
+            CONTROL_MODE
+        )
+    )
+
+
+@app.route(
+    "/runtime/resource/<nombre>",
+    methods=["POST"]
+)
+def runtime_resource(nombre):
+    global CONTROL_MODE
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    accion = str(
+        data.get("action") or ""
+    ).strip().lower()
+
+    if accion == "start":
+        result = sf_runtime_manager.start_resource(nombre)
+    elif accion == "stop":
+        result = sf_runtime_manager.stop_resource(nombre)
+    else:
+        return jsonify({
+            "ok": False,
+            "message": "Acción inválida: usa start o stop."
+        }), 400
+
+    if result.get("ok") and str(nombre).strip().lower() == "mando":
+        CONTROL_MODE = "mando" if accion == "start" else "teclado"
+
+    return jsonify(result), (200 if result.get("ok") else 409)
+
+
 def main():
     global CONTROL_MODE
 

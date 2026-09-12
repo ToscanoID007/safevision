@@ -524,6 +524,15 @@ Cortar la alimentación sin apagar el sistema operativo puede corromper la tarje
 
 ---
 
+### 9.9 Gestor de nodos
+
+La página *Nodos* (tarjeta 07 de la portada) muestra cada recurso del runtime con su estado
+real y permite arrancarlo o detenerlo individualmente. Arrancar un recurso arranca antes sus
+requisitos; detenerlo detiene antes lo que depende de él. Con una sesión de mapeo activa las
+acciones quedan deshabilitadas. Es la forma correcta de gestionar los nodos: el menú de
+terminal de la generación anterior (`api/gestor_nodos.py`) no debe utilizarse con el sistema
+en marcha, porque lanza nodos con los mismos nombres y provoca su cierre.
+
 ## 10. Normas de seguridad
 
 ### 10.1 Seguridad física
@@ -613,8 +622,9 @@ El Robot Server expone 44 puntos de acceso HTTP, documentados con ejemplos en
 
 | Método | Ruta | Función |
 |---|---|---|
-| GET | `/runtime/status` | Estado detallado de cada recurso |
+| GET | `/runtime/status`, `/runtime/resources` | Estado detallado de cada recurso |
 | POST | `/runtime/profile` | Aplicación de un perfil |
+| POST | `/runtime/resource/<nombre>` | Arranque o parada de un recurso individual |
 | POST | `/runtime/control`, `/runtime/keyboard` | Cambio de modo de control; teclado web |
 | GET | `/video_feed` | Vídeo MJPEG |
 | POST | `/initialpose` | Pose inicial |
@@ -624,30 +634,17 @@ El Robot Server expone 44 puntos de acceso HTTP, documentados con ejemplos en
 | POST | `/mission/prepare`, `/start`, `/cancel` | Misiones |
 | GET, POST, PUT, DELETE | `/maps`, `/models` | Catálogos |
 
-### 13.2 Ramas del repositorio
+### 13.2 Versiones
 
-`wip-handoff` es la rama de trabajo. Las ramas siguientes contienen trabajo terminado que,
-conforme a las reglas del proyecto, se incorpora a `wip-handoff` únicamente tras su
-validación en el robot.
+Todo el trabajo validado está integrado en `wip-handoff`. Las versiones se marcan con
+etiquetas anotadas; el robot se sincroniza a la etiqueta vigente y `git describe --tags`
+en `/home/pi/robot_custom` indica cuál ejecuta.
 
-| Rama | Contenido | Estado de verificación |
-|---|---|---|
-| `feature/red-autonoma-robot` | Conectividad autónoma: red conocida o punto de acceso propio | Verificada en el robot e instalada en él |
-| `feature/dashboard-runtime-profiles` | Dashboard con aplicación de perfiles desde la interfaz | Arranque y servicio verificados; pendiente la aplicación de un perfil con el robot en el suelo |
-| `chore/robot-alias` | Desactivación de alias heredados que interfieren con el runtime | Aplicada en el robot |
-| `fix/dsl-acciones` | Retirada de `girar` y `relocalizar` del validador | Verificada localmente |
-| `chore/mapas` | Depuración del catálogo de mapas | — |
-| `docs/migracion-wifi`, `chore/empaquetado` | Documentación | — |
-
-Para incorporar todas ellas a una copia local:
-
-```bash
-git checkout wip-handoff
-for b in feature/red-autonoma-robot feature/dashboard-runtime-profiles chore/robot-alias \
-         fix/dsl-acciones chore/mapas docs/migracion-wifi chore/empaquetado; do
-  git merge --no-ff origin/$b -m "merge: $b"
-done
-```
+| Etiqueta | Contenido |
+|---|---|
+| `v1-validado-pilotada` | Línea base: red autónoma, dashboard con perfiles, mapeo, alias, DSL, mapas |
+| `v1.1-gestor-robusto` | El gestor de runtime se recupera solo cuando un nodo muere por fuera |
+| `v1.2-gestor-nodos` | Página *Nodos* y endpoints de recursos individuales |
 
 ### 13.3 Reglas de trabajo
 

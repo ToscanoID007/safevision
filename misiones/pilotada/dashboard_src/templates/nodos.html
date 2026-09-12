@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SafeVision · Nodos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nodos.css') }}">
+</head>
+<body class="pv2-body nd-body">
+
+<header class="pv2-topbar">
+    <div class="pv2-brand">
+        <span class="pv2-brand-title">SafeVision</span>
+        <span class="pv2-brand-sub">Gestor de nodos</span>
+    </div>
+    <nav class="pv2-nav">
+        <a href="/">Inicio</a>
+        <a href="/pilotada">Pilotada</a>
+        <a href="/mapas/mapear">Mapear</a>
+        <a href="/nodos" class="is-active">Nodos</a>
+    </nav>
+    <div class="nd-topstatus">
+        <span id="ndProfile" class="pv2-badge">perfil: —</span>
+        <span id="ndConnection" class="pv2-badge">sin conexión</span>
+    </div>
+</header>
+
+<main class="nd-shell">
+
+    <section class="pv2-card nd-intro">
+        <h2>Recursos del runtime</h2>
+        <p>
+            Cada fila es un recurso que el gestor de runtime del robot posee y vigila.
+            Arrancar un recurso arranca antes sus requisitos; detenerlo detiene antes lo que
+            depende de él. Todo pasa por el gestor: no se lanzan <em>launch</em> sueltos.
+        </p>
+        <p id="ndMappingNotice" class="nd-notice" hidden>
+            Hay una sesión de mapeo activa. Las acciones están deshabilitadas: gestiona el
+            mapeo desde la página <a href="/mapas/mapear">Mapear</a>.
+        </p>
+    </section>
+
+    <section class="pv2-card nd-table-card">
+        <table class="nd-table">
+            <thead>
+                <tr>
+                    <th>Recurso</th>
+                    <th>Estado</th>
+                    <th>PID</th>
+                    <th>Requiere</th>
+                    <th>Dependen de él</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="ndRows">
+                <tr><td colspan="6" class="nd-empty">Consultando al robot…</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="pv2-card nd-log-card">
+        <h3>Registro</h3>
+        <pre id="ndLog" class="nd-log"></pre>
+    </section>
+
+</main>
+
+<script src="{{ url_for('static', filename='nodos.js') }}"></script>
+</body>
+</html>
