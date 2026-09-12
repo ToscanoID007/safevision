@@ -389,15 +389,27 @@ borrado del handoff §77.** El criterio *"no documentado como fallback"* falla: 
 el `.bashrc` del usuario que opera el robot son documentación de facto, y memoria muscular.
 Esto **confirma la regla 1 de `CLAUDE.md`** desde la evidencia, no desde la precaución.
 
-> **Riesgo real, no teórico.** Tres de esos alias —`mapeo_ligero`, `mapeo_denso`,
-> `sensores`— ejecutan scripts que empiezan con `killall -9 roslaunch rviz roscore`.
-> Si alguien los teclea por costumbre con los servicios activos, **matará el `roscore`
-> gestionado por systemd**. `systemd` lo reiniciará (`Restart=on-failure`), pero el Robot
-> Server quedará hablando con un Master nuevo y el estado en `/tmp` quedará
-> desincronizado. Está documentado en `docs/solucion-problemas.md`.
-> **RECOMENDACIÓN:** renombrar esos alias con prefijo `legacy_` en el `.bashrc`.
-> Es un cambio de una línea, fuera del repositorio, y evita un fallo difícil de diagnosticar.
-> **[PENDIENTE: decisión del profesor; requiere editar `~/.bashrc` en el robot.]**
+> **Riesgo real, no teórico.** Hay dos niveles, verificados con `grep` sobre los scripts:
+>
+> | Nivel | Alias | Script | Qué hace |
+> |---|---|---|---|
+> | **Destructivo** | `mapeo_denso`, `sensores` | `mapeo_denso.sh`, `emisor_sensores.sh` | Empiezan por `killall -9 roslaunch rviz roscore` |
+> | Conflictivo | `mapeo_ligero`, `mapear` | `mapeo_ligero.sh`, `auto_mapeo.sh` | No matan `roscore`, pero lanzan LiDAR y chasis por su cuenta |
+>
+> Si alguien teclea uno de los **destructivos** con los servicios activos, **matará el
+> `roscore` gestionado por systemd**. `systemd` lo reiniciará (`Restart=on-failure`), pero el
+> Robot Server quedará hablando con un Master nuevo y el estado en `/tmp` quedará
+> desincronizado: todo deja de responder sin un error claro.
+>
+> **APLICADO Y VERIFICADO el 2026-09-11.** `scripts/robot_desactivar_alias.sh` comentó
+> (no borró) los **cuatro** alias de riesgo de ambos niveles, con copia de seguridad en
+> `/home/pi/.bashrc.safevision-20260911_135236.bak`. Sobreviven a un reinicio. Los scripts
+> siguen accesibles por su ruta completa: se retiró el atajo, no la herramienta.
+> Instrucciones en `docs/solucion-problemas.md` §10.1.
+>
+> **Corrección respecto a la primera versión de este documento:** se dijo que eran *tres*
+> los alias destructivos, incluyendo `mapeo_ligero`. Es **falso**: `mapeo_ligero.sh` no
+> contiene ningún `killall`. Son **dos**.
 
 ---
 

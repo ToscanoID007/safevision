@@ -46,6 +46,42 @@ Donde el trazado no decide, se escribe **INCONCLUSO** y qué lo resolvería.
 > handoff §77.** Queda además confirmado que ni `systemd` ni `cron` invocan nada de `api/`
 > (`estado-actual.md` §6).
 
+### 0.2-ter Los 13 alias del robot — el invocador que vive fuera del repositorio
+
+Registro literal de `/home/pi/.bashrc:155-170` (verificado 2026-09-10). Es la razón por la
+que ningún fichero de `api/` ni de la raíz cumple los criterios de borrado del handoff §77:
+el criterio *"no documentado como fallback"* falla, porque estos alias son documentación de
+facto y memoria muscular del operador.
+
+| Alias | Invoca | Clasificación en este inventario | Riesgo con el runtime activo |
+|---|---|---|---|
+| `api` | `api/main_menu.py` | legacy (raíz del árbol) | — |
+| `api_sfv` | `api/main_menu.py` | legacy (duplicado del anterior) | — |
+| `menu_mapas` | `api/mapas.py` | legacy | — |
+| `mapear_2d` | `api/mapas_2d_iniciar.py` | legacy | lanza RViz remoto por SSH |
+| `sf_modo_espera` | `api/sf_modo_espera.py` | sin-referencias → **alcanzable** | — |
+| `pack_SF_m` | `api/sf_empaquetador.py` | herramienta → **alcanzable** | — |
+| `rcode` | `api/exportar_codigo.sh` | herramienta → **alcanzable** | — |
+| `rdirec` | `generar_arbol.py` | herramienta → **alcanzable** | — |
+| `vercodigo` | `cat codigo_completo.txt` | — (fichero ya no versionado) | — |
+| `mapeo_ligero` | `mapeo_ligero.sh` | experimento → **alcanzable** | ⚠️ lanza LiDAR y chasis |
+| `mapear` | `auto_mapeo.sh` | experimento → **alcanzable** | ⚠️ lanza LiDAR y chasis |
+| **`mapeo_denso`** | `mapeo_denso.sh` | experimento → **alcanzable** | 🔴 **`killall -9 roslaunch rviz roscore`** |
+| **`sensores`** | `emisor_sensores.sh` | experimento → **alcanzable** | 🔴 **`killall -9 roslaunch rviz roscore`** |
+
+**Los dos marcados en rojo destruyen el runtime gestionado por systemd.** Hay un script
+preparado para desactivarlos de forma reversible: `scripts/robot_desactivar_alias.sh`
+(ver `docs/solucion-problemas.md` §10.1).
+
+> **Corrección:** una versión anterior de `docs/estado-actual.md` afirmaba que eran *tres*
+> los alias destructivos, incluyendo `mapeo_ligero`. Verificado con `grep`: `mapeo_ligero.sh`
+> **no** contiene ningún `killall`. Son **dos**.
+
+`iniciar_mapeo.sh`, `probar_red.py` (raíz), `escanear_proyecto.sh`, `api/gestionar_mapas.py`,
+`api/lanzador_streaming.py`, `api/menu_red_ccn.py`, `api/sf_mision_pilotada.py` y
+`api/sf_servidor_descarga.py` **siguen sin invocador conocido**, ni en el repositorio ni en
+los alias.
+
 ### 0.3 Advertencia metodológica (importante)
 
 `sin-referencias` significa **"sin referencias dentro de este repositorio"**. No se pudo
