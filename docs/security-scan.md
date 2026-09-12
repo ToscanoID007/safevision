@@ -282,7 +282,8 @@ borraran de todos los árboles, los blobs seguirían recuperables desde cualquie
 **Consecuencias operativas (CONFIRMADO):**
 
 - La contraseña SSH del robot (H-1) es pública para cualquiera con acceso de lectura al
-  repositorio, y está en la rama por defecto.
+  repositorio. Estaba en la rama por defecto hasta el 2026-09-12, cuando se cambió a
+  `wip-handoff`; sigue en `backup/pilotada-v3-59e04bc` y en el historial.
 - La PSK de la red Wi-Fi doméstica (H-2) también, salvo en `wip-handoff`.
 - `391eec2` **no mitigó nada** fuera de `wip-handoff`.
 

@@ -382,7 +382,7 @@ La auditoría de seguridad (`docs/security-scan.md`) encontró y documentó:
   robot. La frontera de red es la única frontera de seguridad.
 - **ROS 1 no cifra ni autentica.** El `roscore` escucha en la IP de LAN.
 - **Credenciales históricas publicadas** en el repositorio (contraseña SSH del robot y
-  clave Wi-Fi), presentes en la rama por defecto de GitHub.
+  clave Wi-Fi), presentes en ramas de respaldo y en el historial de GitHub.
 
 > **Decisión (2026-09-12):** las credenciales no se rotan ni se purga el historial; se
 > mantienen tal cual por decisión del estudiante prestador. El análisis y el procedimiento
