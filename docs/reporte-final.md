@@ -441,8 +441,7 @@ con una página dedicada y los cuatro proxies necesarios. Comparada con la versi
 > es el código que se entrega**. Es un fallo de proceso, no de programación, y es
 > exactamente el tipo de problema que un sistema de control de versiones existe para evitar.
 
-**[PENDIENTE: ejecutar la prueba V-1 de `docs/validacion.md` y, si pasa, versionar esa
-versión del dashboard. Es la tarea pendiente número uno del proyecto.]**
+**Resuelto el 2026-09-13:** la prueba V-1 se superó (perfil aplicado en 51 s con los nueve recursos activos) y esa versión del dashboard está integrada en `wip-handoff` desde la etiqueta `v1-validado-pilotada`.
 
 ### 8.4 Resultados de la validación
 
@@ -548,8 +547,7 @@ Estimación: **entre media jornada y dos jornadas** de trabajo con el robot pres
 | **2.** Cerrar la opción A *(recomendado)* | ½ a 2 jornadas | Fusión LiDAR + RGB-D validada con obstáculos que el LiDAR 2D no ve. **Cumple el título literalmente** |
 | **3.** RGB-D completo (RTAB-Map, navegación 3D) | Semanas | Fuera del alcance de un servicio social |
 
-**[PENDIENTE: decisión del profesor responsable sobre qué camino se toma. Determina la
-redacción final de §4.2 y de §10.]**
+**Decisión tomada:** camino 2, opción A, a acometer tras la validación con LiDAR solo; en esta entrega se declara como trabajo futuro con el hardware y el software ya instalados.
 
 ---
 

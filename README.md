@@ -645,6 +645,7 @@ en `/home/pi/robot_custom` indica cuál ejecuta.
 | `v1-validado-pilotada` | Línea base: red autónoma, dashboard con perfiles, mapeo, alias, DSL, mapas |
 | `v1.1-gestor-robusto` | El gestor de runtime se recupera solo cuando un nodo muere por fuera |
 | `v1.2-gestor-nodos` | Página *Nodos* y endpoints de recursos individuales |
+| `v2.0-sistema-validado` | Prueba final del sistema completo superada; tiempos de espera del mapeo corregidos |
 
 ### 13.3 Reglas de trabajo
 

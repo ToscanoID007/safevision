@@ -472,7 +472,7 @@ curl -s http://192.168.1.13:8091/health        | python3 -m json.tool
 **Si falla:** anotar en qué recurso se detiene (`steps[]` de la respuesta lo dice) y
 consultar `docs/solucion-problemas.md`.
 
-**[PENDIENTE: ejecutar V-1 y registrar el resultado en `docs/validacion.md`.]**
+**EJECUTADA el 2026-09-13:** perfil `pilotada` aplicado en 51 s con los nueve recursos activos y `/health` en `ok: true` (directo al robot), y de nuevo en 54 s **a través del dashboard** en la prueba final. Registro en `docs/validacion.md`, sección "Pruebas automatizadas".
 
 ---
 
@@ -561,6 +561,32 @@ Nueve pruebas unitarias en la PC (T5) y validación T6 en el robot **a través d
 | Sanidad final | 19 nodos, `/scan` 7,76 Hz, `/odom` 20,0 Hz |
 
 **Etiqueta:** `v1.2-gestor-nodos`.
+
+## 9-quater. Prueba final del sistema completo (2026-09-13)
+
+Ejecutada sobre `wip-handoff` tras integrar v1.1 y v1.2, con el robot sólo por Wi-Fi.
+
+| # | Prueba | Resultado |
+|---|---|---|
+| PF.1 | Reinicio en frío sin cable | Vuelve en 115 s por `yahboom.local`; tres servicios `enabled/active`; `ROS_MASTER_URI` en la IP de Wi-Fi; 0 alias de riesgo; `fsck` limpio |
+| PF.2 | Perfil `pilotada` **a través del dashboard** | OK, 54 s, 9/9 activos |
+| PF.3 | Gestor de nodos por el dashboard | `nav_queue` detenido y arrancado, OK |
+| PF.4 | Autocuración: driver matado desde fuera y perfil repedido | OK, relanzado en 19 s |
+| PF.5 | Ciclo de mapeo **por el dashboard** | **Falló la primera vez**: el proxy esperaba 45 s y el robot tarda 55-60 s. Corregido (`fix/dashboard-timeout-mapeo`, 150 s) y repetido: inicio 54 s, descarte 60 s, restauración `pilotada`/`HAB2`, sin mapa espurio |
+| PF.6 | DSL | `ir/esperar/orientar` válidas; `girar`/`relocalizar` rechazadas al validar |
+| PF.7 | Pruebas unitarias | 14/14 |
+| PF.8 | Páginas del dashboard | 11/11 responden 200 |
+| PF.9 | Proxies al robot | estado, recursos, conexión, mapas, modelos: OK |
+| PF.10 | Sanidad del robot | 19 nodos, `/scan` 7,76 Hz, `/odom` 20,0 Hz, `/health ok`, disco 51 % |
+
+**Dos comportamientos observados que conviene conocer** (no son fallos, están documentados en
+`solucion-problemas.md`): la sesión del dashboard se conecta al robot al visitar *Pilotada* o
+*Nodos*, así que ir directo a *Mapear* nada más arrancar da "Robot no conectado"; y bajo carga
+el gestor de mapeo puede dejar su estado en `error` tras un descarte porque su restauración
+temporal interna espera 20 s a `map_server` — el gestor de runtime restaura igualmente y el
+siguiente ciclo lo limpia (verificado). Esa doble restauración queda como mejora futura.
+
+**Etiqueta:** `v2.0-sistema-validado`.
 
 ## 10. Documentos relacionados
 

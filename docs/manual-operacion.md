@@ -123,10 +123,7 @@ existente si el perfil es `pilotada`/`automatica`.
 
 ### Pasos — opción A: dashboard
 
-**[PENDIENTE: el control de perfiles existe en la versión del dashboard que aún no está
-versionada (`docs/estado-actual.md` §5). Cuando se publique, sustituir este apartado por:
-página "Pilotada" → elegir mapa y control → "Aplicar perfil". Mientras tanto, usar la
-opción B.]**
+Página **Pilotada** (portada, tarjeta 01): elige el mapa (`HAB2` de referencia) y el control, pulsa **Aplicar**. Tarda hasta dos minutos; el registro de la página muestra cada recurso. Verificado a través del dashboard el 2026-09-13 (prueba final PF.2, 54 s).
 
 ### Pasos — opción B: terminal
 

@@ -233,8 +233,7 @@ flujos de cámara + `move_base` es un escenario de recursos ajustado, y el suelo
 es la causa clásica de falsos obstáculos con `depthimage_to_laserscan`.
 
 **Estimación honesta:** entre media jornada y dos jornadas de trabajo con el robot
-delante, casi todo en D-5/D-6/D-9. **[PENDIENTE: decisión de alcance del profesor sobre
-si se acomete antes de la entrega o se declara trabajo futuro.]**
+delante, casi todo en D-5/D-6/D-9. **Decisión tomada (estudiante, 2026-09-13):** opción A, **después** de la validación en hardware con LiDAR solo; hasta entonces se declara trabajo futuro con el hardware y el software ya instalados.
 
 ---
 
