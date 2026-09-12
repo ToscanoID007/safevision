@@ -384,9 +384,9 @@ La auditoría de seguridad (`docs/security-scan.md`) encontró y documentó:
 - **Credenciales históricas publicadas** en el repositorio (contraseña SSH del robot y
   clave Wi-Fi), presentes en la rama por defecto de GitHub.
 
-> **`[PENDIENTE: rotar la contraseña del robot y la clave del Wi-Fi.` Es independiente del
-> alcance técnico y debe resolverse antes de dar por cerrado el proyecto. Procedimiento en
-> `docs/security-scan.md` §5.]**
+> **Decisión (2026-09-12):** las credenciales no se rotan ni se purga el historial; se
+> mantienen tal cual por decisión del estudiante prestador. El análisis y el procedimiento
+> quedan en `docs/security-scan.md` §5 por si la decisión cambia.
 
 ---
 
@@ -597,7 +597,7 @@ En orden de prioridad.
 |---|---|---|
 | 1 | Versionar el dashboard operativo (§8.3) | El producto 1 depende hoy de un directorio sin versionar |
 | 2 | Ejecutar `docs/validacion.md` | Sin ello, el objetivo 8 no tiene evidencia |
-| 3 | **Rotar las credenciales expuestas** | Están publicadas en la rama por defecto de GitHub |
+| 3 | ~~Rotar las credenciales expuestas~~ | Descartado por decisión (2026-09-12); ver §9.4 |
 | 4 | Depurar el catálogo de mapas | Quedan mapas de prueba sin limpiar |
 | 5 | Crear la imagen de respaldo de la microSD | Hoy la plataforma tiene un punto único de fallo |
 

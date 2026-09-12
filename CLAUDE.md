@@ -173,8 +173,8 @@ What is still open, in priority order (details in `docs/analisis-alcance.md` §6
    Until it is committed, the robot is only operable via `curl`.
    Run test V-1 of `docs/validacion.md` first.
 2. **Execute `docs/validacion.md`** (87 tests) and record the results.
-3. **Rotate the exposed credentials** (`docs/security-scan.md`): the robot's SSH
-   password and the Wi-Fi PSK are on GitHub's default branch.
+3. ~~Rotate the exposed credentials~~ — **decided 2026-09-12: not rotated, history
+   not rewritten, everything stays as is.** `docs/security-scan.md` remains as analysis.
 4. Optional, recommended: RGB-D fusion, option A (`docs/analisis-alcance.md` §4).
    The Astra Pro is already mounted and `depthimage_to_laserscan` is installed.
 
