@@ -92,7 +92,17 @@ ok "Modulo venv completo (con ensurepip)"
 info "3/6  Preparando el entorno virtual"
 
 if [ -d "$VENV" ] && [ -x "$VENV/bin/python" ]; then
-    ok "Ya existe un entorno virtual; se reutiliza ($VENV)"
+    VENV_VER="$(sed -n 's/^version *= *\([0-9]*\.[0-9]*\).*/\1/p' "$VENV/pyvenv.cfg" 2>/dev/null)"
+    VENV_REAL="$("$VENV/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)"
+    if [ "$VENV_VER" != "$PY_VER" ] || [ "$VENV_REAL" != "$VENV_VER" ]; then
+        fatal "Existe $VENV pero se creo con Python ${VENV_VER:-?} y aqui se usa Python $PY_VER
+       (un entorno virtual solo sirve con el Python que lo creo; pasa al compartir
+       el home entre dos sistemas). Borralo y vuelve a ejecutar:
+
+           rm -rf '$VENV'
+           PYTHON_BIN=$PYTHON_BIN $0"
+    fi
+    ok "Ya existe un entorno virtual con Python $VENV_VER; se reutiliza ($VENV)"
 else
     [ -e "$VENV" ] && [ ! -x "$VENV/bin/python" ] && \
         fatal "Existe $VENV pero esta incompleto. Borralo y vuelve a ejecutar: rm -rf '$VENV'"

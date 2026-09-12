@@ -100,6 +100,7 @@ lo reutiliza.
 |---|---|---|
 | `Falta el modulo venv` | Ubuntu no lo trae por defecto | `sudo apt install python3-venv` |
 | `Python 3.x es demasiado antiguo` | Ubuntu anterior a 20.04 | Actualiza el sistema |
+| `El entorno virtual no sirve con el Python de esta maquina` o `ModuleNotFoundError: No module named 'requests'` al arrancar | El `.venv` se creó con otro Python (otra máquina o un contenedor que comparte el home) | `rm -rf misiones/pilotada/dashboard_src/.venv` y repite `install_dashboard.sh` desde la máquina donde vas a usarlo |
 | `Fallo la instalacion de torch` | Sin Internet o proxy | Revisa la conexión y reintenta |
 | `Existe .venv pero esta incompleto` | Instalación interrumpida | `rm -rf misiones/pilotada/dashboard_src/.venv` y reintenta |
 

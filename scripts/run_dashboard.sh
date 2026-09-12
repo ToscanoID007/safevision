@@ -62,7 +62,20 @@ if [ ! -x "$VENV/bin/python" ]; then
 fi
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
-ok "Entorno virtual activado"
+# El entorno queda ligado al Python con el que se creo. Si se creo en otra
+# maquina o con otra version (por ejemplo, en un contenedor que comparte el
+# home), `activate` funciona pero los paquetes no estan donde este Python mira.
+if ! python -c 'import flask, requests' 2>/dev/null; then
+    VENV_VER="$(sed -n 's/^version *= *\([0-9]*\.[0-9]*\).*/\1/p' "$VENV/pyvenv.cfg" 2>/dev/null)"
+    PY_VER="$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)"
+    fatal "El entorno virtual no sirve con el Python de esta maquina.
+       Se creo con Python ${VENV_VER:-?} y ahora se ejecuta con Python ${PY_VER:-?}.
+       Vuelve a crearlo desde esta misma maquina:
+
+           rm -rf '$VENV'
+           PYTHON_BIN=python3.8 ./scripts/install_dashboard.sh   # o el python3 >= 3.8 que tengas"
+fi
+ok "Entorno virtual activado (Python ${PY_VER:-$(python --version 2>&1 | cut -d' ' -f2)})"
 
 # ---------------------------------------------------------------
 # 3. Resolucion de la IP del robot
