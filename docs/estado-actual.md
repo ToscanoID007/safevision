@@ -138,14 +138,22 @@ funcionan desde el primer segundo. Lo que no arranca solo es la parte que mueve 
 Es, de hecho, un comportamiento **seguro por defecto**: el robot no puede moverse hasta
 que alguien lo pide explícitamente.
 
-### 2.2 Higiene de datos (RECOMENDACIÓN, no urgente)
+### 2.2 Catálogo de mapas — depurado
 
-De los 6 mapas, cuatro son claramente pruebas y uno es un nombre de ejemplo sin limpiar
-(`nombre_de_tu_mapa`); tres son variantes de "habitación toscano" que difieren sólo en
-mayúsculas. Antes de la entrega conviene dejar **un solo mapa bueno y documentado**
-(`HAB2` es el que el código usa por defecto, `sf_operacion_pilotada.sh:4`) y borrar el
-resto desde el dashboard. No es un defecto técnico; es presentación.
-**[PENDIENTE: decisión del profesor o del estudiante sobre qué mapas conservar.]**
+De los 6 mapas que había, **se conservó únicamente `HAB2`** y se retiraron los otros cinco
+(`Hab2Tos`, `habitacion_toscano`, `Habitacion_toscano`, `habitacion_toscano2` y
+`nombre_de_tu_mapa`, este último un nombre de ejemplo sin limpiar). Tres de ellos eran
+variantes del mismo mapa que sólo diferían en mayúsculas.
+
+`HAB2` es el mapa por defecto del código (`sf_operacion_pilotada.sh:4`) y el que usan todos
+los ejemplos de la documentación.
+
+> Los mapas retirados siguen en el historial de Git: `git show <commit>^:mapping/maps/<n>.yaml`
+> los recupera si alguna vez hacen falta.
+
+**[PENDIENTE: construir el mapa del laboratorio en la práctica P03 y anotar aquí su nombre.
+Los mapas que siguen en el robot, en `/home/pi/robot_custom/mapping/maps/`, hay que
+borrarlos desde el dashboard o con `git pull` + limpieza manual.]**
 
 ---
 
