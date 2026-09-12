@@ -1,430 +1,1217 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SafeVision · Centro de control</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
+<style>
+:root{
+  --bg:#07111b;
+  --panel:#0a1721;
+  --line:#233646;
+  --line2:#2c4355;
+  --text:#eef6ff;
+  --muted:#7f95a8;
 
-    <title>SafeVision</title>
+  --blue:#4c91ff;
+  --violet:#8f7cff;
+  --cyan:#38c8c3;
+  --amber:#e3b64e;
+  --magenta:#cc78ff;
+  --teal:#4fb99e;
+  --ok:#4ed783;
+  --bad:#ee7483;
+}
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='style.css') }}"
-    >
+*{box-sizing:border-box}
+
+html,body{
+  margin:0;
+  min-height:100%;
+  background:var(--bg);
+  color:var(--text);
+}
+
+body{
+  padding:16px;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+button,input{font:inherit}
+
+.app{
+  max-width:1580px;
+  min-height:calc(100vh - 32px);
+  margin:0 auto;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  gap:12px;
+}
+
+/* =========================================================
+   CABECERA
+   ========================================================= */
+
+.topbar{
+  min-height:66px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:0 16px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+}
+
+.brand-mark{
+  width:40px;
+  height:40px;
+  border:1px solid #31495b;
+  border-radius:11px;
+  display:grid;
+  place-items:center;
+  background:#0e1d29;
+  color:#c4d8e7;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+
+.brand h1{
+  margin:0;
+  font-size:17px;
+}
+
+.brand p{
+  margin:3px 0 0;
+  color:var(--muted);
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+
+.top-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.robot-name{text-align:right}
+
+.robot-name b{
+  display:block;
+  font-size:9px;
+}
+
+.robot-name span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:7.5px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.status{
+  height:31px;
+  padding:0 10px;
+  border:1px solid rgba(78,215,131,.26);
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:var(--ok);
+  font-size:8px;
+  font-weight:900;
+}
+
+.status.status-off{
+  border-color:rgba(238,116,131,.25);
+  color:var(--bad);
+}
+
+.dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:currentColor;
+}
+
+/* =========================================================
+   CUERPO
+   ========================================================= */
+
+.main{
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,48%) minmax(0,52%);
+  gap:12px;
+}
+
+/* =========================================================
+   ROSMASTER X3
+   ========================================================= */
+
+.hero{
+  position:relative;
+  min-height:650px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  overflow:hidden;
+  background:#09151f;
+}
+
+.hero-grid{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      rgba(80,130,170,.022) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(80,130,170,.022) 1px,
+      transparent 1px
+    );
+  background-size:34px 34px;
+}
+
+.hero-head{
+  position:absolute;
+  z-index:5;
+  top:16px;
+  left:17px;
+  right:17px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  pointer-events:none;
+}
+
+.hero-kicker{
+  color:#6c8294;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.hero h2{
+  margin:4px 0 0;
+  font-size:19px;
+}
+
+.hero small{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:8px;
+}
+
+.stage-label{
+  border:1px solid #28404f;
+  border-radius:999px;
+  padding:6px 9px;
+  background:#0a1721;
+  color:#7d96aa;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+
+.hero-stage{
+  position:absolute;
+  inset:0;
+  cursor:grab;
+  touch-action:none;
+}
+
+.hero-stage:active{cursor:grabbing}
+
+#homeRobotCanvas{
+  position:absolute;
+  inset:74px 0 58px;
+  width:100%;
+  height:calc(100% - 132px);
+  display:block;
+}
+
+.fallback-robot{
+  position:absolute;
+  left:50%;
+  top:49%;
+  width:66%;
+  max-width:470px;
+  aspect-ratio:1.6;
+  transform:translate(-50%,-50%);
+  opacity:.78;
+  pointer-events:none;
+}
+
+.fallback-robot.stl-active{
+  display:none;
+}
+
+.fallback-platform{
+  position:absolute;
+  left:8%;
+  right:8%;
+  bottom:4%;
+  height:22%;
+  border:1px solid #1f3644;
+  transform:skewX(-24deg);
+  background:#0a1620;
+}
+
+.fallback-body{
+  position:absolute;
+  left:50%;
+  top:47%;
+  width:68%;
+  height:35%;
+  transform:translate(-50%,-50%) rotate(-8deg);
+  border:1px solid #2d776e;
+  border-radius:26px;
+  background:#123c3e;
+}
+
+.fallback-deck{
+  position:absolute;
+  left:37%;
+  top:29%;
+  width:29%;
+  height:21%;
+  border:1px solid #3c566a;
+  border-radius:14px;
+  background:#172635;
+}
+
+.fallback-lidar{
+  position:absolute;
+  left:48%;
+  top:16%;
+  width:9%;
+  aspect-ratio:1;
+  border:2px solid #42bfb4;
+  border-radius:50%;
+  background:#0d1923;
+}
+
+.fallback-wheel{
+  position:absolute;
+  width:10%;
+  height:30%;
+  border:1px solid #40586a;
+  border-radius:12px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #2a3d4b 0 7px,
+      #111922 7px 13px
+    );
+}
+
+.fw1{left:13%;top:39%}
+.fw2{right:13%;top:39%}
+.fw3{left:17%;bottom:15%}
+.fw4{right:17%;bottom:15%}
+
+.hero-controls{
+  position:absolute;
+  z-index:6;
+  left:17px;
+  right:17px;
+  bottom:17px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  pointer-events:none;
+}
+
+.hero-meta{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  color:#6f879a;
+  font-size:7.5px;
+}
+
+.hero-meta b{color:#a6bdce}
+
+.center-btn{
+  height:31px;
+  padding:0 10px;
+  border:1px solid var(--line2);
+  border-radius:9px;
+  background:#0a1721;
+  color:#95abba;
+  font-size:8px;
+  cursor:pointer;
+  pointer-events:auto;
+}
+
+/* =========================================================
+   MENÚ DERECHO
+   ========================================================= */
+
+.right-deck{
+  min-height:0;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  gap:12px;
+}
+
+/* CONEXIÓN */
+
+.connection{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  padding:12px 13px;
+  display:grid;
+  grid-template-columns:auto minmax(180px,1fr) auto auto;
+  gap:10px;
+  align-items:center;
+}
+
+.connection-title strong{
+  display:block;
+  font-size:10px;
+}
+
+.connection-title span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:7.5px;
+}
+
+.ip{
+  height:35px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#07131c;
+  color:#dce8f1;
+  padding:0 10px;
+  outline:none;
+  font-size:9px;
+}
+
+.ip:focus{
+  border-color:#3c6f9d;
+}
+
+.connect{
+  height:35px;
+  border:1px solid #3d6ea0;
+  border-radius:9px;
+  background:#184978;
+  color:#e8f3ff;
+  padding:0 13px;
+  font-size:8px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.connect:disabled{
+  opacity:.58;
+  cursor:wait;
+}
+
+.conn-state{
+  height:35px;
+  border:1px solid rgba(78,215,131,.24);
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:0 10px;
+  color:var(--ok);
+  font-size:8px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.conn-state.is-off{
+  border-color:rgba(238,116,131,.22);
+  color:var(--bad);
+}
+
+.conn-state .dot{
+  flex:0 0 auto;
+}
+
+/* TARJETAS */
+
+.cards{
+  min-height:0;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-rows:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+
+.card{
+  --accent:var(--blue);
+  position:relative;
+  min-width:0;
+  min-height:0;
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb,var(--accent) 7%,transparent),
+      transparent 48%
+    ),
+    #0a1721;
+  color:var(--text);
+  overflow:hidden;
+  cursor:pointer;
+  text-align:left;
+  transition:
+    transform .16s ease,
+    border-color .16s ease,
+    background .16s ease;
+}
+
+.card:hover{
+  transform:translateY(-2px);
+  border-color:
+    color-mix(
+      in srgb,
+      var(--accent) 44%,
+      #284152
+    );
+}
+
+.card:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+.card:before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  height:4px;
+  background:var(--accent);
+}
+
+.card-inner{
+  height:100%;
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+}
+
+.card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.number{
+  color:var(--accent);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+
+.icon{
+  width:35px;
+  height:35px;
+  border:1px solid
+    color-mix(
+      in srgb,
+      var(--accent) 48%,
+      #284152
+    );
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  background:#0c1924;
+  color:var(--accent);
+  font-size:15px;
+  font-weight:900;
+}
+
+.card h3{
+  margin:17px 0 0;
+  font-size:15px;
+  line-height:1.08;
+}
+
+.card p{
+  margin:6px 0 0;
+  max-width:90%;
+  color:var(--muted);
+  font-size:8px;
+  line-height:1.5;
+}
+
+.card-foot{
+  margin-top:auto;
+  padding-top:13px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  color:#667e92;
+  font-size:7px;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+
+.card-foot b{
+  color:var(--accent);
+  font-size:8px;
+}
+
+.pilotada{--accent:var(--blue)}
+.automatica{--accent:var(--violet)}
+.mapear{--accent:var(--cyan)}
+.programar{--accent:var(--amber)}
+.ai{--accent:var(--magenta)}
+.maps{--accent:var(--teal)}
+
+.card-art{
+  position:absolute;
+  right:-18px;
+  bottom:-18px;
+  width:105px;
+  height:105px;
+  opacity:.18;
+  pointer-events:none;
+}
+
+.card-art:before{
+  content:"";
+  position:absolute;
+  inset:16px;
+  border:1px solid var(--accent);
+  border-radius:50%;
+}
+
+.card-art:after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:8px;
+  bottom:8px;
+  width:1px;
+  background:var(--accent);
+}
+
+.card-art i{
+  position:absolute;
+  top:50%;
+  left:8px;
+  right:8px;
+  height:1px;
+  background:var(--accent);
+}
+
+/* =========================================================
+   DIAGNÓSTICO
+   ========================================================= */
+
+.diagnostic{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  padding:11px 12px;
+}
+
+.diag-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:9px;
+}
+
+.diag-top h2{
+  margin:0;
+  font-size:9px;
+}
+
+.diag-top span{
+  color:#647b8f;
+  font-size:7px;
+}
+
+.diag-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+}
+
+.diag-item{
+  min-height:43px;
+  border:1px solid #1f3241;
+  border-radius:9px;
+  background:#091620;
+  padding:7px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+
+.diag-item > span{
+  color:#adc0ce;
+  font-size:7.5px;
+  font-weight:800;
+}
+
+.diag-item .ok{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  color:var(--ok);
+  font-size:7px;
+  font-style:normal;
+}
+
+.diag-item .ok i{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:currentColor;
+}
+
+.diag-item.diag-off .ok{
+  color:var(--bad);
+}
+
+.diag-item.diag-unknown .ok{
+  color:#7f95a8;
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+.toast{
+  position:fixed;
+  z-index:9999;
+  left:50%;
+  bottom:24px;
+  transform:translate(-50%,18px);
+  min-width:220px;
+  max-width:min(520px,calc(100vw - 32px));
+  padding:10px 13px;
+  border:1px solid #2a4254;
+  border-radius:10px;
+  background:#0b1823;
+  color:#dceaf4;
+  font-size:9px;
+  text-align:center;
+  opacity:0;
+  pointer-events:none;
+  transition:.18s ease;
+}
+
+.toast.show{
+  opacity:1;
+  transform:translate(-50%,0);
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media(max-width:1150px){
+  .main{
+    grid-template-columns:1fr;
+  }
+
+  .hero{
+    min-height:560px;
+  }
+
+  .cards{
+    grid-template-rows:repeat(3,180px);
+  }
+}
+
+@media(max-width:760px){
+  body{padding:10px}
+
+  .topbar{
+    align-items:flex-start;
+    padding:12px;
+  }
+
+  .robot-name{
+    display:none;
+  }
+
+  .connection{
+    grid-template-columns:1fr;
+  }
+
+  .cards{
+    grid-template-columns:1fr;
+    grid-template-rows:none;
+  }
+
+  .card{
+    min-height:170px;
+  }
+
+  .diag-grid{
+    grid-template-columns:1fr 1fr;
+  }
+
+  #homeRobotCanvas{
+    inset:82px 0 64px;
+    height:calc(100% - 146px);
+  }
+}
+</style>
 </head>
 
-
-<body>
-
-<header class="topbar">
-
-    <div>
-        <h1>SafeVision</h1>
-        <span id="dashboardSubtitle">Misión Pilotada · Nivel 2</span>
-    </div>
-
-    <div
-        id="connectionBadge"
-        class="badge badge-off"
-    >
-        DESCONECTADO
-    </div>
-
-</header>
-
-
-<nav
-    class="dashboard-tabs"
-    aria-label="Modos SafeVision"
+<body
+  class="sv-home-body"
+  data-safevision-home-v3="real"
+  data-safevision-home-v6="right-deck"
 >
-    <button
-        id="pilotTabButton"
-        class="dashboard-tab is-active"
-        type="button"
-    >
-        Misión Pilotada
-    </button>
 
-    <a
-        class="dashboard-tab dashboard-tab-link"
-        href="/automatica"
-    >
-        Misión Automática
-    </a>
+<div class="app">
 
-    <a
-        class="dashboard-tab dashboard-tab-link"
-        href="/programar"
-    >
-        Programar
-    </a>
-</nav>
+  <header class="topbar">
 
+    <div class="brand">
+      <div class="brand-mark">SV</div>
 
-<main class="layout">
+      <div>
+        <h1>SafeVision</h1>
+        <p>Centro de control · Rosmaster X3</p>
+      </div>
+    </div>
 
-    <!-- ============================================== -->
-    <!-- CONFIGURACIÓN                                  -->
-    <!-- ============================================== -->
+    <div class="top-right">
 
-    <aside class="sidebar">
+      <div class="robot-name">
+        <b>ROSMASTER X3</b>
+        <span>Plataforma activa</span>
+      </div>
 
-        <section class="panel">
+      <div
+        id="homeConnectionBadge"
+        class="status status-off"
+      >
+        <span class="dot"></span>
+        <span id="homeConnectionText">
+          DESCONECTADO
+        </span>
+      </div>
 
-            <h2>Robot</h2>
+    </div>
 
-            <label>
-                IP Raspberry Pi
-            </label>
+  </header>
 
-            <div class="row">
+  <main class="main">
 
-                <input
-                    id="robotIp"
-                    type="text"
-                    placeholder="192.168.1.75"
-                    autocomplete="off"
-                >
+    <!-- ROSMASTER X3 -->
+    <section class="hero">
 
-                <button
-                    id="connectButton"
-                >
-                    Conectar
-                </button>
+      <div class="hero-grid"></div>
 
-            </div>
+      <div class="hero-head">
 
-        </section>
+        <div>
+          <div class="hero-kicker">
+            Gemelo visual
+          </div>
 
+          <h2>Rosmaster X3</h2>
 
-        <section class="panel">
-
-            <h2>Modelo</h2>
-
-            <form id="modelForm">
-
-                <label>
-                    Red neuronal (.pt)
-                </label>
-
-                <input
-                    id="modelPt"
-                    name="model_pt"
-                    type="file"
-                    accept=".pt"
-                    required
-                >
-
-
-                <label>
-                    Metadatos (.json) · opcional
-                </label>
-
-                <input
-                    id="modelJson"
-                    name="model_json"
-                    type="file"
-                    accept=".json"
-                >
-
-
-                <button
-                    type="submit"
-                    class="full"
-                >
-                    Cargar modelo
-                </button>
-
-            </form>
-
-
-            <div class="info-line">
-                <span>Activo</span>
-
-                <strong id="modelName">
-                    Ninguno
-                </strong>
-            </div>
-
-        </section>
-
-
-        <section class="panel">
-
-            <h2>Confianza</h2>
-
-            <div class="confidence-row">
-
-                <input
-                    id="confidence"
-                    type="range"
-                    min="5"
-                    max="95"
-                    value="50"
-                >
-
-                <strong id="confidenceValue">
-                    50%
-                </strong>
-
-            </div>
-
-        </section>
-
-
-        <section class="panel">
-
-            <h2>Estado</h2>
-
-            <div class="status">
-                <span>ROS</span>
-                <strong id="rosStatus">—</strong>
-            </div>
-
-            <div class="status">
-                <span>Driver</span>
-                <strong id="driverStatus">—</strong>
-            </div>
-
-            <div class="status">
-                <span>LiDAR</span>
-                <strong id="lidarStatus">—</strong>
-            </div>
-
-            <div class="status">
-                <span>Mapa</span>
-                <strong id="mapStatus">—</strong>
-            </div>
-
-            <div class="status">
-                <span>Cámara</span>
-                <strong id="cameraStatus">—</strong>
-            </div>
-
-            <div class="status">
-                <span>Control</span>
-                <strong id="controlStatus">—</strong>
-            </div>
-
-        </section>
-
-    </aside>
-
-
-    <!-- ============================================== -->
-    <!-- VISUALIZACIÓN                                  -->
-    <!-- ============================================== -->
-
-    <section
-        id="pilotModeView"
-        class="workspace"
-    >
-
-        <div class="view-grid">
-
-            <section class="panel viewer-panel">
-
-                <div class="viewer-title">
-
-                    <div>
-                        <h2>Cámara + IA</h2>
-
-                        <span>
-                            Procesamiento en PC
-                        </span>
-                    </div>
-
-                </div>
-
-
-                <div class="viewer">
-
-                    <div
-                        id="videoPlaceholder"
-                        class="placeholder"
-                    >
-                        Conecta el robot para mostrar video.
-                    </div>
-
-
-                    <img
-                        id="videoFeed"
-                        alt="SafeVision Video"
-                        hidden
-                    >
-
-                </div>
-
-            </section>
-
-
-            <section class="panel viewer-panel">
-
-                <div class="viewer-title">
-
-                    <div>
-                        <h2>Mapa</h2>
-
-                        <span>
-                            Nivel 2
-                        </span>
-                    </div>
-
-                </div>
-
-
-                <div class="map-toolbar">
-
-                    <select id="mapSelect">
-                        <option value="">
-                            Seleccionar mapa...
-                        </option>
-                    </select>
-
-                    <button
-                        id="loadMapButton"
-                        type="button"
-                    >
-                        Mostrar
-                    </button>
-
-                    <button
-                        id="mapZoomOut"
-                        type="button"
-                        title="Alejar"
-                    >
-                        −
-                    </button>
-
-                    <button
-                        id="mapZoomIn"
-                        type="button"
-                        title="Acercar"
-                    >
-                        +
-                    </button>
-
-                    <button
-                        id="mapReset"
-                        type="button"
-                        title="Encuadrar mapa"
-                    >
-                        Ajustar
-                    </button>
-
-                    <button
-                        id="mapAreaZoom"
-                        type="button"
-                        title="Seleccionar una zona para ampliar"
-                    >
-                        Zoom área
-                    </button>
-
-                    <button
-                        id="mapLock"
-                        type="button"
-                        title="Bloquear el encuadre actual"
-                    >
-                        Bloquear
-                    </button>
-
-
-                </div>
-
-                <div
-                    id="mapViewport"
-                    class="viewer map"
-                >
-
-                    <div
-                        id="mapPlaceholder"
-                        class="placeholder"
-                    >
-                        Conecta el robot para consultar mapas.
-                    </div>
-
-                    <div
-                        id="mapScene"
-                        class="map-scene"
-                        hidden
-                    >
-
-                        <img
-                            id="mapImage"
-                            alt="Mapa SafeVision"
-                            draggable="false"
-                        >
-
-                        <div
-                            id="robotMarker"
-                            class="robot-marker"
-                            title="Posición del robot"
-                            hidden
-                        >
-                            ▲
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
+          <small>
+            Modelo real del robot · interacción 3D
+          </small>
         </div>
 
+        <div class="stage-label">
+          STL REAL · 7 PIEZAS
+        </div>
 
-        <section class="panel">
+      </div>
 
-            <h2>Modelo cargado</h2>
+      <div
+        id="robotStage"
+        class="hero-stage"
+      >
+        <canvas
+          id="homeRobotCanvas"
+          aria-label="Modelo 3D del Rosmaster X3"
+        ></canvas>
 
-            <div id="modelMetadata">
-                Sin modelo.
-            </div>
+        <div
+          id="robot"
+          class="fallback-robot"
+          aria-hidden="true"
+        >
+          <div class="fallback-platform"></div>
+          <div class="fallback-wheel fw1"></div>
+          <div class="fallback-wheel fw2"></div>
+          <div class="fallback-wheel fw3"></div>
+          <div class="fallback-wheel fw4"></div>
+          <div class="fallback-body"></div>
+          <div class="fallback-deck"></div>
+          <div class="fallback-lidar"></div>
+        </div>
+      </div>
 
-        </section>
+      <div class="hero-controls">
 
+        <div class="hero-meta">
+          <span>
+            <b>INTERACCIÓN</b>
+            · arrastrar para rotar · rueda para zoom
+          </span>
 
-        <section class="panel">
+          <span>
+            <b>MODELO</b>
+            · URDF + STL Yahboom
+          </span>
+        </div>
 
-            <h2>Clases</h2>
+        <button
+          id="resetView"
+          class="center-btn"
+          type="button"
+        >
+          Centrar vista
+        </button>
 
-            <div
-                id="classes"
-                class="classes"
-            >
-                <span class="muted">
-                    Sin clases disponibles.
-                </span>
-            </div>
-
-        </section>
-
-
-        <section class="panel">
-
-            <h2>Actividad</h2>
-
-            <div
-                id="log"
-                class="log"
-            >
-                SafeVision Dashboard preparado.
-            </div>
-
-        </section>
+      </div>
 
     </section>
 
-</main>
+    <!-- MENÚ DERECHO -->
+    <section class="right-deck">
 
+      <!-- CONEXIÓN IP -->
+      <section class="connection">
 
-<script
-    src="{{ url_for('static', filename='app.js') }}"
-></script>
+        <div class="connection-title">
+          <strong>Conexión</strong>
+          <span>
+            Raspberry Pi · Rosmaster X3
+          </span>
+        </div>
+
+        <input
+          id="homeRobotIp"
+          class="ip"
+          value="192.168.1.75"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="IP Raspberry Pi"
+        >
+
+        <button
+          id="connectBtn"
+          class="connect"
+          type="button"
+        >
+          CONECTAR
+        </button>
+
+        <div
+          id="homeConnectDetail"
+          class="conn-state is-off"
+        >
+          <span class="dot"></span>
+          <span>Esperando conexión</span>
+        </div>
+
+      </section>
+
+      <!-- TODAS LAS FUNCIONES -->
+      <section class="cards">
+
+        <button
+          type="button"
+          class="card pilotada"
+          data-name="Misión Pilotada"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">01</span>
+              <span class="icon">⌁</span>
+            </span>
+
+            <span>
+              <h3>Misión Pilotada</h3>
+              <p>
+                Control directo con cámara,
+                mapa, mando y teclado.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>Control manual</span>
+              <b>ENTRAR →</b>
+            </span>
+
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="card automatica"
+          data-name="Misión Automática"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">02</span>
+              <span class="icon">◎</span>
+            </span>
+
+            <span>
+              <h3>Misión Automática</h3>
+              <p>
+                Navegación autónoma y ejecución
+                de misiones guardadas.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>Navegación</span>
+              <b>ENTRAR →</b>
+            </span>
+
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="card mapear"
+          data-name="Mapear"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">03</span>
+              <span class="icon">▦</span>
+            </span>
+
+            <span>
+              <h3>Mapear</h3>
+              <p>
+                Crear el entorno mediante
+                SLAM y LiDAR.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>Entorno</span>
+              <b>ABRIR →</b>
+            </span>
+
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="card programar"
+          data-name="Programar misión"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">04</span>
+              <span class="icon">⌘</span>
+            </span>
+
+            <span>
+              <h3>Programar misión</h3>
+              <p>
+                Diseñar rutas, puntos y
+                secuencias de navegación.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>Planificación</span>
+              <b>ABRIR →</b>
+            </span>
+
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="card ai"
+          data-name="Modelos / IA"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">05</span>
+              <span class="icon">◉</span>
+            </span>
+
+            <span>
+              <h3>Modelos / IA</h3>
+              <p>
+                Redes neuronales, metadatos,
+                clases e inferencia.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>IA / visión</span>
+              <b>ABRIR →</b>
+            </span>
+
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="card maps"
+          data-name="Mapas"
+        >
+          <span class="card-inner">
+
+            <span class="card-head">
+              <span class="number">06</span>
+              <span class="icon">▤</span>
+            </span>
+
+            <span>
+              <h3>Mapas</h3>
+              <p>
+                Biblioteca y administración
+                de mapas guardados.
+              </p>
+            </span>
+
+            <span class="card-art"><i></i></span>
+
+            <span class="card-foot">
+              <span>Cartografía</span>
+              <b>ABRIR →</b>
+            </span>
+
+          </span>
+        </button>
+
+      </section>
+
+    </section>
+
+  </main>
+
+  <!-- DIAGNÓSTICO -->
+  <section class="diagnostic">
+
+    <div class="diag-top">
+      <h2>
+        DIAGNÓSTICO DEL SISTEMA
+      </h2>
+
+      <span>
+        Estado resumido
+      </span>
+    </div>
+
+    <div class="diag-grid">
+
+      <div
+        class="diag-item diag-unknown"
+        data-diag="ros"
+      >
+        <span>ROS MASTER</span>
+        <strong class="ok"><i></i><b>—</b></strong>
+      </div>
+
+      <div
+        class="diag-item diag-unknown"
+        data-diag="driver"
+      >
+        <span>DRIVER</span>
+        <strong class="ok"><i></i><b>—</b></strong>
+      </div>
+
+      <div
+        class="diag-item diag-unknown"
+        data-diag="lidar"
+      >
+        <span>LiDAR</span>
+        <strong class="ok"><i></i><b>—</b></strong>
+      </div>
+
+      <div
+        class="diag-item diag-unknown"
+        data-diag="camera"
+      >
+        <span>CÁMARA</span>
+        <strong class="ok"><i></i><b>—</b></strong>
+      </div>
+
+      <div
+        class="diag-item diag-unknown"
+        data-diag="navigation"
+      >
+        <span>NAVEGACIÓN</span>
+        <strong class="ok"><i></i><b>—</b></strong>
+      </div>
+
+    </div>
+
+  </section>
+
+</div>
+
+<div
+  id="toast"
+  class="toast"
+  role="status"
+  aria-live="polite"
+></div>
+
+<script src="{{ url_for('static', filename='home.js') }}"></script>
 
 </body>
 </html>

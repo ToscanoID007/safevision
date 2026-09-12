@@ -35,6 +35,42 @@ class MotorInferencia:
         self.stream_fps = None
         self._last_stream_frame_at = None
 
+        # SAFEVISION 7E - SHARED INFERENCE STREAM
+        # Un único productor realiza captura + inferencia + JPEG.
+        # Todos los clientes /video_feed consumen el último frame.
+        self._shared_stream_condition = (
+            threading.Condition(
+                threading.RLock()
+            )
+        )
+
+        self._shared_stream_thread = None
+        self._shared_stream_url = None
+        self._shared_stream_stop = False
+
+        self._shared_stream_jpeg = None
+        self._shared_stream_version = 0
+
+        self._shared_stream_clients = 0
+        self._shared_stream_idle_since = None
+
+        # SAFEVISION 7F - LATEST FRAME CAPTURE
+        #
+        # La captura corre SIEMPRE separada de YOLO.
+        # Si la cámara produce más cuadros de los que YOLO puede
+        # procesar, los cuadros viejos se descartan y solamente
+        # se procesa el más nuevo. Así no se acumulan segundos
+        # de video atrasado.
+        self._source_capture_thread = None
+        self._source_capture_url = None
+        self._source_capture_stop = False
+
+        self._source_capture_frame = None
+        self._source_capture_version = 0
+        self._source_capture_at = None
+
+
+
 
     @staticmethod
     def _normalizar_indices(value):
@@ -489,12 +525,174 @@ class MotorInferencia:
             return frame
 
 
-    def generar_stream(self, stream_url):
+    def _shared_stream_start(
+        self,
+        stream_url
+    ):
+        previous = None
+
+        with self._shared_stream_condition:
+            current = self._shared_stream_thread
+
+            if (
+                current is not None
+                and current.is_alive()
+                and self._shared_stream_url
+                == stream_url
+            ):
+                return
+
+            if (
+                current is not None
+                and current.is_alive()
+            ):
+                self._shared_stream_stop = True
+
+                self._shared_stream_condition.notify_all()
+
+                previous = current
+
+
+        if previous is not None:
+            previous.join(
+                timeout=2.0
+            )
+
+
+        with self._shared_stream_condition:
+            current = self._shared_stream_thread
+
+            if (
+                current is not None
+                and current.is_alive()
+                and self._shared_stream_url
+                == stream_url
+            ):
+                return
+
+            if (
+                current is not None
+                and current.is_alive()
+            ):
+                raise RuntimeError(
+                    "El stream IA anterior no terminó."
+                )
+
+            self._shared_stream_url = (
+                stream_url
+            )
+
+            self._shared_stream_stop = False
+
+            self._shared_stream_jpeg = None
+            self._shared_stream_version = 0
+
+            worker = threading.Thread(
+                target=self._shared_stream_worker,
+                args=(stream_url,),
+                name="safevision-inference-stream",
+                daemon=True
+            )
+
+            self._shared_stream_thread = worker
+
+            worker.start()
+
+
+    def _source_capture_start(
+        self,
+        stream_url
+    ):
+        previous = None
+
+        with self._shared_stream_condition:
+            current = (
+                self._source_capture_thread
+            )
+
+            if (
+                current is not None
+                and current.is_alive()
+                and self._source_capture_url
+                == stream_url
+                and not self._source_capture_stop
+            ):
+                return
+
+            if (
+                current is not None
+                and current.is_alive()
+            ):
+                self._source_capture_stop = True
+
+                self._shared_stream_condition.notify_all()
+
+                previous = current
+
+
+        if previous is not None:
+            previous.join(
+                timeout=2.5
+            )
+
+
+        with self._shared_stream_condition:
+            current = (
+                self._source_capture_thread
+            )
+
+            if (
+                current is not None
+                and current.is_alive()
+            ):
+                raise RuntimeError(
+                    "La captura anterior no terminó."
+                )
+
+            self._source_capture_url = (
+                stream_url
+            )
+
+            self._source_capture_stop = False
+
+            self._source_capture_frame = None
+            self._source_capture_version = 0
+            self._source_capture_at = None
+
+            worker = threading.Thread(
+                target=self._source_capture_worker,
+                args=(stream_url,),
+                name="safevision-latest-frame-capture",
+                daemon=True
+            )
+
+            self._source_capture_thread = (
+                worker
+            )
+
+            worker.start()
+
+
+    def _source_capture_worker(
+        self,
+        stream_url
+    ):
         cap = None
 
+        try:
+            while True:
+                with self._shared_stream_condition:
+                    if (
+                        self._source_capture_stop
+                        or
+                        self._shared_stream_stop
+                        or
+                        self._source_capture_url
+                        != stream_url
+                    ):
+                        break
 
-        while True:
-            try:
+
                 if (
                     cap is None
                     or
@@ -504,7 +702,7 @@ class MotorInferencia:
                         cap.release()
 
                     print(
-                        "[VIDEO] Conectando a {}".format(
+                        "[VIDEO] Captura latest-frame conectando a {}".format(
                             stream_url
                         )
                     )
@@ -513,67 +711,279 @@ class MotorInferencia:
                         stream_url
                     )
 
+                    try:
+                        cap.set(
+                            cv2.CAP_PROP_BUFFERSIZE,
+                            1
+                        )
+                    except Exception:
+                        pass
+
                     if not cap.isOpened():
                         time.sleep(
-                            0.5
+                            0.25
                         )
 
                         continue
-
-                    with self.lock:
-                        self._last_stream_frame_at = None
 
 
                 ok, frame = cap.read()
 
                 if not ok:
                     cap.release()
-
                     cap = None
 
                     time.sleep(
-                        0.25
+                        0.10
                     )
 
                     continue
 
 
-                now = time.perf_counter()
+                captured_at = (
+                    time.monotonic()
+                )
 
-                with self.lock:
-                    previous = (
-                        self._last_stream_frame_at
+
+                with self._shared_stream_condition:
+                    if (
+                        self._source_capture_stop
+                        or
+                        self._shared_stream_stop
+                        or
+                        self._source_capture_url
+                        != stream_url
+                    ):
+                        break
+
+                    # Reemplazar, jamás encolar.
+                    self._source_capture_frame = (
+                        frame
                     )
 
-                    self._last_stream_frame_at = now
+                    self._source_capture_version += 1
+
+                    self._source_capture_at = (
+                        captured_at
+                    )
+
+                    self._shared_stream_condition.notify_all()
+
+
+        except Exception as exc:
+            print(
+                "[VIDEO] Captura latest-frame error: {}".format(
+                    exc
+                )
+            )
+
+
+        finally:
+            if cap is not None:
+                cap.release()
+
+            with self._shared_stream_condition:
+                if (
+                    self._source_capture_thread
+                    is threading.current_thread()
+                ):
+                    self._source_capture_thread = None
+
+                self._source_capture_stop = False
+
+                self._shared_stream_condition.notify_all()
+
+
+    def _shared_stream_worker(
+        self,
+        stream_url
+    ):
+        source_thread = None
+        last_source_version = -1
+
+        try:
+            self._source_capture_start(
+                stream_url
+            )
+
+
+            while True:
+                frame = None
+                captured_at = None
+                source_version = (
+                    last_source_version
+                )
+
+
+                with self._shared_stream_condition:
+                    if self._shared_stream_stop:
+                        break
+
+                    clients = int(
+                        self._shared_stream_clients
+                        or
+                        0
+                    )
+
+                    idle_since = (
+                        self._shared_stream_idle_since
+                    )
+
 
                     if (
-                        previous is not None
+                        clients <= 0
                         and
-                        now > previous
+                        idle_since is not None
+                        and
+                        (
+                            time.monotonic()
+                            -
+                            idle_since
+                        )
+                        >= 2.0
                     ):
-                        instant_stream_fps = (
-                            1.0
-                            /
-                            (now - previous)
+                        break
+
+
+                    while True:
+                        if self._shared_stream_stop:
+                            break
+
+                        clients = int(
+                            self._shared_stream_clients
+                            or
+                            0
                         )
 
-                        self.stream_fps = (
-                            self._smooth(
-                                self.stream_fps,
-                                instant_stream_fps
+                        idle_since = (
+                            self._shared_stream_idle_since
+                        )
+
+                        if (
+                            clients <= 0
+                            and
+                            idle_since is not None
+                            and
+                            (
+                                time.monotonic()
+                                -
+                                idle_since
                             )
+                            >= 2.0
+                        ):
+                            break
+
+
+                        version = int(
+                            self._source_capture_version
+                            or
+                            0
+                        )
+
+                        source_frame = (
+                            self._source_capture_frame
+                        )
+
+                        if (
+                            source_frame is not None
+                            and
+                            version
+                            != last_source_version
+                        ):
+                            # El capturador crea un ndarray nuevo
+                            # por cada read(); tomar la referencia
+                            # es suficiente y evita otra copia.
+                            frame = source_frame
+
+                            source_version = version
+
+                            captured_at = (
+                                self._source_capture_at
+                            )
+
+                            break
+
+
+                        source_thread = (
+                            self._source_capture_thread
+                        )
+
+                        if (
+                            source_thread is None
+                            or
+                            not source_thread.is_alive()
+                        ):
+                            break
+
+
+                        self._shared_stream_condition.wait(
+                            timeout=0.25
                         )
 
 
-                frame = self.procesar_frame(
+                if self._shared_stream_stop:
+                    break
+
+
+                if frame is None:
+                    clients = int(
+                        self._shared_stream_clients
+                        or
+                        0
+                    )
+
+                    idle_since = (
+                        self._shared_stream_idle_since
+                    )
+
+                    if (
+                        clients <= 0
+                        and
+                        idle_since is not None
+                        and
+                        (
+                            time.monotonic()
+                            -
+                            idle_since
+                        )
+                        >= 2.0
+                    ):
+                        break
+
+
+                    self._source_capture_start(
+                        stream_url
+                    )
+
+                    time.sleep(
+                        0.02
+                    )
+
+                    continue
+
+
+                # Marcar YA este source frame como consumido.
+                # Si durante YOLO llegan 5, 10 o 20 nuevos,
+                # en la siguiente vuelta saltaremos directo
+                # al más reciente.
+                last_source_version = (
+                    source_version
+                )
+
+
+                output_started = (
+                    time.perf_counter()
+                )
+
+
+                processed = self.procesar_frame(
                     frame
                 )
 
 
                 correcto, buffer = cv2.imencode(
                     ".jpg",
-                    frame,
+                    processed,
                     [
                         int(
                             cv2.IMWRITE_JPEG_QUALITY
@@ -586,36 +996,229 @@ class MotorInferencia:
                     continue
 
 
+                payload = buffer.tobytes()
+
+
+                output_at = (
+                    time.perf_counter()
+                )
+
+
+                with self.lock:
+                    previous = (
+                        self._last_stream_frame_at
+                    )
+
+                    self._last_stream_frame_at = (
+                        output_at
+                    )
+
+                    if (
+                        previous is not None
+                        and
+                        output_at > previous
+                    ):
+                        instant_stream_fps = (
+                            1.0
+                            /
+                            (
+                                output_at
+                                -
+                                previous
+                            )
+                        )
+
+                        self.stream_fps = (
+                            self._smooth(
+                                self.stream_fps,
+                                instant_stream_fps
+                            )
+                        )
+
+
+                if captured_at is not None:
+                    age_ms = (
+                        time.monotonic()
+                        -
+                        captured_at
+                    ) * 1000.0
+
+                    # Diagnóstico ocasional si por alguna razón
+                    # el frame procesado vuelve a envejecer.
+                    if age_ms > 750.0:
+                        print(
+                            "[VIDEO] Aviso: frame procesado con {:.0f} ms de edad.".format(
+                                age_ms
+                            )
+                        )
+
+
+                with self._shared_stream_condition:
+                    if (
+                        self._shared_stream_url
+                        != stream_url
+                    ):
+                        break
+
+                    self._shared_stream_jpeg = (
+                        payload
+                    )
+
+                    self._shared_stream_version += 1
+
+                    self._shared_stream_condition.notify_all()
+
+
+        except Exception as exc:
+            print(
+                "[VIDEO] Productor IA latest-frame error: {}".format(
+                    exc
+                )
+            )
+
+
+        finally:
+            with self._shared_stream_condition:
+                self._source_capture_stop = True
+
+                source_thread = (
+                    self._source_capture_thread
+                )
+
+                if (
+                    self._shared_stream_thread
+                    is threading.current_thread()
+                ):
+                    self._shared_stream_thread = None
+
+                    self._shared_stream_stop = False
+
+                self._shared_stream_condition.notify_all()
+
+
+            if (
+                source_thread is not None
+                and
+                source_thread.is_alive()
+            ):
+                source_thread.join(
+                    timeout=2.5
+                )
+
+
+    def generar_stream(
+        self,
+        stream_url
+    ):
+        with self._shared_stream_condition:
+            self._shared_stream_clients += 1
+
+            self._shared_stream_idle_since = None
+
+
+        self._shared_stream_start(
+            stream_url
+        )
+
+
+        last_version = -1
+
+
+        try:
+            while True:
+                payload = None
+                version = last_version
+
+                with self._shared_stream_condition:
+                    while True:
+                        if (
+                            self._shared_stream_url
+                            != stream_url
+                        ):
+                            return
+
+                        version = int(
+                            self._shared_stream_version
+                            or
+                            0
+                        )
+
+                        if (
+                            self._shared_stream_jpeg
+                            is not None
+                            and
+                            version
+                            != last_version
+                        ):
+                            payload = (
+                                self._shared_stream_jpeg
+                            )
+
+                            break
+
+
+                        worker = (
+                            self._shared_stream_thread
+                        )
+
+                        if (
+                            worker is None
+                            or
+                            not worker.is_alive()
+                        ):
+                            break
+
+
+                        self._shared_stream_condition.wait(
+                            timeout=1.0
+                        )
+
+
+                if payload is None:
+                    self._shared_stream_start(
+                        stream_url
+                    )
+
+                    continue
+
+
+                last_version = version
+
+
                 yield (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n\r\n"
                     +
-                    buffer.tobytes()
+                    payload
                     +
                     b"\r\n"
                 )
 
 
-            except GeneratorExit:
-                break
+        except GeneratorExit:
+            return
 
 
-            except Exception as exc:
-                print(
-                    "[VIDEO] Error: {}".format(
-                        exc
+        finally:
+            with self._shared_stream_condition:
+                self._shared_stream_clients = max(
+                    0,
+                    int(
+                        self._shared_stream_clients
+                        or
+                        0
                     )
+                    -
+                    1
                 )
 
-                if cap is not None:
-                    cap.release()
+                if (
+                    self._shared_stream_clients
+                    <=
+                    0
+                ):
+                    self._shared_stream_idle_since = (
+                        time.monotonic()
+                    )
 
-                    cap = None
-
-                time.sleep(
-                    0.5
-                )
-
-
-        if cap is not None:
-            cap.release()
+                self._shared_stream_condition.notify_all()

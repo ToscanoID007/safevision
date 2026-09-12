@@ -73,23 +73,128 @@ function renderRobot(robot) {
 }
 
 
-function startVideo() {
+function stopVideoStream() {
+    const img =
+        $("videoFeed");
+
+    if (!img) {
+        return;
+    }
+
+    img.onload =
+        null;
+
+    img.onerror =
+        null;
+
+    img.removeAttribute(
+        "src"
+    );
+}
+
+
+async function startVideo() {
     const img =
         $("videoFeed");
 
     const placeholder =
         $("videoPlaceholder");
 
+    if (!img) {
+        return;
+    }
+
+    stopVideoStream();
+
+    let endpoint =
+        "/video_feed_raw";
+
+    try {
+        const response =
+            await fetch(
+                "/model_info",
+                {
+                    cache:
+                        "no-store"
+                }
+            );
+
+        if (response.ok) {
+            const info =
+                await response.json();
+
+            if (
+                info
+                &&
+                info.loaded
+            ) {
+                endpoint =
+                    "/video_feed";
+            }
+        }
+
+    } catch (_) {
+        // Si IA no responde, usar passthrough ligero.
+    }
+
+    window.__safeVisionVideoEndpoint =
+        endpoint;
+
+    img.onload =
+        () => {
+            img.hidden =
+                false;
+
+            if (placeholder) {
+                placeholder.hidden =
+                    true;
+            }
+        };
+
+    img.onerror =
+        () => {
+            if (placeholder) {
+                placeholder.hidden =
+                    false;
+
+                placeholder.textContent =
+                    "Cámara no disponible.";
+            }
+        };
 
     img.src =
-        "/video_feed?t="
+        endpoint
+        +
+        "?t="
         +
         Date.now();
-
-
-    img.hidden = false;
-    placeholder.hidden = true;
 }
+
+
+/* SAFEVISION 7D - VIDEO LIFECYCLE */
+window.addEventListener(
+    "pagehide",
+    stopVideoStream
+);
+
+window.addEventListener(
+    "beforeunload",
+    stopVideoStream
+);
+
+
+/* SAFEVISION7E-BFCache */
+window.addEventListener(
+    "pageshow",
+    event => {
+        if (
+            event.persisted
+        ) {
+            startVideo();
+        }
+    }
+);
+
 
 
 async function connectRobot() {
@@ -349,6 +454,9 @@ async function uploadModel(event) {
         renderModel(
             data.model
         );
+
+
+        startVideo();
 
 
         log(
@@ -726,6 +834,7 @@ if (mapButton) {
 
 const mapView = {
     scale: 1,
+    rotation: 0,
     x: 0,
     y: 0,
     dragging: false,
@@ -735,26 +844,225 @@ const mapView = {
 
 
 function applyMapView() {
-    const scene =
-        $("mapScene");
+    const scene = $("mapScene");
 
     if (!scene) {
         return;
     }
 
     scene.style.transform =
-        `translate(${mapView.x}px, ${mapView.y}px) scale(${mapView.scale})`;
+        "translate(" + mapView.x + "px, " + mapView.y + "px) "
+        + "scale(" + mapView.scale + ") "
+        + "rotate(" + Number(mapView.rotation || 0) + "deg)";
+
+    const rotationSlider =
+        document.getElementById(
+            "pv2MapRotation"
+        );
+
+    const rotationValue =
+        document.getElementById(
+            "pv2MapRotationValue"
+        );
+
+    const rotationRounded =
+        Math.round(
+            Number(
+                mapView.rotation
+                ||
+                0
+            )
+        );
+
+    if (rotationSlider) {
+        rotationSlider.value =
+            String(rotationRounded);
+    }
+
+    if (rotationValue) {
+        rotationValue.textContent =
+            String(rotationRounded)
+            +
+            "°";
+    }
 
     if (
         typeof window.safeVisionNavRenderMarkers
-        ===
-        "function"
+        === "function"
     ) {
         window.requestAnimationFrame(
             window.safeVisionNavRenderMarkers
         );
     }
 }
+
+// =========================================================
+// SAFEVISION ETAPA 7B - PILOTADA V2 UX
+// =========================================================
+
+function safeVisionMapClientToUv(clientX, clientY) {
+    const viewport = document.getElementById("mapViewport");
+    const scene = document.getElementById("mapScene");
+    const image = document.getElementById("mapImage");
+
+    const meta =
+        (
+            typeof safeVisionMapPose !== "undefined"
+            &&
+            safeVisionMapPose
+        )
+            ? safeVisionMapPose.meta
+            : null;
+
+    if (!viewport || !scene || !image || !meta) {
+        return null;
+    }
+
+    const vr = viewport.getBoundingClientRect();
+
+    const sw = Number(scene.clientWidth);
+    const sh = Number(scene.clientHeight);
+
+    const ibw = Number(image.clientWidth || sw);
+    const ibh = Number(image.clientHeight || sh);
+
+    const mw = Number(meta.width);
+    const mh = Number(meta.height);
+
+    const scale = Number(mapView.scale || 1);
+    const radians =
+        Number(mapView.rotation || 0)
+        * Math.PI
+        / 180;
+
+    if (
+        !Number.isFinite(sw) || sw <= 0
+        || !Number.isFinite(sh) || sh <= 0
+        || !Number.isFinite(ibw) || ibw <= 0
+        || !Number.isFinite(ibh) || ibh <= 0
+        || !Number.isFinite(mw) || mw <= 0
+        || !Number.isFinite(mh) || mh <= 0
+        || !Number.isFinite(scale) || scale <= 0
+    ) {
+        return null;
+    }
+
+    const cx = Number(scene.offsetLeft || 0) + sw / 2;
+    const cy = Number(scene.offsetTop || 0) + sh / 2;
+
+    const tx =
+        (
+            clientX - vr.left
+            - cx
+            - Number(mapView.x || 0)
+        ) / scale;
+
+    const ty =
+        (
+            clientY - vr.top
+            - cy
+            - Number(mapView.y || 0)
+        ) / scale;
+
+    const c = Math.cos(radians);
+    const s = Math.sin(radians);
+
+    /* inversa de rotate(r) */
+    const lx = c * tx + s * ty;
+    const ly = -s * tx + c * ty;
+
+    const sceneX = sw / 2 + lx;
+    const sceneY = sh / 2 + ly;
+
+    /*
+     * El mapa usa object-fit: contain.
+     * Convertimos únicamente dentro del raster real.
+     */
+    const ds = Math.min(ibw / mw, ibh / mh);
+    const rw = mw * ds;
+    const rh = mh * ds;
+
+    const left =
+        Number(image.offsetLeft || 0)
+        + (ibw - rw) / 2;
+
+    const top =
+        Number(image.offsetTop || 0)
+        + (ibh - rh) / 2;
+
+    const u = (sceneX - left) / rw;
+    const v = (sceneY - top) / rh;
+
+    if (
+        !Number.isFinite(u)
+        || !Number.isFinite(v)
+        || u < 0 || u > 1
+        || v < 0 || v > 1
+    ) {
+        return null;
+    }
+
+    return {
+        u,
+        v,
+        sceneX,
+        sceneY
+    };
+}
+
+
+function safeVisionFillUprightText(
+    ctx,
+    text,
+    x,
+    y,
+    maxWidth
+) {
+    const radians =
+        Number(mapView.rotation || 0)
+        * Math.PI
+        / 180;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-radians);
+
+    if (maxWidth === undefined) {
+        ctx.fillText(text, 0, 0);
+    } else {
+        ctx.fillText(text, 0, 0, maxWidth);
+    }
+
+    ctx.restore();
+}
+
+
+function safeVisionStrokeUprightText(
+    ctx,
+    text,
+    x,
+    y,
+    maxWidth
+) {
+    const radians =
+        Number(mapView.rotation || 0)
+        * Math.PI
+        / 180;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-radians);
+
+    if (maxWidth === undefined) {
+        ctx.strokeText(text, 0, 0);
+    } else {
+        ctx.strokeText(text, 0, 0, maxWidth);
+    }
+
+    ctx.restore();
+}
+
+
 
 
 function focusMapView() {
@@ -778,6 +1086,8 @@ function resetMapView() {
     mapView.scale = 1;
     mapView.x = 0;
     mapView.y = 0;
+
+    mapView.rotation = 0;
 
     applyMapView();
 }
@@ -3330,13 +3640,13 @@ function updateRobotAlignmentGuide(
         ctx.shadowBlur =
             0;
 
-        ctx.strokeText(
+        safeVisionStrokeUprightText(ctx,
             text,
             textX,
             textY
         );
 
-        ctx.fillText(
+        safeVisionFillUprightText(ctx,
             text,
             textX,
             textY
@@ -3832,210 +4142,93 @@ if (safeVisionMapButton) {
     }
 
 
-    function showCalibrationPoint(
-        clientX,
-        clientY
-    ) {
-
-        const scene =
-            getScene();
-
-        const image =
-            getMapImage();
-
+    function showCalibrationPoint(clientX, clientY) {
         const point =
             document.getElementById(
                 "mapCalibrationPoint"
             );
 
-        if (
-            !scene
-            ||
-            !image
-            ||
-            !point
-        ) {
+        if (!point) {
             return;
         }
 
+        const p =
+            safeVisionMapClientToUv(
+                clientX,
+                clientY
+            );
 
-        const imageRect =
-            image.getBoundingClientRect();
+        if (!p) {
+            point.hidden = true;
+            return;
+        }
 
-        const sceneRect =
-            scene.getBoundingClientRect();
-
-
-        const x =
-            clientX
-            -
-            sceneRect.left;
-
-        const y =
-            clientY
-            -
-            sceneRect.top;
-
-
-        point.style.left =
-            `${x}px`;
-
-        point.style.top =
-            `${y}px`;
-
-        point.hidden =
-            false;
+        point.style.left = `${p.sceneX}px`;
+        point.style.top = `${p.sceneY}px`;
+        point.hidden = false;
     }
 
 
-    function screenToMap(
-        clientX,
-        clientY
-    ) {
 
-        if (
-            !safeVisionMapPose
-            ||
-            !safeVisionMapPose.meta
-        ) {
+    function screenToMap(clientX, clientY) {
+        if (!safeVisionMapPose || !safeVisionMapPose.meta) {
             return null;
         }
 
-
-        const image =
-            getMapImage();
-
-        if (!image) {
-            return null;
-        }
-
-
-        const rect =
-            image.getBoundingClientRect();
-
-
-        if (
-            clientX < rect.left
-            ||
-            clientX > rect.right
-            ||
-            clientY < rect.top
-            ||
-            clientY > rect.bottom
-        ) {
-            return null;
-        }
-
-
-        const meta =
-            safeVisionMapPose.meta;
-
-
-        const width =
-            Number(
-                meta.width
-            );
-
-        const height =
-            Number(
-                meta.height
-            );
-
-        const resolution =
-            Number(
-                meta.resolution
-            );
-
-        const originX =
-            Number(
-                meta.origin.x
-            );
-
-        const originY =
-            Number(
-                meta.origin.y
-            );
-
-        const originYaw =
-            Number(
-                meta.origin.yaw || 0
-            );
-
-
-        const u =
-            (
-                clientX
-                -
-                rect.left
-            )
-            /
-            rect.width;
-
-        const v =
-            (
+        const p =
+            safeVisionMapClientToUv(
+                clientX,
                 clientY
-                -
-                rect.top
-            )
-            /
-            rect.height;
+            );
 
+        if (!p) {
+            return null;
+        }
 
-        const pixelX =
-            u * width;
+        const meta = safeVisionMapPose.meta;
+        const width = Number(meta.width);
+        const height = Number(meta.height);
+        const resolution = Number(meta.resolution);
+        const originX = Number(meta.origin.x);
+        const originY = Number(meta.origin.y);
+        const originYaw = Number(meta.origin.yaw || 0);
 
-        const pixelY =
-            v * height;
+        if (
+            !Number.isFinite(width)
+            || !Number.isFinite(height)
+            || !Number.isFinite(resolution)
+            || resolution <= 0
+            || !Number.isFinite(originX)
+            || !Number.isFinite(originY)
+            || !Number.isFinite(originYaw)
+        ) {
+            return null;
+        }
 
-
-        const localX =
-            pixelX
-            *
-            resolution;
-
+        const localX = p.u * width * resolution;
         const localY =
-            (
-                height
-                -
-                pixelY
-            )
-            *
-            resolution;
+            (height - p.v * height)
+            * resolution;
 
-
-        const cosO =
-            Math.cos(
-                originYaw
-            );
-
-        const sinO =
-            Math.sin(
-                originYaw
-            );
-
-
-        const mapX =
-            originX
-            +
-            cosO * localX
-            -
-            sinO * localY;
-
-        const mapY =
-            originY
-            +
-            sinO * localX
-            +
-            cosO * localY;
-
+        const c = Math.cos(originYaw);
+        const s = Math.sin(originYaw);
 
         return {
-            x: mapX,
-            y: mapY,
-            u,
-            v
+            x:
+                originX
+                + c * localX
+                - s * localY,
+
+            y:
+                originY
+                + s * localX
+                + c * localY,
+
+            u: p.u,
+            v: p.v
         };
     }
+
 
 
     function cancelCalibration() {
@@ -4559,6 +4752,137 @@ if (safeVisionMapButton) {
         timer: null
     };
 
+    const SAFEVISION_PILOTADA_NAV_SESSION =
+        "safevision.pilotada.nav.v2";
+
+
+    function restoreNavPlannerSession() {
+        if (window.location.pathname !== "/pilotada") {
+            return;
+        }
+
+        try {
+            const raw =
+                sessionStorage.getItem(
+                    SAFEVISION_PILOTADA_NAV_SESSION
+                );
+
+            if (!raw) {
+                return;
+            }
+
+            const saved = JSON.parse(raw);
+
+            if (!saved || typeof saved !== "object") {
+                return;
+            }
+
+            const points = [];
+
+            if (Array.isArray(saved.points)) {
+                saved.points.forEach(
+                    item => {
+                        if (!item || typeof item !== "object") {
+                            return;
+                        }
+
+                        const x = Number(item.x);
+                        const y = Number(item.y);
+                        const u = Number(item.u);
+                        const v = Number(item.v);
+
+                        const yaw =
+                            (
+                                item.yaw === null
+                                || item.yaw === undefined
+                            )
+                                ? null
+                                : Number(item.yaw);
+
+                        if (
+                            !Number.isFinite(x)
+                            || !Number.isFinite(y)
+                            || !Number.isFinite(u)
+                            || !Number.isFinite(v)
+                            || (
+                                yaw !== null
+                                && !Number.isFinite(yaw)
+                            )
+                        ) {
+                            return;
+                        }
+
+                        points.push({
+                            id: String(item.id || ""),
+                            x,
+                            y,
+                            u,
+                            v,
+                            yaw
+                        });
+                    }
+                );
+            }
+
+            navPlanner.points = points;
+
+            navPlanner.map =
+                (
+                    typeof saved.map === "string"
+                    && saved.map
+                )
+                    ? saved.map
+                    : null;
+
+            navPlanner.orientationPointId = null;
+            navPlanner.executionSeen = false;
+
+        } catch (_) {
+            // sessionStorage opcional.
+        }
+    }
+
+
+    function persistNavPlannerSession() {
+        if (window.location.pathname !== "/pilotada") {
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(
+                SAFEVISION_PILOTADA_NAV_SESSION,
+                JSON.stringify({
+                    map: navPlanner.map,
+
+                    points:
+                        navPlanner.points.map(
+                            p => ({
+                                id: p.id,
+                                x: Number(p.x),
+                                y: Number(p.y),
+                                u: Number(p.u),
+                                v: Number(p.v),
+
+                                yaw:
+                                    (
+                                        p.yaw === null
+                                        || p.yaw === undefined
+                                    )
+                                        ? null
+                                        : Number(p.yaw)
+                            })
+                        )
+                })
+            );
+        } catch (_) {
+            // no bloquea navegación.
+        }
+    }
+
+
+    restoreNavPlannerSession();
+
+
 
     function navPointId(index) {
 
@@ -4608,163 +4932,69 @@ if (safeVisionMapButton) {
     }
 
 
-    function navScreenToMap(
-        clientX,
-        clientY
-    ) {
-
-        const image =
-            document.getElementById(
-                "mapImage"
-            );
-
+    function navScreenToMap(clientX, clientY) {
         const meta =
             safeVisionMapPose
             &&
             safeVisionMapPose.meta;
 
-        if (
-            !image
-            ||
-            !meta
-        ) {
+        if (!meta) {
             return null;
         }
 
-
-        const rect =
-            image.getBoundingClientRect();
-
-
-        if (
-            clientX < rect.left
-            ||
-            clientX > rect.right
-            ||
-            clientY < rect.top
-            ||
-            clientY > rect.bottom
-        ) {
-            return null;
-        }
-
-
-        const width =
-            Number(
-                meta.width
-            );
-
-        const height =
-            Number(
-                meta.height
-            );
-
-        const resolution =
-            Number(
-                meta.resolution
-            );
-
-        const originX =
-            Number(
-                meta.origin.x
-            );
-
-        const originY =
-            Number(
-                meta.origin.y
-            );
-
-        const originYaw =
-            Number(
-                meta.origin.yaw
-                ||
-                0
-            );
-
-
-        if (
-            !width
-            ||
-            !height
-            ||
-            !resolution
-        ) {
-            return null;
-        }
-
-
-        const u =
-            (
-                clientX
-                -
-                rect.left
-            )
-            /
-            rect.width;
-
-        const v =
-            (
+        const p =
+            safeVisionMapClientToUv(
+                clientX,
                 clientY
-                -
-                rect.top
-            )
-            /
-            rect.height;
+            );
 
+        if (!p) {
+            return null;
+        }
 
-        const localX =
-            (
-                u
-                *
-                width
-            )
-            *
-            resolution;
+        const width = Number(meta.width);
+        const height = Number(meta.height);
+        const resolution = Number(meta.resolution);
+        const originX = Number(meta.origin.x);
+        const originY = Number(meta.origin.y);
+        const originYaw = Number(meta.origin.yaw || 0);
 
+        if (
+            !Number.isFinite(width)
+            || !Number.isFinite(height)
+            || !Number.isFinite(resolution)
+            || resolution <= 0
+            || !Number.isFinite(originX)
+            || !Number.isFinite(originY)
+            || !Number.isFinite(originYaw)
+        ) {
+            return null;
+        }
+
+        const localX = p.u * width * resolution;
         const localY =
-            (
-                height
-                -
-                (
-                    v
-                    *
-                    height
-                )
-            )
-            *
-            resolution;
+            (height - p.v * height)
+            * resolution;
 
-
-        const cosO =
-            Math.cos(
-                originYaw
-            );
-
-        const sinO =
-            Math.sin(
-                originYaw
-            );
-
+        const c = Math.cos(originYaw);
+        const s = Math.sin(originYaw);
 
         return {
             x:
                 originX
-                +
-                cosO * localX
-                -
-                sinO * localY,
+                + c * localX
+                - s * localY,
 
             y:
                 originY
-                +
-                sinO * localX
-                +
-                cosO * localY,
+                + s * localX
+                + c * localY,
 
-            u,
-            v
+            u: p.u,
+            v: p.v
         };
     }
+
 
 
     function ensureNavOverlay() {
@@ -5390,6 +5620,8 @@ if (safeVisionMapButton) {
 
         const total =
             navPlanner.points.length;
+
+        persistNavPlannerSession();
 
 
         count.textContent =
@@ -6447,7 +6679,7 @@ if (safeVisionMapButton) {
             ctx.strokeStyle =
                 "rgba(255,255,255,0.95)";
 
-            ctx.strokeText(
+            safeVisionStrokeUprightText(ctx,
                 String(
                     point.id
                 ),
@@ -6461,7 +6693,7 @@ if (safeVisionMapButton) {
             ctx.fillStyle =
                 "#111827";
 
-            ctx.fillText(
+            safeVisionFillUprightText(ctx,
                 String(
                     point.id
                 ),
@@ -7768,3 +8000,1320 @@ if (safeVisionMapButton) {
     }
 
 })();
+
+
+// =========================================================
+// SAF EVISION 6D · TECLADO WEB
+// Mando <-> Teclado + keydown/keyup + parada segura.
+// =========================================================
+
+(() => {
+
+    if (
+        window.safeVisionKeyboardInstalled
+    ) {
+        return;
+    }
+
+    window.safeVisionKeyboardInstalled =
+        true;
+
+
+    const keyboard = {
+        mode: null,
+        modalOpen: false,
+        paused: false,
+        axis: "x",
+        speed: 0.2,
+        turn: 1.0,
+        linearLimit: 1.0,
+        angularLimit: 5.0,
+        activeKey: null,
+        commandTimer: null,
+        sendInFlight: false,
+        lastError: null,
+        runtimeTimer: null
+    };
+
+
+    const moveBindings = {
+        "i": [1, 0],
+        "o": [1, -1],
+        "j": [0, 1],
+        "l": [0, -1],
+        "u": [1, 1],
+        ",": [-1, 0],
+        ".": [-1, 1],
+        "m": [-1, -1]
+    };
+
+
+    const speedBindings = {
+        "q": [1.1, 1.1],
+        "z": [0.9, 0.9],
+        "w": [1.1, 1.0],
+        "x": [0.9, 1.0],
+        "e": [1.0, 1.1],
+        "c": [1.0, 0.9]
+    };
+
+
+    function element(id) {
+        return document.getElementById(
+            id
+        );
+    }
+
+
+    function isTypingTarget(target) {
+        if (!target) {
+            return false;
+        }
+
+        if (target.isContentEditable) {
+            return true;
+        }
+
+        const tag =
+            String(
+                target.tagName
+                ||
+                ""
+            ).toLowerCase();
+
+        return (
+            tag === "input"
+            ||
+            tag === "textarea"
+            ||
+            tag === "select"
+        );
+    }
+
+
+    function clamp(
+        value,
+        min,
+        max
+    ) {
+        return Math.max(
+            min,
+            Math.min(
+                max,
+                value
+            )
+        );
+    }
+
+
+    function normalizeKey(event) {
+        if (
+            event.code
+            ===
+            "Space"
+        ) {
+            return " ";
+        }
+
+        return String(
+            event.key
+            ||
+            ""
+        ).toLowerCase();
+    }
+
+
+    function isKeyboardMode() {
+        return (
+            state.connected
+            &&
+            keyboard.mode
+            ===
+            "teclado"
+        );
+    }
+
+
+    function movementCommand(key) {
+        const binding =
+            moveBindings[
+                key
+            ];
+
+        if (!binding) {
+            return null;
+        }
+
+        const linear =
+            keyboard.speed
+            *
+            binding[0];
+
+        const angular =
+            keyboard.turn
+            *
+            binding[1];
+
+        return {
+            linear_x:
+                keyboard.axis === "x"
+                    ? linear
+                    : 0.0,
+
+            linear_y:
+                keyboard.axis === "y"
+                    ? linear
+                    : 0.0,
+
+            angular_z:
+                angular
+        };
+    }
+
+
+    function updateKeyboardUi() {
+        const mandoButton =
+            element(
+                "controlMandoButton"
+            );
+
+        const keyboardButton =
+            element(
+                "controlKeyboardButton"
+            );
+
+        const helpButton =
+            element(
+                "keyboardHelpButton"
+            );
+
+        const mode =
+            element(
+                "manualControlMode"
+            );
+
+        const linear =
+            element(
+                "keyboardLinearSpeed"
+            );
+
+        const angular =
+            element(
+                "keyboardAngularSpeed"
+            );
+
+        const axis =
+            element(
+                "keyboardAxis"
+            );
+
+        const drive =
+            element(
+                "keyboardDriveState"
+            );
+
+        if (
+            mandoButton
+            &&
+            keyboardButton
+        ) {
+            mandoButton.classList.toggle(
+                "is-active",
+                keyboard.mode === "mando"
+            );
+
+            keyboardButton.classList.toggle(
+                "is-active",
+                keyboard.mode === "teclado"
+            );
+
+            mandoButton.disabled =
+                !state.connected;
+
+            keyboardButton.disabled =
+                !state.connected;
+        }
+
+        if (helpButton) {
+            helpButton.disabled =
+                !isKeyboardMode();
+        }
+
+        if (mode) {
+            mode.textContent =
+                keyboard.mode
+                    ? keyboard.mode.toUpperCase()
+                    : "—";
+        }
+
+        if (linear) {
+            linear.textContent =
+                `${keyboard.speed.toFixed(2)} m/s`;
+        }
+
+        if (angular) {
+            angular.textContent =
+                `${keyboard.turn.toFixed(2)} rad/s`;
+        }
+
+        if (axis) {
+            axis.textContent =
+                keyboard.axis === "x"
+                    ? "X · frontal"
+                    : "Y · lateral";
+        }
+
+        if (drive) {
+            if (!isKeyboardMode()) {
+                drive.textContent =
+                    "INACTIVO";
+
+                drive.dataset.state =
+                    "inactive";
+
+            } else if (keyboard.paused) {
+                drive.textContent =
+                    "PAUSADO";
+
+                drive.dataset.state =
+                    "paused";
+
+            } else if (keyboard.activeKey) {
+                drive.textContent =
+                    "MOVIMIENTO";
+
+                drive.dataset.state =
+                    "moving";
+
+            } else {
+                drive.textContent =
+                    "LISTO";
+
+                drive.dataset.state =
+                    "ready";
+            }
+        }
+    }
+
+
+    function setCommandStatus(
+        text,
+        stateName
+    ) {
+        const box =
+            element(
+                "keyboardCommandStatus"
+            );
+
+        if (!box) {
+            return;
+        }
+
+        box.textContent =
+            text;
+
+        box.dataset.state =
+            stateName
+            ||
+            "";
+    }
+
+
+    async function sendCommand(
+        command,
+        options = {}
+    ) {
+        const force =
+            options.force
+            ===
+            true;
+
+        const keepalive =
+            options.keepalive
+            ===
+            true;
+
+        if (
+            !force
+            &&
+            !isKeyboardMode()
+        ) {
+            return false;
+        }
+
+        if (
+            keyboard.sendInFlight
+            &&
+            !force
+        ) {
+            return false;
+        }
+
+        if (!force) {
+            keyboard.sendInFlight =
+                true;
+        }
+
+        try {
+            const response =
+                await fetch(
+                    "/runtime/keyboard",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify(
+                                command
+                            ),
+
+                        keepalive:
+                            keepalive
+                    }
+                );
+
+            let data = {};
+
+            try {
+                data =
+                    await response.json();
+            } catch (_) {
+                data = {};
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error
+                    ||
+                    data.message
+                    ||
+                    "Comando de teclado rechazado."
+                );
+            }
+
+            keyboard.lastError =
+                null;
+
+            return true;
+
+        } catch (error) {
+            keyboard.lastError =
+                error.message;
+
+            setCommandStatus(
+                `Teclado: ${error.message}`,
+                "error"
+            );
+
+            return false;
+
+        } finally {
+            if (!force) {
+                keyboard.sendInFlight =
+                    false;
+            }
+        }
+    }
+
+
+    function zeroCommand(
+        options = {}
+    ) {
+        return sendCommand(
+            {
+                linear_x: 0.0,
+                linear_y: 0.0,
+                angular_z: 0.0
+            },
+            options
+        );
+    }
+
+
+    function stopMovement(
+        message = "Robot detenido.",
+        options = {}
+    ) {
+        keyboard.activeKey =
+            null;
+
+        if (
+            keyboard.commandTimer
+            !==
+            null
+        ) {
+            window.clearInterval(
+                keyboard.commandTimer
+            );
+
+            keyboard.commandTimer =
+                null;
+        }
+
+        updateKeyboardUi();
+
+        if (
+            isKeyboardMode()
+            ||
+            options.force
+        ) {
+            zeroCommand(
+                options
+            );
+        }
+
+        setCommandStatus(
+            message,
+            "ready"
+        );
+    }
+
+
+    function startMovement(
+        key
+    ) {
+        if (
+            !isKeyboardMode()
+            ||
+            false
+            ||
+            keyboard.paused
+        ) {
+            return;
+        }
+
+        const command =
+            movementCommand(
+                key
+            );
+
+        if (!command) {
+            return;
+        }
+
+        stopMovement(
+            "Preparando movimiento."
+        );
+
+        keyboard.activeKey =
+            key;
+
+        updateKeyboardUi();
+
+        const publish = () => {
+            if (
+                !keyboard.activeKey
+                ||
+                false
+                ||
+                keyboard.paused
+                ||
+                !isKeyboardMode()
+            ) {
+                stopMovement(
+                    "Robot detenido."
+                );
+
+                return;
+            }
+
+            const next =
+                movementCommand(
+                    keyboard.activeKey
+                );
+
+            if (!next) {
+                stopMovement(
+                    "Robot detenido."
+                );
+
+                return;
+            }
+
+            sendCommand(
+                next
+            );
+
+            setCommandStatus(
+                (
+                    `Tecla ${keyboard.activeKey.toUpperCase()}`
+                    +
+                    ` · eje ${keyboard.axis.toUpperCase()}`
+                ),
+                "moving"
+            );
+        };
+
+        publish();
+
+        keyboard.commandTimer =
+            window.setInterval(
+                publish,
+                120
+            );
+    }
+
+
+    async function setControlMode(
+        mode
+    ) {
+        if (!state.connected) {
+            log(
+                "Conecta el robot antes de cambiar el control."
+            );
+
+            return;
+        }
+
+        stopMovement(
+            "Robot detenido antes de cambiar control."
+        );
+
+        const mandoButton =
+            element(
+                "controlMandoButton"
+            );
+
+        const keyboardButton =
+            element(
+                "controlKeyboardButton"
+            );
+
+        if (mandoButton) {
+            mandoButton.disabled =
+                true;
+        }
+
+        if (keyboardButton) {
+            keyboardButton.disabled =
+                true;
+        }
+
+        try {
+            const response =
+                await fetch(
+                    "/runtime/control",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                mode:
+                                    mode
+                            })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error
+                    ||
+                    data.message
+                    ||
+                    "No se pudo cambiar el control."
+                );
+            }
+
+            keyboard.mode =
+                data.status
+                &&
+                data.status.control_mode
+                    ? data.status.control_mode
+                    : mode;
+
+            keyboard.paused =
+                false;
+
+            updateKeyboardUi();
+
+            if (
+                keyboard.mode
+                ===
+                "teclado"
+            ) {
+                keyboard.modalOpen = false;
+
+                /* tutorial independiente del control */
+
+            /* Guía visual cerrada; teclado sigue activo. */
+
+                log(
+                    "Control por teclado activo."
+                );
+
+            } else {
+                closeKeyboardModal(
+                    false
+                );
+
+                log(
+                    "Control por mando activo."
+                );
+            }
+
+        } catch (error) {
+            log(
+                `Control: ${error.message}`
+            );
+
+            await refreshRuntimeControl();
+
+        } finally {
+            updateKeyboardUi();
+        }
+    }
+
+
+    async function refreshRuntimeControl() {
+        if (!state.connected) {
+            keyboard.mode =
+                null;
+
+            closeKeyboardModal(
+                false
+            );
+
+            updateKeyboardUi();
+
+            return;
+        }
+
+        try {
+            const response =
+                await fetch(
+                    "/runtime/status",
+                    {
+                        cache:
+                            "no-store"
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message
+                    ||
+                    data.error
+                    ||
+                    "Runtime no disponible."
+                );
+            }
+
+            const previous =
+                keyboard.mode;
+
+            keyboard.mode =
+                data.control_mode
+                ||
+                null;
+
+            if (
+                previous === "teclado"
+                &&
+                keyboard.mode !== "teclado"
+            ) {
+                closeKeyboardModal(
+                    false
+                );
+
+                stopMovement(
+                    "Teclado desactivado.",
+                    {
+                        force:
+                            false
+                    }
+                );
+            }
+
+            const controlStatus =
+                element(
+                    "controlStatus"
+                );
+
+            if (controlStatus) {
+                controlStatus.textContent =
+                    keyboard.mode
+                        ? keyboard.mode.toUpperCase()
+                        : "—";
+            }
+
+            updateKeyboardUi();
+
+        } catch (_) {
+            // El poll general ya refleja la conectividad.
+        }
+    }
+
+
+    function openKeyboardModal() {
+
+
+        const modal =
+            element(
+                "keyboardControlModal"
+            );
+
+        if (!modal) {
+            return;
+        }
+
+        keyboard.modalOpen =
+            true;
+
+        modal.hidden =
+            false;
+
+        modal.setAttribute(
+            "aria-hidden",
+            "false"
+        );
+
+        document.body.classList.add(
+            "keyboard-modal-open"
+        );
+
+        updateKeyboardUi();
+
+        setCommandStatus(
+            "Esperando una tecla de movimiento.",
+            "ready"
+        );
+    }
+
+
+    function closeKeyboardModal(
+        sendStop = true
+    ) {
+    /* Cerrar tutorial no cancela teclado. */
+    if (
+        typeof isKeyboardMode === "function"
+        && isKeyboardMode()
+    ) {
+        sendStop = false;
+    }
+
+        const modal =
+            element(
+                "keyboardControlModal"
+            );
+
+        keyboard.modalOpen =
+            false;
+
+        if (sendStop) {
+            stopMovement(
+                "Control visual cerrado. Robot detenido."
+            );
+        } else {
+            keyboard.activeKey =
+                null;
+
+            if (
+                keyboard.commandTimer
+                !==
+                null
+            ) {
+                window.clearInterval(
+                    keyboard.commandTimer
+                );
+
+                keyboard.commandTimer =
+                    null;
+            }
+        }
+
+        if (modal) {
+            modal.hidden =
+                true;
+
+            modal.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+        }
+
+        document.body.classList.remove(
+            "keyboard-modal-open"
+        );
+
+        updateKeyboardUi();
+    }
+
+
+    function applySpeedBinding(
+        key
+    ) {
+        const binding =
+            speedBindings[
+                key
+            ];
+
+        if (!binding) {
+            return false;
+        }
+
+        keyboard.speed =
+            clamp(
+                keyboard.speed
+                *
+                binding[0],
+                0.02,
+                keyboard.linearLimit
+            );
+
+        keyboard.turn =
+            clamp(
+                keyboard.turn
+                *
+                binding[1],
+                0.05,
+                keyboard.angularLimit
+            );
+
+        updateKeyboardUi();
+
+        setCommandStatus(
+            (
+                `Velocidad: ${keyboard.speed.toFixed(2)} m/s`
+                +
+                ` · ${keyboard.turn.toFixed(2)} rad/s`
+            ),
+            "ready"
+        );
+
+        return true;
+    }
+
+
+    function handleKeyDown(
+        event
+    ) {
+        if (
+            !isKeyboardMode()
+            ||
+            false
+        ) {
+            return;
+        }
+
+        if (
+            isTypingTarget(
+                event.target
+            )
+        ) {
+            return;
+        }
+
+        const key =
+            normalizeKey(
+                event
+            );
+
+        if (
+            key ===
+            "escape"
+        ) {
+            event.preventDefault();
+
+            closeKeyboardModal(
+                true
+            );
+
+            return;
+        }
+
+        if (
+            key === " "
+            ||
+            key === "k"
+        ) {
+            event.preventDefault();
+
+            stopMovement(
+                "Parada inmediata."
+            );
+
+            return;
+        }
+
+        if (
+            key ===
+            "s"
+        ) {
+            if (event.repeat) {
+                return;
+            }
+
+            event.preventDefault();
+
+            keyboard.paused =
+                !keyboard.paused;
+
+            stopMovement(
+                keyboard.paused
+                    ? "Teclado pausado."
+                    : "Teclado reanudado."
+            );
+
+            updateKeyboardUi();
+
+            return;
+        }
+
+        if (
+            key ===
+            "t"
+        ) {
+            if (event.repeat) {
+                return;
+            }
+
+            event.preventDefault();
+
+            stopMovement(
+                "Cambio de eje con robot detenido."
+            );
+
+            keyboard.axis =
+                keyboard.axis === "x"
+                    ? "y"
+                    : "x";
+
+            updateKeyboardUi();
+
+            setCommandStatus(
+                (
+                    keyboard.axis === "x"
+                        ? "Eje X frontal activo."
+                        : "Eje Y lateral activo."
+                ),
+                "ready"
+            );
+
+            return;
+        }
+
+        if (
+            Object.prototype.hasOwnProperty.call(
+                speedBindings,
+                key
+            )
+        ) {
+            if (event.repeat) {
+                return;
+            }
+
+            event.preventDefault();
+
+            stopMovement(
+                "Velocidad ajustada con robot detenido."
+            );
+
+            applySpeedBinding(
+                key
+            );
+
+            return;
+        }
+
+        if (
+            Object.prototype.hasOwnProperty.call(
+                moveBindings,
+                key
+            )
+        ) {
+            event.preventDefault();
+
+            if (
+                keyboard.paused
+            ) {
+                setCommandStatus(
+                    "Teclado pausado. Pulsa S para reanudar.",
+                    "paused"
+                );
+
+                return;
+            }
+
+            if (
+                event.repeat
+                &&
+                keyboard.activeKey === key
+            ) {
+                return;
+            }
+
+            startMovement(
+                key
+            );
+        }
+    }
+
+
+    function handleKeyUp(
+        event
+    ) {
+        if (
+            !isKeyboardMode()
+            ||
+            false
+        ) {
+            return;
+        }
+
+        const key =
+            normalizeKey(
+                event
+            );
+
+        if (
+            key
+            &&
+            keyboard.activeKey
+            ===
+            key
+        ) {
+            event.preventDefault();
+
+            stopMovement(
+                "Tecla liberada. Robot detenido."
+            );
+        }
+    }
+
+
+    function emergencyStopForPageExit() {
+        if (
+            keyboard.commandTimer
+            !==
+            null
+        ) {
+            window.clearInterval(
+                keyboard.commandTimer
+            );
+
+            keyboard.commandTimer =
+                null;
+        }
+
+        keyboard.activeKey =
+            null;
+
+        if (
+            state.connected
+            &&
+            keyboard.mode
+            ===
+            "teclado"
+        ) {
+            fetch(
+                "/runtime/keyboard",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            linear_x: 0.0,
+                            linear_y: 0.0,
+                            angular_z: 0.0
+                        }),
+
+                    keepalive:
+                        true
+                }
+            ).catch(
+                () => {}
+            );
+        }
+    }
+
+
+    function installKeyboardUi() {
+        const mandoButton =
+            element(
+                "controlMandoButton"
+            );
+
+        const keyboardButton =
+            element(
+                "controlKeyboardButton"
+            );
+
+        const helpButton =
+            element(
+                "keyboardHelpButton"
+            );
+
+        const closeButton =
+            element(
+                "keyboardModalClose"
+            );
+
+        const modal =
+            element(
+                "keyboardControlModal"
+            );
+
+        if (
+            !mandoButton
+            ||
+            !keyboardButton
+            ||
+            !helpButton
+            ||
+            !closeButton
+            ||
+            !modal
+        ) {
+            return;
+        }
+
+        mandoButton.addEventListener(
+            "click",
+            () => {
+                setControlMode(
+                    "mando"
+                );
+            }
+        );
+
+        keyboardButton.addEventListener(
+            "click",
+            () => {
+                setControlMode(
+                    "teclado"
+                );
+            }
+        );
+
+        helpButton.addEventListener(
+            "click",
+            openKeyboardModal
+        );
+
+        closeButton.addEventListener(
+            "click",
+            () => {
+                closeKeyboardModal(
+                    true
+                );
+            }
+        );
+
+        modal.addEventListener(
+            "click",
+            event => {
+                if (
+                    event.target
+                    &&
+                    event.target.dataset
+                    &&
+                    event.target.dataset.keyboardClose
+                    ===
+                    "1"
+                ) {
+                    closeKeyboardModal(
+                        true
+                    );
+                }
+            }
+        );
+
+        document.addEventListener(
+            "keydown",
+            handleKeyDown,
+            true
+        );
+
+        document.addEventListener(
+            "keyup",
+            handleKeyUp,
+            true
+        );
+
+        window.addEventListener(
+            "blur",
+            () => {
+                if (
+                    isKeyboardMode()
+                ) {
+                    stopMovement(
+                        "Ventana sin foco. Robot detenido."
+                    );
+                }
+            }
+        );
+
+        document.addEventListener(
+            "visibilitychange",
+            () => {
+                if (
+                    document.hidden
+                    &&
+                    isKeyboardMode()
+                ) {
+                    stopMovement(
+                        "Pestaña oculta. Robot detenido."
+                    );
+                }
+            }
+        );
+
+        window.addEventListener(
+            "pagehide",
+            emergencyStopForPageExit
+        );
+
+        window.addEventListener(
+            "beforeunload",
+            emergencyStopForPageExit
+        );
+
+        updateKeyboardUi();
+
+        keyboard.runtimeTimer =
+            window.setInterval(
+                refreshRuntimeControl,
+                1000
+            );
+
+        refreshRuntimeControl();
+    }
+
+
+    if (
+        document.readyState
+        ===
+        "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            installKeyboardUi
+        );
+
+    } else {
+        installKeyboardUi();
+    }
+
+})();
+
+// SAFEVISION ETAPA 7B - PILOTADA V2 UX

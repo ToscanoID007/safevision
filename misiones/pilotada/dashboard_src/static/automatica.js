@@ -8031,3 +8031,1241 @@ function updateRobotAlignmentGuide(
     loadAutomaticModelInfo();
 
 })();
+
+
+// =========================================================
+// SAFEVISION AUTOMATICA · RUNTIME DIAGNOSTICO V1
+//
+// Cambio exclusivamente de Dashboard:
+// - conserva el panel de Cámara + IA;
+// - conserva el panel de Mapa;
+// - crea Terminal Runtime debajo de cámara;
+// - crea Estado del sistema debajo de mapa;
+// - usa endpoints existentes;
+// - no ejecuta comandos ni cambia perfiles.
+// =========================================================
+
+(() => {
+    "use strict";
+
+    const MODULE_ID =
+        "svAutoRuntimeDiagnosticsV1";
+
+    if (
+        window[MODULE_ID]
+    ) {
+        return;
+    }
+
+    window[MODULE_ID] = {
+        installed: true,
+        timer: null
+    };
+
+    const moduleState = {
+        lines: [],
+        maxLines: 90,
+        last: new Map(),
+        missionSelect: null
+    };
+
+
+    function normalizedText(value) {
+        return String(
+            value
+            ||
+            ""
+        )
+            .replace(
+                /\s+/g,
+                " "
+            )
+            .trim()
+            .toLowerCase();
+    }
+
+
+    function findHeading(
+        wanted
+    ) {
+        const expected =
+            normalizedText(
+                wanted
+            );
+
+        return Array.from(
+            document.querySelectorAll(
+                "h1, h2, h3, h4"
+            )
+        ).find(
+            node =>
+                normalizedText(
+                    node.textContent
+                )
+                ===
+                expected
+        )
+        ||
+        null;
+    }
+
+
+    function panelForHeading(
+        wanted
+    ) {
+        const heading =
+            findHeading(
+                wanted
+            );
+
+        if (!heading) {
+            return null;
+        }
+
+        return (
+            heading.closest(
+                ".panel"
+            )
+            ||
+            heading.closest(
+                "section"
+            )
+            ||
+            heading.closest(
+                "article"
+            )
+            ||
+            heading.parentElement
+        );
+    }
+
+
+    function timestamp() {
+        return new Date()
+            .toLocaleTimeString(
+                "es-MX",
+                {
+                    hour12:
+                        false
+                }
+            );
+    }
+
+
+    function terminalNode() {
+        return document.getElementById(
+            "svAutoRuntimeTerminalBody"
+        );
+    }
+
+
+    function appendTerminal(
+        message,
+        level="info"
+    ) {
+        const text =
+            String(
+                message
+                ||
+                ""
+            ).trim();
+
+        if (!text) {
+            return;
+        }
+
+        moduleState.lines.push({
+            time:
+                timestamp(),
+            text:
+                text,
+            level:
+                level
+        });
+
+        if (
+            moduleState.lines.length
+            >
+            moduleState.maxLines
+        ) {
+            moduleState.lines =
+                moduleState.lines.slice(
+                    -moduleState.maxLines
+                );
+        }
+
+        const body =
+            terminalNode();
+
+        if (!body) {
+            return;
+        }
+
+        body.textContent =
+            "";
+
+        for (
+            const line
+            of
+            moduleState.lines
+        ) {
+            const row =
+                document.createElement(
+                    "span"
+                );
+
+            row.className =
+                "sv-auto-terminal-line";
+
+            row.dataset.level =
+                line.level;
+
+            row.textContent =
+                (
+                    `[${line.time}] `
+                    +
+                    line.text
+                    +
+                    "\n"
+                );
+
+            body.appendChild(
+                row
+            );
+        }
+
+        body.scrollTop =
+            body.scrollHeight;
+    }
+
+
+    function appendIfChanged(
+        key,
+        value,
+        message,
+        level="info"
+    ) {
+        const serialized =
+            JSON.stringify(
+                value
+            );
+
+        if (
+            moduleState.last.get(
+                key
+            )
+            ===
+            serialized
+        ) {
+            return;
+        }
+
+        moduleState.last.set(
+            key,
+            serialized
+        );
+
+        appendTerminal(
+            (
+                typeof message
+                ===
+                "function"
+            )
+                ? message(
+                    value
+                )
+                : message,
+            level
+        );
+    }
+
+
+    function makeTerminalPanel() {
+        const panel =
+            document.createElement(
+                "section"
+            );
+
+        panel.id =
+            "svAutoRuntimeTerminal";
+
+        panel.className =
+            (
+                "sv-auto-runtime-card "
+                +
+                "sv-auto-terminal"
+            );
+
+        panel.innerHTML = `
+            <div class="sv-auto-runtime-head">
+                <div>
+                    <strong>Terminal Runtime</strong>
+                    <small>Diagnóstico en vivo · solo lectura</small>
+                </div>
+
+                <span class="sv-auto-runtime-live">
+                    LIVE
+                </span>
+            </div>
+
+            <div
+                id="svAutoRuntimeTerminalBody"
+                class="sv-auto-terminal-body"
+                aria-live="polite"
+            ></div>
+        `;
+
+        return panel;
+    }
+
+
+    const stateDefinitions = [
+        [
+            "ros",
+            "ROS Master"
+        ],
+        [
+            "server",
+            "Robot Server"
+        ],
+        [
+            "runtime",
+            "Runtime"
+        ],
+        [
+            "driver",
+            "Driver"
+        ],
+        [
+            "lidar",
+            "LiDAR"
+        ],
+        [
+            "camera",
+            "Cámara"
+        ],
+        [
+            "navigation",
+            "Navegación"
+        ],
+        [
+            "mission",
+            "Misión"
+        ]
+    ];
+
+
+    function makeStatePanel() {
+        const panel =
+            document.createElement(
+                "section"
+            );
+
+        panel.id =
+            "svAutoRuntimeState";
+
+        panel.className =
+            (
+                "sv-auto-runtime-card "
+                +
+                "sv-auto-state-panel"
+            );
+
+        const head =
+            document.createElement(
+                "div"
+            );
+
+        head.className =
+            "sv-auto-runtime-head";
+
+        head.innerHTML = `
+            <div>
+                <strong>Estado del sistema</strong>
+                <small>Runtime y navegación</small>
+            </div>
+
+            <span
+                id="svAutoRuntimeRefreshLabel"
+                class="sv-auto-runtime-live"
+            >
+                LIVE
+            </span>
+        `;
+
+        const grid =
+            document.createElement(
+                "div"
+            );
+
+        grid.className =
+            "sv-auto-state-grid";
+
+        for (
+            const [
+                key,
+                label
+            ]
+            of
+            stateDefinitions
+        ) {
+            const card =
+                document.createElement(
+                    "div"
+                );
+
+            card.className =
+                "sv-auto-state-card";
+
+            card.dataset.key =
+                key;
+
+            card.dataset.state =
+                "unknown";
+
+            const name =
+                document.createElement(
+                    "span"
+                );
+
+            name.textContent =
+                label;
+
+            const value =
+                document.createElement(
+                    "b"
+                );
+
+            value.textContent =
+                "—";
+
+            card.append(
+                name,
+                value
+            );
+
+            grid.appendChild(
+                card
+            );
+        }
+
+        panel.append(
+            head,
+            grid
+        );
+
+        return panel;
+    }
+
+
+    function setState(
+        key,
+        text,
+        state="unknown"
+    ) {
+        const card =
+            document.querySelector(
+                (
+                    '#svAutoRuntimeState '
+                    +
+                    `[data-key="${key}"]`
+                )
+            );
+
+        if (!card) {
+            return;
+        }
+
+        const value =
+            card.querySelector(
+                "b"
+            );
+
+        card.dataset.state =
+            state;
+
+        if (value) {
+            value.textContent =
+                text
+                ||
+                "—";
+        }
+    }
+
+
+    function boolState(
+        value,
+        okText="OK",
+        errorText="OFF"
+    ) {
+        if (
+            value
+            ===
+            true
+        ) {
+            return [
+                okText,
+                "ok"
+            ];
+        }
+
+        if (
+            value
+            ===
+            false
+        ) {
+            return [
+                errorText,
+                "error"
+            ];
+        }
+
+        return [
+            "—",
+            "unknown"
+        ];
+    }
+
+
+    async function getJson(
+        url
+    ) {
+        const response =
+            await fetch(
+                url,
+                {
+                    cache:
+                        "no-store"
+                }
+            );
+
+        let data =
+            {};
+
+        try {
+            data =
+                await response.json();
+
+        } catch (_) {
+            data =
+                {};
+        }
+
+        if (
+            !response.ok
+        ) {
+            const error =
+                new Error(
+                    (
+                        data.message
+                        ||
+                        data.error
+                        ||
+                        (
+                            `HTTP ${response.status}`
+                        )
+                    )
+                );
+
+            error.status =
+                response.status;
+
+            throw error;
+        }
+
+        return data;
+    }
+
+
+    function runtimeProfile(
+        data
+    ) {
+        if (
+            !data
+            ||
+            typeof data
+            !==
+            "object"
+        ) {
+            return "";
+        }
+
+        const candidates = [
+            data.active_profile,
+            data.profile,
+            data.requested_profile,
+            (
+                data.status
+                &&
+                data.status.active_profile
+            ),
+            (
+                data.status
+                &&
+                data.status.profile
+            ),
+            (
+                data.status
+                &&
+                data.status.requested_profile
+            )
+        ];
+
+        for (
+            const value
+            of
+            candidates
+        ) {
+            if (
+                typeof value
+                ===
+                "string"
+                &&
+                value.trim()
+            ) {
+                return value.trim();
+            }
+        }
+
+        return "";
+    }
+
+
+    function runtimeControl(
+        data
+    ) {
+        if (
+            !data
+            ||
+            typeof data
+            !==
+            "object"
+        ) {
+            return "";
+        }
+
+        const value =
+            (
+                data.control_mode
+                ||
+                (
+                    data.status
+                    &&
+                    data.status.control_mode
+                )
+                ||
+                ""
+            );
+
+        return (
+            typeof value
+            ===
+            "string"
+        )
+            ? value.trim()
+            : "";
+    }
+
+
+    function missionSelect() {
+        if (
+            moduleState.missionSelect
+            &&
+            moduleState.missionSelect.isConnected
+        ) {
+            return moduleState.missionSelect;
+        }
+
+        const selects =
+            Array.from(
+                document.querySelectorAll(
+                    "select"
+                )
+            );
+
+        moduleState.missionSelect =
+            selects.find(
+                select => {
+                    const option =
+                        select.options
+                        &&
+                        select.options[0];
+
+                    return (
+                        option
+                        &&
+                        normalizedText(
+                            option.textContent
+                        ).includes(
+                            "seleccionar misión"
+                        )
+                    );
+                }
+            )
+            ||
+            null;
+
+        return moduleState.missionSelect;
+    }
+
+
+    function refreshMissionState() {
+        const select =
+            missionSelect();
+
+        if (!select) {
+            setState(
+                "mission",
+                "—",
+                "unknown"
+            );
+
+            return;
+        }
+
+        const selected =
+            (
+                select.value
+                ||
+                (
+                    select.options[
+                        select.selectedIndex
+                    ]
+                    &&
+                    select.options[
+                        select.selectedIndex
+                    ].textContent
+                )
+                ||
+                ""
+            ).trim();
+
+        const empty =
+            (
+                !select.value
+                ||
+                normalizedText(
+                    selected
+                ).includes(
+                    "seleccionar misión"
+                )
+            );
+
+        setState(
+            "mission",
+            empty
+                ? "NO SELECCIONADA"
+                : selected,
+            empty
+                ? "warn"
+                : "ok"
+        );
+
+        appendIfChanged(
+            "mission",
+            empty
+                ? ""
+                : selected,
+            empty
+                ? "Misión: esperando selección."
+                : (
+                    "Misión seleccionada: "
+                    +
+                    selected
+                ),
+            empty
+                ? "warn"
+                : "ok"
+        );
+    }
+
+
+    async function refreshRobot() {
+        try {
+            const data =
+                await getJson(
+                    "/robot_status"
+                );
+
+            const robot =
+                (
+                    data
+                    &&
+                    data.robot
+                    &&
+                    typeof data.robot
+                    ===
+                    "object"
+                )
+                    ? data.robot
+                    : {};
+
+            const entries = [
+                [
+                    "ros",
+                    "ros_master",
+                    "ROS Master"
+                ],
+                [
+                    "driver",
+                    "driver",
+                    "Driver"
+                ],
+                [
+                    "lidar",
+                    "lidar",
+                    "LiDAR"
+                ],
+                [
+                    "camera",
+                    "camera",
+                    "Cámara"
+                ]
+            ];
+
+            for (
+                const [
+                    key,
+                    field,
+                    label
+                ]
+                of
+                entries
+            ) {
+                const [
+                    text,
+                    state
+                ] =
+                    boolState(
+                        robot[
+                            field
+                        ],
+                        (
+                            key
+                            ===
+                            "lidar"
+                        )
+                            ? "PUBLICANDO"
+                            : (
+                                key
+                                ===
+                                "camera"
+                            )
+                                ? "ONLINE"
+                                : "OK",
+                        "OFF"
+                    );
+
+                setState(
+                    key,
+                    text,
+                    state
+                );
+
+                appendIfChanged(
+                    (
+                        "robot:"
+                        +
+                        field
+                    ),
+                    robot[
+                        field
+                    ],
+                    (
+                        `${label}: `
+                        +
+                        text
+                    ),
+                    state
+                    ===
+                    "ok"
+                        ? "ok"
+                        : (
+                            state
+                            ===
+                            "error"
+                                ? "error"
+                                : "info"
+                        )
+                );
+            }
+
+        } catch (
+            error
+        ) {
+            for (
+                const key
+                of
+                [
+                    "ros",
+                    "driver",
+                    "lidar",
+                    "camera"
+                ]
+            ) {
+                setState(
+                    key,
+                    "SIN DATOS",
+                    "error"
+                );
+            }
+
+            appendIfChanged(
+                "robot:error",
+                error.message,
+                (
+                    "robot_status: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function refreshRuntime() {
+        try {
+            const data =
+                await getJson(
+                    "/runtime/status"
+                );
+
+            const profile =
+                runtimeProfile(
+                    data
+                );
+
+            const control =
+                runtimeControl(
+                    data
+                );
+
+            setState(
+                "server",
+                "ONLINE",
+                "ok"
+            );
+
+            setState(
+                "runtime",
+                profile
+                    ? profile.toUpperCase()
+                    : "ONLINE",
+                "ok"
+            );
+
+            appendIfChanged(
+                "runtime:online",
+                true,
+                "Robot Server / Runtime: ONLINE",
+                "ok"
+            );
+
+            appendIfChanged(
+                "runtime:profile",
+                profile,
+                profile
+                    ? (
+                        "Runtime perfil: "
+                        +
+                        profile
+                    )
+                    : "Runtime perfil disponible.",
+                "info"
+            );
+
+            if (control) {
+                appendIfChanged(
+                    "runtime:control",
+                    control,
+                    (
+                        "Control: "
+                        +
+                        control
+                    ),
+                    "info"
+                );
+            }
+
+            if (
+                data.manager_version
+                !==
+                undefined
+            ) {
+                appendIfChanged(
+                    "runtime:manager_version",
+                    data.manager_version,
+                    (
+                        "Runtime Manager v"
+                        +
+                        data.manager_version
+                    ),
+                    "info"
+                );
+            }
+
+        } catch (
+            error
+        ) {
+            setState(
+                "server",
+                "OFFLINE",
+                "error"
+            );
+
+            setState(
+                "runtime",
+                "NO DISPONIBLE",
+                "error"
+            );
+
+            appendIfChanged(
+                "runtime:error",
+                error.message,
+                (
+                    "runtime/status: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function refreshNavigation() {
+        try {
+            const data =
+                await getJson(
+                    "/nav/status"
+                );
+
+            const ready =
+                (
+                    data.ok
+                    !==
+                    false
+                    &&
+                    data.available
+                    !==
+                    false
+                );
+
+            setState(
+                "navigation",
+                ready
+                    ? "LISTA"
+                    : "NO LISTA",
+                ready
+                    ? "ok"
+                    : "warn"
+            );
+
+            appendIfChanged(
+                "navigation:ready",
+                ready,
+                ready
+                    ? "Navegación: LISTA"
+                    : "Navegación: NO LISTA",
+                ready
+                    ? "ok"
+                    : "warn"
+            );
+
+        } catch (
+            error
+        ) {
+            setState(
+                "navigation",
+                "SIN DATOS",
+                "error"
+            );
+
+            appendIfChanged(
+                "navigation:error",
+                error.message,
+                (
+                    "nav/status: "
+                    +
+                    error.message
+                ),
+                "error"
+            );
+        }
+    }
+
+
+    async function refreshDiagnostics() {
+        refreshMissionState();
+
+        await Promise.all([
+            refreshRobot(),
+            refreshRuntime(),
+            refreshNavigation()
+        ]);
+    }
+
+
+    function wrapPanel(
+        panel,
+        stackClass
+    ) {
+        const parent =
+            panel
+            &&
+            panel.parentElement;
+
+        if (
+            !panel
+            ||
+            !parent
+        ) {
+            return null;
+        }
+
+        const stack =
+            document.createElement(
+                "div"
+            );
+
+        stack.className =
+            (
+                "sv-auto-runtime-stack "
+                +
+                stackClass
+            );
+
+        parent.insertBefore(
+            stack,
+            panel
+        );
+
+        stack.appendChild(
+            panel
+        );
+
+        return stack;
+    }
+
+
+    function install() {
+        if (
+            document.getElementById(
+                "svAutoRuntimeTerminal"
+            )
+            ||
+            document.getElementById(
+                "svAutoRuntimeState"
+            )
+        ) {
+            return;
+        }
+
+        const cameraPanel =
+            panelForHeading(
+                "Cámara + IA"
+            );
+
+        const mapPanel =
+            panelForHeading(
+                "Mapa"
+            );
+
+        if (
+            !cameraPanel
+            ||
+            !mapPanel
+        ) {
+            console.warn(
+                "[SafeVision] No se localizaron Cámara + IA / Mapa."
+            );
+
+            return;
+        }
+
+        if (
+            cameraPanel.parentElement
+            !==
+            mapPanel.parentElement
+        ) {
+            console.warn(
+                "[SafeVision] Layout de Automática inesperado; diagnóstico no instalado."
+            );
+
+            return;
+        }
+
+        const cameraStack =
+            wrapPanel(
+                cameraPanel,
+                "sv-auto-camera-stack"
+            );
+
+        const mapStack =
+            wrapPanel(
+                mapPanel,
+                "sv-auto-map-stack"
+            );
+
+        if (
+            !cameraStack
+            ||
+            !mapStack
+        ) {
+            return;
+        }
+
+        cameraStack.appendChild(
+            makeTerminalPanel()
+        );
+
+        mapStack.appendChild(
+            makeStatePanel()
+        );
+
+        appendTerminal(
+            "Monitor Runtime iniciado.",
+            "info"
+        );
+
+        const select =
+            missionSelect();
+
+        if (select) {
+            select.addEventListener(
+                "change",
+                refreshMissionState
+            );
+        }
+
+        refreshDiagnostics();
+
+        window[
+            MODULE_ID
+        ].timer =
+            window.setInterval(
+                refreshDiagnostics,
+                3000
+            );
+    }
+
+
+    if (
+        document.readyState
+        ===
+        "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            install,
+            {
+                once:
+                    true
+            }
+        );
+
+    } else {
+        install();
+    }
+})();

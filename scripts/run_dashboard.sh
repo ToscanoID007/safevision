@@ -81,10 +81,53 @@ resolver_ipv4() {
 
 ROBOT_IP="$(resolver_ipv4 "$ROBOT_HOST")"
 
+# Si el nombre no resuelve (mDNS caido, o el robot cambio de interfaz y de IP),
+# barremos la red local buscando quien responda al Robot Server en :8091.
+# Asi el script sobrevive a un cambio de Ethernet a Wi-Fi sin tocar nada.
+descubrir_robot() {
+    local prefijo pid_list=() encontrado=""
+    prefijo="$(ip -4 -o addr show scope global 2>/dev/null \
+        | awk 'NR==1 {split($4,a,"/"); split(a[1],b,"."); print b[1]"."b[2]"."b[3]}')"
+    [ -z "$prefijo" ] && return 1
+
+    local tmp; tmp="$(mktemp -d)"
+    for i in $(seq 1 254); do
+        (
+            if curl -sS --max-time 1 -o /dev/null \
+                 "http://${prefijo}.${i}:${ROBOT_PORT}/health" 2>/dev/null; then
+                echo "${prefijo}.${i}" > "$tmp/encontrado"
+            fi
+        ) &
+        pid_list+=("$!")
+        # no saturar: tandas de 64
+        if [ "${#pid_list[@]}" -ge 64 ]; then wait; pid_list=(); fi
+    done
+    wait
+    [ -f "$tmp/encontrado" ] && encontrado="$(cat "$tmp/encontrado")"
+    rm -rf "$tmp"
+    [ -n "$encontrado" ] && printf '%s' "$encontrado"
+}
+
+# Ruta rapida: si el robot esta en modo punto de acceso propio, siempre esta
+# en 10.42.0.1 (NetworkManager reparte 10.42.0.0/24 con ipv4.method shared).
+if [ -z "$ROBOT_IP" ] && curl -sS --max-time 2 -o /dev/null \
+        "http://10.42.0.1:${ROBOT_PORT}/health" 2>/dev/null; then
+    ROBOT_IP="10.42.0.1"
+    ok "Robot en modo punto de acceso: $ROBOT_IP"
+fi
+
 if [ -z "$ROBOT_IP" ]; then
-    aviso "No se pudo resolver '$ROBOT_HOST' a una IPv4."
-    aviso "Comprueba que el robot esta encendido y en la misma red."
-    aviso "Ver docs/red.md, seccion 'Cuando yahboom.local no resuelve'."
+    aviso "No se pudo resolver '$ROBOT_HOST'."
+    info "Buscando el robot en la red local (unos 10 s)..."
+    ROBOT_IP="$(descubrir_robot || true)"
+    if [ -n "$ROBOT_IP" ]; then
+        ok "Robot encontrado en $ROBOT_IP"
+        aviso "Para fijarlo: echo 'ROBOT_HOST=$ROBOT_IP' > scripts/robot.env"
+    else
+        aviso "No se encontro ningun robot respondiendo en :$ROBOT_PORT."
+        aviso "Comprueba que esta encendido y en la misma red."
+        aviso "Ver docs/red.md §6."
+    fi
 else
     ok "Robot en $ROBOT_IP"
 fi
@@ -130,13 +173,22 @@ echo
 echo "======================================================="
 echo "${NEGRITA} Dashboard:  http://127.0.0.1:5000${NEUTRO}"
 if [ -n "$ROBOT_IP" ]; then
-echo "${NEGRITA} En la casilla 'IP del robot' escribe:  $ROBOT_IP${NEUTRO}"
+echo "${NEGRITA} Robot:      $ROBOT_IP${NEUTRO}"
 echo
-echo " (la interfaz solo acepta IPv4, no nombres como $ROBOT_HOST)"
+echo " La pagina Pilotada toma esa IP automaticamente."
+echo " Si usas la portada clasica, escribela en la casilla"
+echo " 'IP del robot' (solo acepta IPv4, no nombres)."
 fi
 echo "======================================================="
 echo " Para detenerlo: Ctrl+C"
 echo
+
+# La pagina /pilotada no expone panel de IP: lee SAFEVISION_ROBOT_IP del
+# entorno y, si falta, cae en una IP de respaldo que puede estar obsoleta.
+# Se la damos resuelta para que nunca dependa de ese respaldo.
+if [ -n "$ROBOT_IP" ]; then
+    export SAFEVISION_ROBOT_IP="$ROBOT_IP"
+fi
 
 cd "$DASH"
 exec python sf_app_dashboard.py

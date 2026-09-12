@@ -1,0 +1,1099 @@
+:root {
+    --pv2-bg: #071019;
+    --pv2-panel: #0d1722;
+    --pv2-panel-2: #101d2a;
+    --pv2-line: #223548;
+    --pv2-text: #eef7ff;
+    --pv2-muted: #7890a8;
+    --pv2-blue: #4d8eff;
+    --pv2-green: #42d392;
+    --pv2-yellow: #ffc857;
+    --pv2-red: #ff6b6b;
+}
+
+.pilotada-v2-body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    background:
+        radial-gradient(circle at 73% 4%, rgba(77, 142, 255, 0.09), transparent 30%),
+        var(--pv2-bg);
+}
+
+.pv2-compat {
+    display: none !important;
+}
+
+.pv2-topbar {
+    min-height: 62px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--pv2-line);
+    background: rgba(7, 16, 25, 0.94);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.pv2-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pv2-brand-mark {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(77, 142, 255, 0.5);
+    border-radius: 9px;
+    color: #fff;
+    background: rgba(77, 142, 255, 0.14);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.pv2-brand h1 {
+    margin: 0;
+    font-size: 1.02rem;
+}
+
+.pv2-brand span {
+    color: var(--pv2-muted);
+    font-size: 0.7rem;
+}
+
+.pv2-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.pv2-nav a {
+    padding: 7px 10px;
+    border-radius: 7px;
+    color: var(--pv2-muted);
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.pv2-nav a:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--pv2-text);
+}
+
+.pv2-top-status {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+}
+
+.pv2-chip {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 9px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 999px;
+    color: var(--pv2-muted);
+    background: rgba(255,255,255,0.025);
+    font-size: 0.67rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+}
+
+.pv2-shell {
+    width: min(1780px, calc(100% - 24px));
+    margin: 12px auto;
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.pv2-sidebar {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pv2-workspace {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: minmax(540px, 1fr) minmax(150px, auto);
+    gap: 10px;
+}
+
+.pv2-card {
+    min-width: 0;
+    border: 1px solid var(--pv2-line);
+    border-radius: 11px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.018), transparent 75%),
+        var(--pv2-panel);
+    overflow: hidden;
+}
+
+.pv2-sidebar .pv2-card {
+    padding: 13px;
+}
+
+.pv2-section-title,
+.pv2-view-header,
+.pv2-activity-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pv2-section-title {
+    margin-bottom: 10px;
+}
+
+.pv2-section-title h2,
+.pv2-view-header h2,
+.pv2-activity-header h2 {
+    margin: 2px 0 0;
+    color: var(--pv2-text);
+    font-size: 0.88rem;
+}
+
+.pv2-eyebrow {
+    display: block;
+    color: var(--pv2-muted);
+    font-size: 0.61rem;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+}
+
+.pv2-segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.pv2-segment,
+.manual-control-button {
+    min-height: 35px;
+    padding: 7px 8px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 7px;
+    background: #09131e;
+    color: var(--pv2-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.pv2-segment.is-active,
+.manual-control-button.is-active {
+    border-color: var(--pv2-blue);
+    background: rgba(77, 142, 255, 0.15);
+    color: #fff;
+}
+
+.pv2-mini-label {
+    margin: 12px 0 6px;
+    color: var(--pv2-muted);
+    font-size: 0.67rem;
+    font-weight: 700;
+}
+
+.pv2-mode-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 9px;
+    padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(34, 53, 72, 0.72);
+    font-size: 0.7rem;
+}
+
+.pv2-mode-footer span {
+    color: var(--pv2-muted);
+}
+
+.pv2-secondary-button {
+    width: 100%;
+    margin-top: 9px;
+    min-height: 34px;
+    border: 1px solid var(--pv2-line);
+    background: var(--pv2-panel-2);
+    color: var(--pv2-text);
+    font-size: 0.72rem;
+}
+
+.pv2-hint {
+    margin-top: 8px;
+    color: var(--pv2-muted);
+    font-size: 0.66rem;
+    line-height: 1.4;
+}
+
+.pv2-model-card #modelName {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--pv2-green);
+    font-size: 0.7rem;
+}
+
+.pv2-model-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.pv2-model-form label {
+    margin: 0;
+    color: var(--pv2-muted);
+    font-size: 0.64rem;
+}
+
+.pv2-model-form input[type="file"] {
+    margin: 4px 0 0;
+    font-size: 0.65rem;
+}
+
+.pv2-model-form button {
+    min-height: 31px;
+    padding: 6px 9px;
+    font-size: 0.69rem;
+}
+
+.pv2-confidence {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(34, 53, 72, 0.72);
+}
+
+.pv2-confidence > div {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+    color: var(--pv2-muted);
+    font-size: 0.66rem;
+}
+
+.pv2-model-meta {
+    max-height: 48px;
+    overflow: auto;
+    margin-top: 7px;
+    color: var(--pv2-muted);
+    font-size: 0.64rem;
+    line-height: 1.35;
+}
+
+.pv2-runtime-version {
+    color: var(--pv2-muted);
+    font-size: 0.64rem;
+}
+
+.pv2-status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+}
+
+.pv2-status-grid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(34,53,72,0.6);
+    font-size: 0.66rem;
+}
+
+.pv2-status-grid span {
+    color: var(--pv2-muted);
+}
+
+.pv2-status-grid strong {
+    font-size: 0.63rem;
+}
+
+.pv2-status-ok {
+    color: var(--pv2-green) !important;
+}
+
+.pv2-status-off {
+    color: var(--pv2-muted) !important;
+}
+
+.pv2-status-warn {
+    color: var(--pv2-yellow) !important;
+}
+
+.pv2-classes-card {
+    flex: 1 1 120px;
+    min-height: 100px;
+}
+
+.pv2-classes {
+    max-height: 125px;
+    overflow: auto;
+    align-content: flex-start;
+}
+
+.pv2-classes .class-tag {
+    padding: 4px 6px;
+    font-size: 0.63rem;
+}
+
+.pv2-visual-grid {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) minmax(360px, 1fr);
+    gap: 10px;
+}
+
+.pv2-camera-card,
+.pv2-map-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.pv2-view-header,
+.pv2-activity-header {
+    padding: 11px 13px;
+    border-bottom: 1px solid var(--pv2-line);
+}
+
+.pv2-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--pv2-muted);
+    font-size: 0.62rem;
+    font-weight: 850;
+}
+
+.pv2-live span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--pv2-green);
+    box-shadow: 0 0 0 4px rgba(66,211,146,0.08);
+}
+
+.pv2-camera-view {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    background: #020508;
+}
+
+.pv2-camera-view img {
+    width: 100%;
+    height: 100%;
+    min-height: 470px;
+    object-fit: contain;
+    background: #000;
+}
+
+.pv2-map-toolbar {
+    min-height: 48px;
+    padding: 7px 9px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--pv2-line);
+    background: rgba(0,0,0,0.08);
+}
+
+.pv2-map-toolbar select {
+    min-width: 145px;
+    flex: 1 1 145px;
+    min-height: 31px;
+    padding: 5px 7px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 6px;
+    background: #08111a;
+    color: var(--pv2-text);
+    font-size: 0.66rem;
+}
+
+.pv2-map-toolbar button {
+    min-height: 31px;
+    padding: 5px 7px;
+    font-size: 0.64rem;
+}
+
+.pv2-map-view {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0 !important;
+    height: 100%;
+}
+
+.pv2-map-view.viewer,
+.pv2-map-view.viewer img {
+    min-height: 445px;
+}
+
+.pv2-map-gate {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(4, 10, 16, 0.64);
+    backdrop-filter: blur(2px);
+    text-align: center;
+}
+
+.pv2-map-gate[hidden] {
+    display: none !important;
+}
+
+.pv2-map-gate div {
+    max-width: 320px;
+    padding: 14px 16px;
+    border: 1px solid rgba(120,144,168,0.32);
+    border-radius: 10px;
+    background: rgba(7,16,25,0.86);
+}
+
+.pv2-map-gate strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+}
+
+.pv2-map-gate span {
+    color: var(--pv2-muted);
+    font-size: 0.68rem;
+    line-height: 1.5;
+}
+
+.pv2-activity-card {
+    min-height: 150px;
+}
+
+.pv2-activity-summary {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.pv2-activity-summary span {
+    padding: 5px 7px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 6px;
+    color: var(--pv2-muted);
+    font-size: 0.62rem;
+}
+
+.pv2-log {
+    min-height: 96px;
+    max-height: 160px;
+    overflow: auto;
+    border: 0;
+    border-radius: 0;
+    background: #071019;
+    font-size: 0.68rem;
+    line-height: 1.45;
+}
+
+.keyboard-modal-card {
+    border-color: var(--pv2-line);
+    background: #0b1520;
+}
+
+@media (max-width: 1180px) {
+    .pv2-shell {
+        grid-template-columns: 235px minmax(0, 1fr);
+    }
+
+    .pv2-visual-grid {
+        grid-template-columns: 1.55fr 1fr;
+    }
+
+    .pv2-nav {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .pv2-topbar {
+        grid-template-columns: 1fr auto;
+    }
+
+    .pv2-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .pv2-sidebar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pv2-visual-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pv2-workspace {
+        grid-template-rows: auto auto;
+    }
+}
+
+@media (max-width: 620px) {
+    .pv2-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .pv2-top-status .pv2-chip {
+        display: none;
+    }
+
+    .pv2-camera-view img,
+    .pv2-map-view.viewer,
+    .pv2-map-view.viewer img {
+        min-height: 330px;
+    }
+}
+
+/* =========================================================
+   SAFEVISION ETAPA 7B - AJUSTES VISUALES
+   ========================================================= */
+
+/* Reutilizado del mapa nítido ya probado. */
+#mapImage {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+}
+
+
+/* Cámara: título + confianza en la misma franja. */
+.pv2-camera-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+}
+
+.pv2-camera-title-row > h2 {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.pv2-camera-confidence {
+    display: grid;
+    grid-template-columns: auto minmax(130px, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 190px;
+    max-width: 760px;
+    color: var(--pv2-muted);
+    font-size: 0.66rem;
+}
+
+.pv2-camera-confidence input[type="range"] {
+    width: 100%;
+    min-width: 120px;
+}
+
+.pv2-camera-confidence #confidenceValue {
+    color: var(--pv2-text);
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* Barra superior. */
+#pv2BackMenu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 999px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+
+/* Toolbar del mapa: ningún botón cortado. */
+.map-toolbar,
+.pv2-map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    overflow: visible;
+}
+
+.map-toolbar select,
+.pv2-map-toolbar select {
+    flex: 1 1 170px;
+    min-width: 145px;
+    max-width: 310px;
+}
+
+.map-toolbar button,
+.pv2-map-toolbar button {
+    flex: 0 0 auto;
+}
+
+#pv2MapRotationControl {
+    display: inline-grid;
+    grid-template-columns: auto minmax(105px, 175px) 44px;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 230px;
+    min-width: 220px;
+}
+
+#pv2MapRotation {
+    width: 100%;
+}
+
+#pv2MapRotationValue {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* Limpiar queda en el encabezado de la cola. */
+#mapNavClearButton {
+    display: none !important;
+}
+
+
+/* Cola sin scroll horizontal. */
+#mapNavQueuePanel {
+    min-width: 0;
+    overflow: hidden;
+}
+
+#mapNavQueuePanel .map-nav-table-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#pv2NavQueueActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+#pv2NavQueueActions button {
+    min-height: 28px;
+    padding: 4px 9px;
+}
+
+#mapNavQueuePanel .map-nav-table-scroll {
+    width: 100%;
+    overflow-x: hidden !important;
+}
+
+#mapNavQueueTable {
+    width: 100%;
+    table-layout: fixed;
+}
+
+#mapNavQueueTable th,
+#mapNavQueueTable td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#mapNavQueueTable th:nth-child(1),
+#mapNavQueueTable td:nth-child(1) {
+    width: 34px;
+}
+
+#mapNavQueueTable th:nth-child(2),
+#mapNavQueueTable td:nth-child(2) {
+    width: 72px;
+}
+
+#mapNavQueueTable th:nth-child(3),
+#mapNavQueueTable td:nth-child(3) {
+    width: 132px;
+    font-variant-numeric: tabular-nums;
+}
+
+#mapNavQueueTable th:nth-child(4),
+#mapNavQueueTable td:nth-child(4) {
+    width: 86px;
+}
+
+#mapNavQueueTable th:nth-child(5),
+#mapNavQueueTable td:nth-child(5) {
+    width: 94px;
+}
+
+#mapNavQueueTable th:nth-child(6),
+#mapNavQueueTable td:nth-child(6) {
+    width: 72px;
+    text-align: center;
+}
+
+#mapNavQueueBody tr {
+    cursor: pointer;
+}
+
+#mapNavQueueBody tr.pv2-selected {
+    outline: 1px solid rgba(96, 165, 250, 0.75);
+    outline-offset: -1px;
+    background: rgba(59, 130, 246, 0.12);
+}
+
+#mapNavQueueBody .map-nav-row-actions {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+}
+
+#mapNavQueueBody .map-nav-row-actions button {
+    min-width: 25px;
+    padding: 3px 6px;
+}
+
+@media (max-width: 1180px) {
+    .pv2-camera-title-row {
+        flex-wrap: wrap;
+    }
+
+    .pv2-camera-confidence {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    #pv2MapRotationControl {
+        flex-basis: 100%;
+    }
+}
+
+/* =========================================================
+   SAFEVISION ETAPA 7C - LAYOUT PILOTADA APROBADO
+   ========================================================= */
+
+/*
+ * Distribución final aprobada:
+ *
+ * sidebar | cámara      | mapa
+ *         | actividad   | cola (dentro del mapa)
+ *
+ * La actividad ocupa SOLAMENTE el ancho de la cámara.
+ * El mapa ocupa las dos filas y reserva espacio real para
+ * la cola de navegación.
+ */
+.pv2-workspace {
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns:
+        minmax(0, 1.9fr)
+        minmax(360px, 1fr);
+    grid-template-rows:
+        670px
+        150px;
+    gap: 10px;
+    align-items: stretch;
+}
+
+
+/*
+ * El wrapper visual deja de crear un grid independiente.
+ * Cámara y mapa pasan a ser items directos de pv2-workspace.
+ */
+.pv2-visual-grid {
+    display: contents !important;
+}
+
+
+.pv2-camera-card {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+
+.pv2-map-card {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+.pv2-activity-card {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 150px;
+    max-height: 150px;
+}
+
+
+/*
+ * La cámara conserva el tamaño dominante aprobado.
+ */
+.pv2-camera-view {
+    min-height: 0 !important;
+    height: auto !important;
+    flex: 1 1 auto;
+}
+
+
+.pv2-camera-view img {
+    min-height: 0 !important;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+
+/*
+ * El mapa usa el espacio restante DESPUÉS de reservar
+ * la cola de navegación.
+ */
+.pv2-map-card #mapViewport {
+    flex: 1 1 auto !important;
+    min-height: 430px !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+
+/*
+ * Cola completamente visible dentro del ancho del mapa.
+ * Sin scroll horizontal; scroll únicamente vertical si
+ * existen muchos puntos.
+ */
+.pv2-map-card #mapNavQueuePanel {
+    flex: 0 0 230px !important;
+    min-height: 230px !important;
+    max-height: 230px !important;
+    width: 100%;
+    overflow: hidden !important;
+    border-top: 1px solid var(--pv2-line);
+    background: var(--pv2-panel);
+}
+
+
+.pv2-map-card #mapNavQueuePanel .map-nav-table-scroll {
+    width: 100%;
+    max-height: 165px;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+
+.pv2-map-card #mapNavQueueTable {
+    width: 100%;
+    table-layout: fixed;
+}
+
+
+/*
+ * Runtime Manager: exactamente debajo del video.
+ */
+.pv2-activity-card .pv2-log {
+    min-height: 96px;
+    max-height: 104px;
+    overflow-y: auto;
+}
+
+
+/*
+ * Botón superior "Regresar a menú":
+ * misma estética que el resto del Dashboard.
+ * Se fija también :visited para que Firefox no lo pinte morado.
+ */
+#pv2BackMenu,
+#pv2BackMenu:link,
+#pv2BackMenu:visited {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    border: 1px solid var(--pv2-line) !important;
+    border-radius: 7px !important;
+    background: #0b1621 !important;
+    color: var(--pv2-muted) !important;
+    text-decoration: none !important;
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+
+#pv2BackMenu:hover,
+#pv2BackMenu:focus-visible {
+    border-color: var(--pv2-blue) !important;
+    color: var(--pv2-text) !important;
+    background: rgba(77, 142, 255, 0.10) !important;
+}
+
+
+/*
+ * La confianza ya vive en la cabecera de cámara.
+ * Si quedó el contenedor viejo vacío de la izquierda,
+ * nunca debe reservar espacio.
+ */
+.pv2-model-card .pv2-confidence:empty {
+    display: none !important;
+}
+
+
+/*
+ * La cabecera aprobada se mantiene compacta.
+ */
+.pv2-camera-title-row {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+
+.pv2-camera-title-row > h2 {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+
+.pv2-camera-confidence {
+    flex: 1 1 auto;
+    max-width: 620px;
+}
+
+
+/*
+ * Mantener la barra de giro completa dentro del mapa.
+ */
+#pv2MapRotationControl {
+    flex: 1 1 100%;
+    grid-template-columns:
+        auto
+        minmax(120px, 1fr)
+        44px;
+    max-width: none;
+}
+
+
+/*
+ * Responsive: al reducir ancho regresamos a una sola columna
+ * sin alterar funcionalidad.
+ */
+@media (max-width: 1180px) {
+    .pv2-workspace {
+        grid-template-columns:
+            minmax(0, 1.55fr)
+            minmax(340px, 1fr);
+    }
+}
+
+
+@media (max-width: 900px) {
+    .pv2-workspace {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+
+    .pv2-visual-grid {
+        display: contents !important;
+    }
+
+    .pv2-camera-card {
+        grid-column: 1;
+        grid-row: 1;
+        min-height: 520px;
+    }
+
+    .pv2-map-card {
+        grid-column: 1;
+        grid-row: 2;
+        min-height: 760px;
+    }
+
+    .pv2-activity-card {
+        grid-column: 1;
+        grid-row: 3;
+        max-height: none;
+    }
+}
+
+/* =========================================================
+   SAFEVISION ROTACION MINIMA V1
+   Una fila simple antes del mapa.
+   ========================================================= */
+
+#pv2RotationSimpleControl {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) 44px;
+    align-items: center;
+    gap: 8px;
+
+    flex: 0 0 34px;
+    min-height: 34px;
+    box-sizing: border-box;
+
+    padding: 4px 9px;
+
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+
+    background: #0b141f;
+    color: #cbd5e1;
+
+    position: relative;
+    z-index: 2;
+}
+
+#pv2RotationSimpleControl .pv2-rotation-simple__label {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#pv2RotationSimple {
+    width: 100%;
+    min-width: 120px;
+    margin: 0;
+}
+
+#pv2RotationSimpleValue {
+    min-width: 40px;
+    text-align: right;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: #e2e8f0;
+}
+

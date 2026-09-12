@@ -1576,3 +1576,642 @@ button:disabled {
             column;
     }
 }
+
+
+/* =========================================================
+   SAF EVISION 6D · TECLADO WEB
+   ========================================================= */
+
+.manual-control-switch {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            2,
+            minmax(0, 1fr)
+        );
+
+    gap:
+        8px;
+}
+
+
+.manual-control-button {
+    background:
+        #0b121c;
+
+    border:
+        1px solid
+        var(--border);
+
+    color:
+        var(--muted);
+}
+
+
+.manual-control-button.is-active {
+    border-color:
+        var(--blue);
+
+    background:
+        rgba(
+            59,
+            130,
+            246,
+            0.18
+        );
+
+    color:
+        #ffffff;
+}
+
+
+.manual-control-meta {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        10px;
+
+    margin-top:
+        10px;
+
+    padding-top:
+        10px;
+
+    border-top:
+        1px solid
+        #1d2938;
+
+    font-size:
+        0.78rem;
+}
+
+
+.manual-control-meta span,
+.keyboard-control-hint {
+    color:
+        var(--muted);
+}
+
+
+.keyboard-help-button {
+    width:
+        100%;
+
+    margin-top:
+        10px;
+
+    background:
+        var(--panel2);
+
+    border:
+        1px solid
+        var(--border);
+}
+
+
+.keyboard-control-hint {
+    margin-top:
+        9px;
+
+    font-size:
+        0.72rem;
+
+    line-height:
+        1.45;
+}
+
+
+body.keyboard-modal-open {
+    overflow:
+        hidden;
+}
+
+
+.keyboard-modal[hidden] {
+    display:
+        none !important;
+}
+
+
+.keyboard-modal {
+    position:
+        fixed;
+
+    inset:
+        0;
+
+    z-index:
+        5000;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    padding:
+        18px;
+}
+
+
+.keyboard-modal-backdrop {
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    background:
+        rgba(
+            0,
+            0,
+            0,
+            0.76
+        );
+
+    backdrop-filter:
+        blur(
+            4px
+        );
+}
+
+
+.keyboard-modal-card {
+    position:
+        relative;
+
+    z-index:
+        1;
+
+    width:
+        min(
+            760px,
+            100%
+        );
+
+    max-height:
+        calc(
+            100vh
+            -
+            36px
+        );
+
+    overflow:
+        auto;
+
+    padding:
+        18px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        13px;
+
+    background:
+        #0d151f;
+
+    box-shadow:
+        0
+        22px
+        70px
+        rgba(
+            0,
+            0,
+            0,
+            0.55
+        );
+}
+
+
+.keyboard-modal-header {
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    justify-content:
+        space-between;
+
+    gap:
+        16px;
+
+    padding-bottom:
+        14px;
+
+    border-bottom:
+        1px solid
+        var(--border);
+}
+
+
+.keyboard-modal-header h2 {
+    margin:
+        0
+        0
+        4px;
+
+    font-size:
+        1.05rem;
+}
+
+
+.keyboard-modal-header span {
+    color:
+        var(--muted);
+
+    font-size:
+        0.75rem;
+}
+
+
+.keyboard-modal-close {
+    min-width:
+        38px;
+
+    height:
+        38px;
+
+    padding:
+        0;
+
+    display:
+        inline-grid;
+
+    place-items:
+        center;
+
+    background:
+        var(--panel2);
+
+    border:
+        1px solid
+        var(--border);
+
+    font-size:
+        1.45rem;
+
+    line-height:
+        1;
+}
+
+
+.keyboard-live-status {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            4,
+            minmax(0, 1fr)
+        );
+
+    gap:
+        9px;
+
+    margin:
+        14px
+        0;
+}
+
+
+.keyboard-live-status > div {
+    min-width:
+        0;
+
+    padding:
+        10px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.025
+        );
+}
+
+
+.keyboard-live-status span {
+    display:
+        block;
+
+    margin-bottom:
+        5px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.68rem;
+}
+
+
+.keyboard-live-status strong {
+    display:
+        block;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    font-size:
+        0.8rem;
+}
+
+
+#keyboardDriveState[data-state="ready"] {
+    color:
+        var(--green);
+}
+
+
+#keyboardDriveState[data-state="moving"] {
+    color:
+        var(--yellow);
+}
+
+
+#keyboardDriveState[data-state="paused"] {
+    color:
+        var(--red);
+}
+
+
+.keyboard-layout {
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(
+            260px,
+            0.9fr
+        )
+        minmax(
+            280px,
+            1.1fr
+        );
+
+    gap:
+        18px;
+}
+
+
+.keyboard-movement {
+    padding:
+        15px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        10px;
+
+    background:
+        #080e15;
+}
+
+
+.keyboard-row {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            58px
+        );
+
+    justify-content:
+        center;
+
+    gap:
+        8px;
+
+    margin-bottom:
+        8px;
+}
+
+
+.keyboard-modal kbd {
+    min-width:
+        34px;
+
+    min-height:
+        34px;
+
+    display:
+        inline-grid;
+
+    place-items:
+        center;
+
+    padding:
+        6px
+        8px;
+
+    border:
+        1px solid
+        #3a4a5d;
+
+    border-bottom-width:
+        3px;
+
+    border-radius:
+        7px;
+
+    background:
+        #111b27;
+
+    color:
+        #ffffff;
+
+    font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Monaco,
+        Consolas,
+        monospace;
+
+    font-size:
+        0.78rem;
+
+    font-weight:
+        800;
+}
+
+
+.keyboard-stop-key {
+    border-color:
+        rgba(
+            239,
+            98,
+            98,
+            0.75
+        ) !important;
+}
+
+
+.keyboard-space-row {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        10px;
+
+    margin-top:
+        12px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.72rem;
+}
+
+
+.keyboard-space-row kbd {
+    min-width:
+        105px;
+}
+
+
+.keyboard-help-grid {
+    display:
+        grid;
+
+    gap:
+        8px;
+}
+
+
+.keyboard-help-grid > div {
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(
+            85px,
+            auto
+        )
+        1fr;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    min-height:
+        44px;
+
+    padding:
+        8px
+        10px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.75rem;
+}
+
+
+.keyboard-command-status {
+    margin-top:
+        14px;
+
+    padding:
+        10px
+        12px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        #080e15;
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.78rem;
+}
+
+
+.keyboard-command-status[data-state="moving"] {
+    color:
+        var(--yellow);
+}
+
+
+.keyboard-command-status[data-state="error"] {
+    color:
+        var(--red);
+}
+
+
+.keyboard-command-status[data-state="ready"] {
+    color:
+        var(--green);
+}
+
+
+@media (max-width: 760px) {
+
+    .keyboard-live-status {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+    }
+
+
+    .keyboard-layout {
+        grid-template-columns:
+            1fr;
+    }
+}

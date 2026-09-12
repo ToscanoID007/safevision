@@ -587,6 +587,43 @@ def redes_gestion():
 
 
 
+
+# =========================================================
+# SAFEVISION MISION PILOTADA V2 - PAGINA
+# =========================================================
+
+@app.route("/pilotada")
+def pilotada_v2_page():
+    global robot_ip
+    global robot_estado
+
+    # La nueva Pilotada no expone un panel de IP.
+    # Si la sesion Flask aun no conoce la Pi, intenta
+    # restaurarla con la IP configurable del robot.
+    if not robot_ip:
+        candidate = os.environ.get(
+            "SAFEVISION_ROBOT_IP",
+            "192.168.1.75"
+        ).strip()
+
+        ip = validar_ip(
+            candidate
+        )
+
+        if ip:
+            try:
+                robot_estado = consultar_robot(
+                    ip
+                )
+                robot_ip = ip
+            except Exception:
+                pass
+
+    return render_template(
+        "pilotada_v2.html"
+    )
+
+
 # =========================================================
 # SAFEVISION MISION AUTOMATICA - PAGINA
 # =========================================================
@@ -1443,6 +1480,172 @@ def robot_status():
             502
         )
 
+
+
+
+# =========================================================
+# SAF EVISION · TECLADO WEB · DASHBOARD
+# Proxy local hacia Runtime Manager en la Raspberry Pi.
+# =========================================================
+
+def _runtime_robot_url(
+    path=""
+):
+    if not robot_ip:
+        return None
+
+    return (
+        "http://{}:8091/runtime{}"
+    ).format(
+        robot_ip,
+        path
+    )
+
+
+def _runtime_proxy_json(
+    method,
+    path,
+    payload=None,
+    timeout=8
+):
+    url = _runtime_robot_url(
+        path
+    )
+
+    if not url:
+        return error(
+            "Robot no conectado.",
+            409
+        )
+
+    try:
+        response = requests.request(
+            method,
+            url,
+            json=payload,
+            timeout=timeout
+        )
+
+        try:
+            data = response.json()
+
+        except Exception:
+            data = {
+                "ok": False,
+                "error": (
+                    "Respuesta invalida del Runtime Manager."
+                )
+            }
+
+        return jsonify(
+            data
+        ), response.status_code
+
+    except Exception as exc:
+        return error(
+            (
+                "Runtime Manager no disponible: {}"
+            ).format(
+                exc
+            ),
+            502
+        )
+
+
+@app.route(
+    "/runtime/status"
+)
+def dashboard_runtime_status():
+    return _runtime_proxy_json(
+        "GET",
+        "/status",
+        timeout=4
+    )
+
+
+
+@app.route(
+    "/runtime/profile",
+    methods=["POST"]
+)
+def dashboard_runtime_profile():
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    payload = {
+        "profile": data.get(
+            "profile"
+        )
+    }
+
+    if data.get("map") is not None:
+        payload["map"] = data.get(
+            "map"
+        )
+
+    if data.get("control") is not None:
+        payload["control"] = data.get(
+            "control"
+        )
+
+    return _runtime_proxy_json(
+        "POST",
+        "/profile",
+        payload=payload,
+        timeout=120
+    )
+
+
+@app.route(
+    "/runtime/control",
+    methods=["POST"]
+)
+def dashboard_runtime_control():
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    return _runtime_proxy_json(
+        "POST",
+        "/control",
+        payload={
+            "mode": data.get(
+                "mode"
+            )
+        },
+        timeout=45
+    )
+
+
+@app.route(
+    "/runtime/keyboard",
+    methods=["POST"]
+)
+def dashboard_runtime_keyboard():
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    return _runtime_proxy_json(
+        "POST",
+        "/keyboard",
+        payload={
+            "linear_x": data.get(
+                "linear_x",
+                0.0
+            ),
+            "linear_y": data.get(
+                "linear_y",
+                0.0
+            ),
+            "angular_z": data.get(
+                "angular_z",
+                0.0
+            ),
+        },
+        timeout=3
+    )
 
 
 # =========================================================
