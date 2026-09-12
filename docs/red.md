@@ -133,6 +133,113 @@ sudo netplan apply
 > `docs/security-scan.md` H-2: **hay que rotar esa contraseña**.
 > **Nunca versiones un netplan con contraseña.**
 
+## 4-bis. Migrar de Ethernet a Wi-Fi (procedimiento para las pruebas)
+
+**Estado verificado el 2026-09-10:** el robot estaba conectado **sólo por Ethernet**
+(`eth0` = 192.168.1.13) y `wlan0` **caída** (sin portadora, sin SSID). Para cualquier prueba
+con movimiento hay que pasarlo a Wi-Fi y desconectar el cable: un robot atado por Ethernet
+se lleva por delante el cable, el módem, o a sí mismo.
+
+### 4-bis.1 Por qué no basta con conectar el Wi-Fi y tirar del cable
+
+**CONFIRMADO** leyendo `sf_roscore_service.sh:7-24` y `sf_robot_server_service.sh:7-24`:
+ambos servicios resuelven la IP así:
+
+```bash
+ip -4 -o addr show dev wlan0 scope global   # primero wlan0
+hostname -I                                  # y si no hay, lo que haya (eth0)
+```
+
+y con ella exportan `ROS_IP` y `ROS_MASTER_URI` **una sola vez, al arrancar**.
+
+Ahora mismo, con `wlan0` caída, el ROS Master está publicado en la IP de `eth0`. Si
+conectas el Wi-Fi y desenchufas el cable **sin reiniciar**, el Master sigue anunciado en una
+IP que ya no existe y los nodos no podrán registrarse.
+
+> **Por eso el procedimiento termina en un reinicio.** Además, ese reinicio **es** el
+> arranque en frío que piden las pruebas A-1 y V-1 de `docs/validacion.md`: se aprovecha.
+
+### 4-bis.2 Perfiles Wi-Fi ya guardados en el robot
+
+**CONFIRMADO** (`nmcli connection show`): `wlan0` la gestiona **NetworkManager** (`eth0` es
+`unmanaged`, lo lleva netplan/cloud-init), y hay tres perfiles guardados con
+`autoconnect=yes`:
+
+| Perfil guardado | Notas |
+|---|---|
+| `INFINITUMEB8A` | Es la red cuya contraseña está filtrada en el repositorio (`security-scan.md` H-2) |
+| `Red_local_luis` | — |
+| `Y_Lab_de_Control` | Por el nombre, la del laboratorio |
+
+⚠️ **Ninguno de los tres aparecía en el último escaneo**, que veía
+`Mega_5G_38FE`, `Mega_2.4G_38FE`, `INFINITUM2204`, `INFINITUM0F9D_2.4` y `INFINITUM3BF3`.
+El escaneo puede estar caducado (`wlan0` lleva tiempo desconectada), así que **lo primero
+es un rescan**.
+
+### 4-bis.3 Procedimiento
+
+Todo esto se ejecuta **en el robot**, con el cable Ethernet todavía puesto.
+
+```bash
+ssh pi@192.168.1.13        # o la IP que tenga por Ethernet
+
+# 1. Refrescar el escaneo y ver que hay de verdad
+sudo nmcli dev wifi rescan
+sleep 5
+nmcli -f SSID,SIGNAL,SECURITY dev wifi list
+
+# 2a. Si aparece un perfil YA GUARDADO, basta con activarlo:
+sudo nmcli connection up "Y_Lab_de_Control"
+
+# 2b. Si la red NO esta guardada, anadirla (te pedira la clave sin dejarla
+#     en el historial ni en la lista de procesos):
+sudo nmcli dev wifi connect "NOMBRE_DE_LA_RED" --ask
+
+# 3. Comprobar que wlan0 tiene IP y ANOTARLA
+ip -brief -4 addr show wlan0
+iwgetid -r
+
+# 4. Asegurar que el perfil se reconecta solo al arrancar
+nmcli -g connection.autoconnect connection show "NOMBRE_DE_LA_RED"
+# si dice "no":
+sudo nmcli connection modify "NOMBRE_DE_LA_RED" connection.autoconnect yes
+
+# 5. Apagar limpiamente
+sudo shutdown -h now
+```
+
+Cuando se apaguen los LED de actividad:
+
+6. **Desconecta el cable Ethernet.**
+7. **Pon el robot en el suelo**, en el área despejada.
+8. Enciéndelo y espera **90 segundos**.
+
+### 4-bis.4 Verificación desde la PC
+
+```bash
+./scripts/run_dashboard.sh
+```
+
+El script resuelve `yahboom.local` y, si el nombre no responde, **barre la red buscando
+quién contesta en `:8091`** y te dice la IP encontrada. No hay ninguna IP escrita en el
+repositorio.
+
+Comprobación manual equivalente:
+
+```bash
+curl -s http://<IP-NUEVA>:8091/runtime/status | python3 -m json.tool | head -20
+```
+
+Debe mostrar `ros_master_uri` con la **IP de Wi-Fi**, no la de Ethernet. Si todavía muestra
+la de Ethernet, el robot no reinició o `wlan0` no subió a tiempo.
+
+### 4-bis.5 Si algo sale mal y pierdes el acceso
+
+El robot sigue teniendo el puerto Ethernet: vuelve a enchufar el cable, espera un minuto y
+entra por la IP de `eth0`. Por eso **el cable se retira sólo después** de comprobar que el
+Wi-Fi funciona.
+
+**[PENDIENTE: ejecutar este procedimiento y anotar aquí la red elegida y la IP resultante.]**
 ## 4-ter. Red autónoma: el robot crea su propia red cuando no hay ninguna
 
 **El problema.** El robot cambia de sitio: laboratorio, casa, un pasillo, un patio sin
