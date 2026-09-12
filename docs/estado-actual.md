@@ -544,6 +544,24 @@ registrado; `_ensure_driver` exige que el driver publique `/imu/imu_raw`.
 
 **Etiqueta:** `v1.1-gestor-robusto`. **Robot sincronizado** a esa etiqueta.
 
+## 9-ter. Implementación v1.2 — gestor de nodos (verificado 2026-09-13)
+
+Página *Nodos* del dashboard y endpoints `GET /runtime/resources` y
+`POST /runtime/resource/<nombre>` sobre `sf_runtime_manager.start_resource/stop_resource`.
+Nueve pruebas unitarias en la PC (T5) y validación T6 en el robot **a través del dashboard**:
+
+| Prueba | Resultado |
+|---|---|
+| Parada y arranque simples (`nav_queue`) | OK, 3-4 s |
+| Cascada: detener `lidar` | `-nav_queue -navigation -pose_exporter -localization -lidar`, 13 s |
+| Resolución: arrancar `navigation` | `+lidar +localization +navigation`, 16 s |
+| Solo lectura (`camera`) y desconocido | `409` sin efectos |
+| Mando: detener → control teclado; arrancar → mando | OK |
+| Sesión de mapeo activa | Ninguna acción permitida; `409` explícito; restauración correcta al descartar |
+| Sanidad final | 19 nodos, `/scan` 7,76 Hz, `/odom` 20,0 Hz |
+
+**Etiqueta:** `v1.2-gestor-nodos`.
+
 ## 10. Documentos relacionados
 
 - `docs/runtime-boot.md` — cómo arranca el runtime y por qué hay dos caminos.
