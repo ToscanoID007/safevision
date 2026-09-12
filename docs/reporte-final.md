@@ -597,7 +597,7 @@ En orden de prioridad.
 |---|---|---|
 | 1 | Versionar el dashboard operativo (§8.3) | El producto 1 depende hoy de un directorio sin versionar |
 | 2 | Ejecutar `docs/validacion.md` | Sin ello, el objetivo 8 no tiene evidencia |
-| 3 | ~~Rotar las credenciales expuestas~~ | Descartado por decisión (2026-09-12); ver §9.4 |
+| 3 | ~~Rotar las credenciales expuestas~~ | Descartado por decisión (2026-09-12); ver §7.9 |
 | 4 | Depurar el catálogo de mapas | Quedan mapas de prueba sin limpiar |
 | 5 | Crear la imagen de respaldo de la microSD | Hoy la plataforma tiene un punto único de fallo |
 
