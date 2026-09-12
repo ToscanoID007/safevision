@@ -300,6 +300,11 @@ ramas. Se comprueba con `git ls-remote --tags origin`.
 
 ## 5. Qué haría falta para remediarlo (RECOMENDACIÓN — no ejecutar en esta sesión)
 
+> **Decisión (2026-09-12, estudiante prestador):** no se rota ninguna credencial ni se
+> reescribe el historial. Todo se mantiene igual. Esta sección se conserva como análisis
+> y como guía por si la decisión cambia. El repositorio es público (comprobado ese día
+> con la API de GitHub sin credenciales).
+
 En este orden. Los pasos 1 y 2 son urgentes y **no** requieren tocar el repositorio.
 
 1. **Rotar, antes que borrar.** Un secreto publicado se considera comprometido de forma

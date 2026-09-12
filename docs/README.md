@@ -149,7 +149,6 @@ el estudiante prestador; quedan registradas como tales.
 | 9 | Fotografías, capturas, conclusión cuantitativa, referencias, firmas y datos generales del reporte | `reporte-final.md` §1, §8.4, §10, §12, §13 |
 | 10 | Nombres, asesor y periodo en los créditos | `README.md` §15 |
 | 11 | Anotar el modelo YOLO disponible en P06 | `practicas/P06-yolo-misiones.md` §4 |
-| 12 | **Rotar la contraseña SSH del robot y la PSK del Wi-Fi** | `security-scan.md` §5 |
 
 ### 4.2 Decisiones tomadas
 
@@ -163,6 +162,7 @@ el estudiante prestador; quedan registradas como tales.
 | Reserva DHCP / Tailscale | Reserva sí (pendiente de hacer); Tailscale no | `red.md` §3, §7.1 |
 | Dashboard | Versionada la instantánea completa de desarrollo | `estado-actual.md` §5 |
 | `SafeVision.spec` | Versionada en `scripts/` | `scripts/LEEME-empaquetado.md` |
+| Credenciales expuestas en GitHub (SSH del robot y PSK del Wi-Fi) | **No se rotan ni se purga el historial**, por decisión del estudiante (2026-09-12). Se mantienen tal cual; el análisis queda en `security-scan.md` como referencia | `security-scan.md` §5 |
 
 ### 4.3 Trabajo futuro (código, en su propia rama)
 
