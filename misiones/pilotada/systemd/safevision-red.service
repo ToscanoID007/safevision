@@ -1,0 +1,17 @@
+[Unit]
+Description=SafeVision — conectividad Wi-Fi con punto de acceso de respaldo
+Documentation=file:/home/pi/robot_custom/docs/red.md
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/home/pi/robot_custom/misiones/pilotada/robot/sf_red_watchdog.sh
+Restart=always
+RestartSec=10
+
+# El vigilante solo usa nmcli; necesita privilegios para activar conexiones.
+User=root
+
+[Install]
+WantedBy=multi-user.target

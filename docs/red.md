@@ -133,6 +133,157 @@ sudo netplan apply
 > `docs/security-scan.md` H-2: **hay que rotar esa contraseña**.
 > **Nunca versiones un netplan con contraseña.**
 
+## 4-ter. Red autónoma: el robot crea su propia red cuando no hay ninguna
+
+**El problema.** El robot cambia de sitio: laboratorio, casa, un pasillo, un patio sin
+cobertura. Reconfigurar la red en cada traslado no es viable.
+
+**La solución implementada.** El robot pasa a tener dos modos y elige solo:
+
+```mermaid
+flowchart TD
+    A["Arranca el robot"] --> B{"¿Hay una red Wi-Fi<br/>conocida al alcance?"}
+    B -->|"Sí"| C["Se conecta a ella<br/>(modo cliente, con Internet)"]
+    B -->|"No"| D["Crea su propia red<br/>SSID: SafeVision-Robot"]
+    C --> E["IP variable →<br/>run_dashboard.sh la descubre"]
+    D --> F["IP FIJA: 10.42.0.1<br/>siempre la misma"]
+```
+
+> **La consecuencia práctica:** en cualquier sitio sin Wi-Fi conocida, enciendes el robot,
+> conectas el portátil a **`SafeVision-Robot`**, y el robot está en **`10.42.0.1`**.
+> Siempre. Sin escanear, sin preguntarle al módem, sin cables.
+
+### 4-ter.1 Qué se instala
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Perfil `SafeVision-AP` | NetworkManager | Punto de acceso WPA2, 2.4 GHz, `ipv4.method shared` con la dirección **fijada** a `10.42.0.1/24` (reparte DHCP; no se deja al valor por defecto de NetworkManager) |
+| `sf_red_watchdog.sh` | `misiones/pilotada/robot/` | Vigila `wlan0`; si se queda sin red, prueba las conocidas y si no levanta el AP |
+| `safevision-red.service` | `misiones/pilotada/systemd/` | Ejecuta el vigilante al arrancar |
+
+**Verificado en el robot antes de diseñarlo:** NetworkManager 1.10.6, `dnsmasq-base` 2.79
+instalado, chip `brcmfmac` con **modo AP soportado** (`iw list` → `* AP`).
+
+### 4-ter.2 Instalación (una sola vez)
+
+Desde la PC, con el robot accesible:
+
+```bash
+cd ~/safevision
+git pull                                  # el robot necesita el codigo nuevo
+ssh pi@<IP-ROBOT> 'cd ~/robot_custom && git pull'
+ssh -t pi@<IP-ROBOT> '~/robot_custom/scripts/robot_configurar_red.sh'
+```
+
+El script pide confirmación, te pide **una clave para el punto de acceso** (mínimo 8
+caracteres, no se guarda en el repositorio) y explica al final cómo deshacerlo todo.
+
+**No cambia la conexión en ese momento**: surte efecto al reiniciar o cuando `wlan0` se
+quede sin red.
+
+### 4-ter.3 Uso diario
+
+| Situación | Qué haces |
+|---|---|
+| **En el laboratorio o en casa** (red conocida) | Nada. El robot se conecta solo. `./scripts/run_dashboard.sh` encuentra su IP |
+| **En un sitio nuevo sin red** | Conecta el portátil a `SafeVision-Robot`. El robot está en `10.42.0.1` |
+| **Red nueva que quieres que recuerde** | `sudo nmcli dev wifi connect "<SSID>" --ask` en el robot. Queda guardada y tendrá prioridad sobre el AP |
+| **Estás en modo AP y quieres pasar a una red** | `sudo nmcli connection up "<NOMBRE>"` |
+| **Te quedaste fuera** | Cable Ethernet. `eth0` sigue con DHCP y no depende de nada de esto |
+
+### 4-ter.4 Límites conocidos, dichos de frente
+
+1. **En modo punto de acceso el robot no tiene Internet**, y el portátil conectado a él
+   tampoco. Es el precio de no depender de infraestructura.
+2. **No hay modo cliente y AP a la vez.** El chip `brcmfmac` de la Raspberry Pi lo admite
+   sobre el papel, pero es inestable. Se eligió uno u otro, nunca ambos.
+3. **Estando en modo AP el robot no busca redes.** Escanear mientras se hace de punto de
+   acceso tira a los clientes conectados. Para volver a modo cliente: reinicia o usa
+   `nmcli connection up`.
+4. **El AP tarda entre 20 y 40 segundos** en aparecer tras el arranque: el vigilante espera
+   primero a que NetworkManager intente las redes conocidas.
+5. **`ROS_MASTER_URI` se fija al arrancar.** Si el robot cambia de red *mientras está
+   encendido*, los servicios siguen anunciando la IP vieja. La solución es reiniciar; ver
+   §4-bis.1.
+
+### 4-ter.5 Alternativas descartadas, y por qué
+
+| Alternativa | Por qué no |
+|---|---|
+| Cable Ethernet directo PC↔robot | Determinista y rápido, pero el robot **no puede moverse**. Queda como vía de rescate |
+| Router de viaje dedicado | Funciona bien, pero es hardware extra que alimentar y transportar |
+| Compartir datos del teléfono | Sirve como red conocida más (añádela con `nmcli`), pero depende del teléfono y su batería |
+| Tailscale / VPN | Resuelve el acceso remoto, **no** el problema de no haber red local. Además añade superficie a un sistema sin autenticación |
+| IP estática en `wlan0` | Rompe en cuanto cambias de red. La reserva DHCP del módem es mejor, pero sólo sirve en esa red |
+
+> **Combinación recomendada:** punto de acceso propio como respaldo universal + las redes
+> del laboratorio y de casa guardadas + el cable como rescate. Cubre los tres escenarios sin
+> hardware adicional.
+
+### 4-ter.6 Resultado de la puesta en marcha (verificado en el robot)
+
+Ejecutado el **2026-09-11** sobre el robot real, con el cable conectado como red de
+seguridad. Las cuatro comprobaciones pasaron:
+
+| # | Prueba | Resultado |
+|---|---|---|
+| 1 | Punto de acceso activado a mano | `wlan0` en `type AP`, SSID `SafeVision-Robot`, canal 6, **IP `10.42.0.1/24`**, `dnsmasq` repartiendo, y `GET http://10.42.0.1:8091/health` respondiendo |
+| 2 | El vigilante no molesta a una conexión sana | 25 s con `wlan0` conectada: no intervino |
+| 3 | Recuperación con red conocida al alcance | Tras `nmcli device disconnect wlan0`, reconectó a `Mega_2.4G_38FE` en **~10 s** |
+| 4 | Caída al punto de acceso sin red conocida | Falseando el SSID del perfil, levantó el AP en **~10 s** y quedó en `10.42.0.1` |
+
+Y tras un **reinicio en frío**:
+
+```
+safevision-roscore        enabled / active
+safevision-robot-server   enabled / active
+safevision-red            enabled / active
+wlan0  192.168.1.15   SSID Mega_2.4G_38FE     (reconectó sola)
+```
+
+> **Validación adicional del caso "sin cable".** Sin poder desconectar el cable físicamente,
+> se simuló entrando por Wi-Fi, bajando `eth0` y reiniciando los dos servicios de ROS. El
+> resultado, leído del entorno real de los procesos (`/proc/<pid>/environ`), fue el correcto:
+>
+> ```
+> ROS_MASTER_URI=http://192.168.1.15:11311
+> ROS_IP=192.168.1.15
+> ```
+>
+> Es decir: **al arrancar sin cable, ROS se anuncia en la dirección de Wi-Fi.** El paso
+> físico pendiente es sólo retirar el cable y arrancar.
+
+### 4-ter.7 Aviso: `ros_master_uri` de `/runtime/status` puede mentir
+
+**CONFIRMADO.** El campo `ros_master_uri` que devuelve `GET /runtime/status` **no** es el que
+usan los servicios: `sf_runtime_manager._robot_ip()` lo **recalcula en cada llamada** abriendo
+un socket UDP hacia `8.8.8.8` y mirando qué dirección local elige el sistema, es decir, la de
+la **ruta por defecto de ese instante**.
+
+Con las dos interfaces levantadas se observó exactamente esta discrepancia:
+
+| Fuente | Valor |
+|---|---|
+| Entorno real de `roscore` (`/proc/<pid>/environ`) | `http://192.168.1.15:11311` ✅ |
+| Campo `ros_master_uri` de `/runtime/status` | `http://192.168.1.13:11311` ❌ |
+
+**Consecuencia práctica:** si diagnosticas un problema de ROS guiándote por ese campo, o lo
+copias para configurar `ROS_MASTER_URI` en otra máquina, puedes acabar apuntando a la
+interfaz equivocada.
+
+**La fuente fiable** mientras esto no se corrija:
+
+```bash
+sudo tr '\0' '\n' < /proc/$(systemctl show -p MainPID --value safevision-roscore)/environ \
+  | grep ROS_MASTER_URI
+```
+
+**[PENDIENTE: corregir `sf_runtime_manager.py` para que informe del `ROS_MASTER_URI` real del
+proceso en lugar de recalcularlo. Es un fichero del runtime y toca hacerlo en su propia rama,
+con validación en hardware.]**
+
+---
+
 ## 5. Cambiar de red Wi-Fi
 
 Con acceso por SSH o por teclado:
