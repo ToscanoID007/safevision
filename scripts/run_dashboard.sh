@@ -188,9 +188,9 @@ echo "${NEGRITA} Dashboard:  http://127.0.0.1:5000${NEUTRO}"
 if [ -n "$ROBOT_IP" ]; then
 echo "${NEGRITA} Robot:      $ROBOT_IP${NEUTRO}"
 echo
-echo " La pagina Pilotada toma esa IP automaticamente."
-echo " Si usas la portada clasica, escribela en la casilla"
-echo " 'IP del robot' (solo acepta IPv4, no nombres)."
+echo " Todas las paginas se conectan solas a esa IP."
+echo " Si la cambias a mano en la portada, vale la IP,"
+echo " 10.42.0.1 (red propia del robot) o yahboom.local."
 fi
 echo "======================================================="
 echo " Para detenerlo: Ctrl+C"

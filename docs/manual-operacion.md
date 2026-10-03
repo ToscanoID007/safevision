@@ -53,6 +53,24 @@ La cámara RGB-D está montada, pero **su profundidad no alimenta la navegación
 
 ## 1. Arranque
 
+### 1.0 La dirección del robot
+
+| Dónde está el robot | Dirección que usas | ¿Cambia? |
+|---|---|---|
+| En **su propia red** `SafeVision-Robot` (no encontró ninguna conocida) | **`10.42.0.1`** | **Nunca.** Es la dirección fija |
+| En cualquier otra red Wi-Fi | **`yahboom.local`** | El nombre no cambia; la IP que hay detrás sí |
+
+**Por qué no hay una IP fija en todas las redes.** Cada red reparte sus propias direcciones
+(`192.168.1.x` en casa, otra cosa en el laboratorio). Si se forzara al robot a una IP
+que no es de esa red, nadie podría alcanzarlo. Por eso la dirección fija sólo existe en la
+red que crea el propio robot, y en las demás se usa el nombre. Si en una red concreta
+quieres una IP que no cambie, se reserva en el router (reserva DHCP, `docs/red.md` §3).
+
+**No hace falta escribir la dirección.** `run_dashboard.sh` encuentra al robot (por nombre,
+por `10.42.0.1` o buscando en la red) y el dashboard se conecta solo en todas sus páginas.
+La casilla de la portada viene ya rellena con la dirección encontrada, o con `10.42.0.1`
+si no encontró ninguna; también acepta `yahboom.local`.
+
 ### 1.1 Encender el robot
 
 **Precondiciones:** batería cargada; robot en el suelo, en área despejada.
@@ -97,7 +115,7 @@ cd ~/safevision
 ./scripts/run_dashboard.sh
 ```
 
-Abre <http://127.0.0.1:5000> y escribe en la casilla la **IP exacta** que el script imprime.
+Abre <http://127.0.0.1:5000>. El dashboard ya está conectado a la dirección que imprime el script; no hay que escribir nada (ver §1.0).
 
 **Resultado esperado:** la interfaz muestra el estado del robot y el vídeo.
 

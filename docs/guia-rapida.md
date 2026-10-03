@@ -49,7 +49,11 @@ En la laptop, desde la carpeta del repositorio:
 ```
 
 El script **encuentra solo al robot** (por nombre, por `10.42.0.1` o buscando en la red)
-y te dice en qué IP está y qué tiene encendido. Luego abre `http://127.0.0.1:5000`.
+y te dice en qué IP está y qué tiene encendido. Luego abre `http://127.0.0.1:5000`:
+el dashboard ya está conectado, **no hay que escribir ninguna IP**.
+
+Si alguna vez la necesitas escribir: en la red propia del robot es **siempre `10.42.0.1`**;
+en cualquier otra red usa **`yahboom.local`**.
 
 **Sólo la primera vez en una laptop**, instala el entorno (tarda unos minutos):
 
@@ -107,7 +111,7 @@ Si te equivocaste de clave no pasa nada: el robot no logra conectarse, vuelve a 
 |---|---|
 | `run_dashboard.sh` no encuentra el robot | ¿Pasaron 2 minutos? ¿La laptop está en la misma red? Si no, busca `SafeVision-Robot` |
 | No aparece ni la red del robot | Conecta un cable Ethernet entre robot y router, o monitor y teclado a la Raspberry |
-| "Robot no conectado" en *Mapear* o *Mapas* | Entra antes a **Pilotada** o **Nodos** |
+| "Robot no conectado" | La laptop no está en la misma red que el robot. En su propia red el robot siempre es `10.42.0.1` |
 | `No module named 'requests'` | Reinstala el entorno: paso 2, la línea de la primera vez, tras `rm -rf misiones/pilotada/dashboard_src/.venv` |
 | El robot pita sin parar | Batería baja: apágalo bien y cárgalo |
 | Aplicar el perfil falla | Pulsa **Aplicar** otra vez; el gestor reconstruye lo que falte. Si sigue, mira la página **Nodos** |

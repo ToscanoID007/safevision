@@ -522,8 +522,9 @@ responden *"Robot no conectado"* aunque el robot esté en la red.
 que toman la dirección del entorno (`run_dashboard.sh` la exporta). Las demás páginas no lo
 hacen por sí solas.
 
-**Qué hacer.** Abre primero la portada, *Pilotada* o *Nodos*. Es un comportamiento
-heredado del dashboard; queda como mejora futura conectar en cualquier página.
+**Qué hacer.** **Corregido el 2026-10-03:** todas las páginas se conectan solas a la
+dirección que encontró `run_dashboard.sh`, o a `10.42.0.1` si no encontró ninguna. Si lo
+ves igualmente, el robot no está en la red de la laptop: revisa `manual-operacion.md` §1.0.
 
 ## 11. Dónde están los registros
 

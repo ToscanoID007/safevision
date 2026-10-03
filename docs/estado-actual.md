@@ -581,7 +581,7 @@ Ejecutada sobre `wip-handoff` tras integrar v1.1 y v1.2, con el robot sólo por 
 
 **Dos comportamientos observados que conviene conocer** (no son fallos, están documentados en
 `solucion-problemas.md`): la sesión del dashboard se conecta al robot al visitar *Pilotada* o
-*Nodos*, así que ir directo a *Mapear* nada más arrancar da "Robot no conectado"; y bajo carga
+*Nodos*, así que ir directo a *Mapear* nada más arrancar da "Robot no conectado" (corregido el 2026-10-03); y bajo carga
 el gestor de mapeo puede dejar su estado en `error` tras un descarte porque su restauración
 temporal interna espera 20 s a `map_server` — el gestor de runtime restaura igualmente y el
 siguiente ciclo lo limpia (verificado). Esa doble restauración queda como mejora futura.

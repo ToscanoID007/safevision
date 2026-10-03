@@ -5,6 +5,7 @@ import json
 import ipaddress
 import os
 import re
+import socket
 import subprocess
 import time
 import tempfile
@@ -518,6 +519,50 @@ def validar_ip(valor):
         return None
 
 
+# Direccion del robot cuando crea su propia red (SafeVision-Robot). Es la unica
+# direccion fija posible: en cualquier otra red la asigna esa red.
+IP_RED_PROPIA_ROBOT = "10.42.0.1"
+
+
+def resolver_robot(valor):
+    """Acepta una IPv4 o un nombre (p. ej. yahboom.local) y devuelve la IPv4."""
+    ip = validar_ip(valor)
+    if ip:
+        return ip
+    nombre = str(valor or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", nombre):
+        return None
+    try:
+        infos = socket.getaddrinfo(nombre, None, socket.AF_INET)
+    except Exception:
+        return None
+    return validar_ip(infos[0][4][0]) if infos else None
+
+
+def ip_robot_por_defecto():
+    """La que encontro run_dashboard.sh; si no hay, la de la red propia del robot."""
+    return os.environ.get("SAFEVISION_ROBOT_IP", "").strip() or IP_RED_PROPIA_ROBOT
+
+
+def restaurar_sesion_robot():
+    """Si la sesion aun no conoce el robot, prueba las direcciones conocidas."""
+    global robot_ip
+    global robot_estado
+    if robot_ip:
+        return
+    candidatos = [os.environ.get("SAFEVISION_ROBOT_IP", "").strip(), IP_RED_PROPIA_ROBOT]
+    for candidato in dict.fromkeys(c for c in candidatos if c):
+        ip = resolver_robot(candidato)
+        if not ip:
+            continue
+        try:
+            robot_estado = consultar_robot(ip)
+            robot_ip = ip
+            return
+        except Exception:
+            continue
+
+
 def error(
     mensaje,
     codigo=400
@@ -571,10 +616,26 @@ def consultar_robot(ip):
 # INTERFAZ
 # =========================================================
 
+# Las paginas (no las llamadas de la API) reconectan solas al robot, de modo que
+# cualquier pagina funciona aunque no se haya pasado antes por la portada.
+PAGINAS_CON_ROBOT = {
+    "index", "redes_gestion", "pilotada_v2_page", "automatica_mision",
+    "programar_mision", "mapas_gestion", "mapas_mapear", "mapa_editor_page",
+    "mission_files_page", "nodos",
+}
+
+
+@app.before_request
+def _reconectar_en_paginas():
+    if request.method == "GET" and request.endpoint in PAGINAS_CON_ROBOT:
+        restaurar_sesion_robot()
+
+
 @app.route("/")
 def index():
     return render_template(
-        "index.html"
+        "index.html",
+        ip_defecto=robot_ip or ip_robot_por_defecto()
     )
 
 
@@ -594,31 +655,6 @@ def redes_gestion():
 
 @app.route("/pilotada")
 def pilotada_v2_page():
-    global robot_ip
-    global robot_estado
-
-    # La nueva Pilotada no expone un panel de IP.
-    # Si la sesion Flask aun no conoce la Pi, intenta
-    # restaurarla con la IP configurable del robot.
-    if not robot_ip:
-        candidate = os.environ.get(
-            "SAFEVISION_ROBOT_IP",
-            "192.168.1.75"
-        ).strip()
-
-        ip = validar_ip(
-            candidate
-        )
-
-        if ip:
-            try:
-                robot_estado = consultar_robot(
-                    ip
-                )
-                robot_ip = ip
-            except Exception:
-                pass
-
     return render_template(
         "pilotada_v2.html"
     )
@@ -1373,7 +1409,7 @@ def connect():
     ) or {}
 
 
-    ip = validar_ip(
+    ip = resolver_robot(
         data.get(
             "ip",
             ""
@@ -1383,7 +1419,8 @@ def connect():
 
     if not ip:
         return error(
-            "IP inválida."
+            "Dirección inválida o nombre que no se resuelve. "
+            "Usa la IPv4 del robot, 10.42.0.1 en su propia red, o yahboom.local."
         )
 
 
@@ -1554,24 +1591,6 @@ def _runtime_proxy_json(
 
 @app.route("/nodos")
 def nodos():
-    global robot_ip
-    global robot_estado
-
-    # Igual que Pilotada: sin panel de IP, se toma del entorno si la sesion
-    # aun no conoce el robot.
-    if not robot_ip:
-        candidate = os.environ.get(
-            "SAFEVISION_ROBOT_IP",
-            ""
-        ).strip()
-        ip = validar_ip(candidate) if candidate else None
-        if ip:
-            try:
-                robot_estado = consultar_robot(ip)
-                robot_ip = ip
-            except Exception:
-                pass
-
     return render_template("nodos.html")
 
 
