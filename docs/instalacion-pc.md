@@ -9,6 +9,8 @@ Todas las órdenes se copian y pegan tal cual.
 ---
 
 **Destino:** Ubuntu 22.04 LTS o 24.04 LTS (también sirve 20.04 con Python ≥ 3.8).
+**También en Windows con WSL2** (Ubuntu 24.04, Python 3.12): verificado el 2026-10-03. El nombre
+`yahboom.local` se resuelve a través de Windows; abre `http://127.0.0.1:5000` en el navegador de Windows.
 **Tiempo estimado:** 15-30 minutos, casi todo descargando PyTorch.
 **No hace falta GPU.**
 
