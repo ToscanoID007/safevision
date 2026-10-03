@@ -164,7 +164,7 @@ el estudiante prestador; quedan registradas como tales.
 | Dashboard | Versionada la instantánea completa de desarrollo | `estado-actual.md` §5 |
 | `SafeVision.spec` | Versionada en `scripts/` | `scripts/LEEME-empaquetado.md` |
 | Rama por defecto en GitHub | Cambiada a `wip-handoff` el 2026-09-12 (verificado con la API) | `README.md` §13 |
-| Credenciales expuestas en GitHub (SSH del robot y PSK del Wi-Fi) | **No se rotan ni se purga el historial**, por decisión del estudiante (2026-09-12). Se mantienen tal cual; el análisis queda en `security-scan.md` como referencia | `security-scan.md` §5 |
+| Credenciales expuestas en GitHub (SSH del robot y PSK del Wi-Fi) | Por decisión del estudiante, la contraseña SSH del robot **se cambió el 2026-10-03** (la publicada ya no sirve); la PSK del Wi-Fi y el historial se mantienen. Se mantienen tal cual; el análisis queda en `security-scan.md` como referencia | `security-scan.md` §5 |
 
 ### 4.3 Trabajo futuro (código, en su propia rama)
 

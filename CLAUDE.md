@@ -175,8 +175,9 @@ no refactor.** The user (a student) took over all scope decisions.
   (zombie processes, v1.1), node manager page *Nodos* (v1.2), risky robot
   aliases disabled, autonomous network (robot joins a known Wi-Fi or raises its
   own AP `SafeVision-Robot` at `10.42.0.1`), dashboard auto-discovery.
-- **Decided, do not reopen:** exposed credentials are NOT rotated and history is
-  NOT rewritten (2026-09-12). RGB-D option A is future work.
+- **Decided, do not reopen:** history is NOT rewritten and the Wi-Fi PSK stays
+  (2026-09-12). The robot SSH password WAS changed on 2026-10-03 at the user's
+  request; the one published in old commits no longer works. RGB-D option A is future work.
 
 ### Still open (student-owned, in order)
 

@@ -301,8 +301,9 @@ ramas. Se comprueba con `git ls-remote --tags origin`.
 
 ## 5. Qué haría falta para remediarlo (RECOMENDACIÓN — no ejecutar en esta sesión)
 
-> **Decisión (2026-09-12, estudiante prestador):** no se rota ninguna credencial ni se
-> reescribe el historial. Todo se mantiene igual. Esta sección se conserva como análisis
+> **Decisión (2026-09-12, estudiante prestador):** no se reescribe el historial. El
+> 2026-10-03 se cambió la contraseña SSH del usuario `pi` (la publicada ya no sirve); la
+> PSK del Wi-Fi se mantiene. Esta sección se conserva como análisis
 > y como guía por si la decisión cambia. El repositorio es público (comprobado ese día
 > con la API de GitHub sin credenciales).
 
