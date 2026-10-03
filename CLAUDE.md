@@ -162,21 +162,43 @@ tests. Record the evidence in the commit message. The acceptance test
 **The refactor roadmap above is NOT the current goal.** The professor who owns
 the robot asked for three things: everything working, a documented and
 easy-to-install repo, and a structured final report. **No cloud, no containers,
-no refactor.** Work on branch `docs/entrega`; see `docs/README.md` for the map
-of what exists.
+no refactor.** The user (a student) took over all scope decisions.
 
-What is still open, in priority order (details in `docs/analisis-alcance.md` §6):
+### State at handoff (2026-10-03)
 
-1. **Version the working dashboard.** `~/SafeVision_Dashboard_dev/` on the dev
-   laptop is a day newer than the committed one and is the only thing that can
-   apply a runtime profile from the UI (71 routes vs 66, a strict superset).
-   Until it is committed, the robot is only operable via `curl`.
-   Run test V-1 of `docs/validacion.md` first.
-2. **Execute `docs/validacion.md`** (87 tests) and record the results.
-3. ~~Rotate the exposed credentials~~ — **decided 2026-09-12: not rotated, history
-   not rewritten, everything stays as is.** `docs/security-scan.md` remains as analysis.
-4. Optional, recommended: RGB-D fusion, option A (`docs/analisis-alcance.md` §4).
-   The Astra Pro is already mounted and `depthimage_to_laserscan` is installed.
+- Branch `wip-handoff` is GitHub's default branch and the only integration
+  branch. Latest tag: `v2.0-sistema-validado` (full-system test passed). The
+  robot runs exactly that tag. Old feature branches are all merged.
+- Start with `docs/guia-rapida.md` (one-page basics) and `docs/README.md` §4
+  (what is still open, who owns it, decisions already taken).
+- Done and verified: dashboard versioned (V-1 passed), runtime manager fix
+  (zombie processes, v1.1), node manager page *Nodos* (v1.2), risky robot
+  aliases disabled, autonomous network (robot joins a known Wi-Fi or raises its
+  own AP `SafeVision-Robot` at `10.42.0.1`), dashboard auto-discovery.
+- **Decided, do not reopen:** exposed credentials are NOT rotated and history is
+  NOT rewritten (2026-09-12). RGB-D option A is future work.
+
+### Still open (student-owned, in order)
+
+1. Learn the basics with `docs/guia-rapida.md`, including §4 (teach the robot a
+   new Wi-Fi with `nmcli connection add` + reboot). **That §4 procedure is not
+   yet verified on the robot.** A backup of the home Wi-Fi profile is at
+   `/home/pi/respaldo-red/` on the robot.
+2. Run the manual protocol `docs/validacion.md` (84 rows) and record results.
+3. Build the lab map (practice P03), fill report data (`docs/reporte-final.md`),
+   DHCP reservation, microSD backup image.
+
+### Working with the robot from an agent session
+
+- SSH: `pi@yahboom.local` (or `10.42.0.1` in AP mode), password auth only. Ask
+  the user for the password; never write it into the repo.
+- Sync code to the robot via `git bundle` + `scp`; the Pi has no GitHub access.
+  Never push to the `pi` remote.
+- **Never use `pkill -f`/`pgrep -f` with a pattern that also appears in your
+  own command line**: it matches and kills the invoking shell. Put such logic
+  in a script file.
+- `run_dashboard.sh` needs a venv created on the same machine with Python
+  >= 3.8; a venv made inside a container with another Python breaks it.
 
 ## Earlier agent tasks — done 2026-09-10
 
