@@ -7,6 +7,9 @@ Departamento de Ingeniería Eléctrica y Electrónica
 Ingeniería Mecatrónica — Especialidad en Sistemas Mecatrónicos Inteligentes
 Proyecto de Servicio Social en Investigación Tecnológica
 
+> **Para usar el robot hoy:** [`docs/guia-rapida.md`](docs/guia-rapida.md) resume en una
+> página cómo encenderlo, conectarse, abrir el dashboard y agregar una red nueva.
+
 ---
 
 ## Contenido
