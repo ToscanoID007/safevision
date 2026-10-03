@@ -199,6 +199,18 @@ else
     aviso "o puedes copiarlo ahora: cp scripts/robot.env.example scripts/robot.env)"
 fi
 
+# Nombres .local (yahboom.local): necesitan avahi y libnss-mdns en esta PC.
+# Sin ellos el dashboard sigue funcionando (run_dashboard.sh busca al robot por
+# la red), pero 'ssh pi@yahboom.local' y la casilla con el nombre fallan.
+if grep -E '^hosts:.*mdns' /etc/nsswitch.conf >/dev/null 2>&1 \
+   && systemctl is-active avahi-daemon >/dev/null 2>&1; then
+    ok "Esta PC resuelve nombres .local (yahboom.local)"
+else
+    aviso "Esta PC no resuelve nombres .local: 'yahboom.local' no funcionara."
+    aviso "Para activarlo:  sudo apt install -y avahi-daemon libnss-mdns"
+    aviso "Mientras tanto usa la IP; run_dashboard.sh la encuentra solo."
+fi
+
 echo
 echo "======================================================="
 echo "${VERDE} INSTALACION COMPLETADA${NEUTRO}"
@@ -209,7 +221,7 @@ echo
 echo "     ./scripts/run_dashboard.sh"
 echo
 echo " Ese script arranca el dashboard en http://127.0.0.1:5000"
-echo " y te dira que IP escribir para conectar con el robot."
+echo " y se conecta solo al robot."
 echo
 echo " Documentacion: docs/instalacion-pc.md"
 echo
