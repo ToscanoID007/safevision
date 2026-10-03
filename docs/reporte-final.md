@@ -384,8 +384,7 @@ La auditoría de seguridad (`docs/security-scan.md`) encontró y documentó:
 - **Credenciales históricas publicadas** en el repositorio (contraseña SSH del robot y
   clave Wi-Fi), presentes en ramas de respaldo y en el historial de GitHub.
 
-> **Decisión (2026-09-12):** las credenciales no se rotan ni se purga el historial; se
-> mantienen tal cual por decisión del estudiante prestador. El análisis y el procedimiento
+> **Decisión del estudiante prestador:** la contraseña SSH del robot **se cambió el 2026-10-03** (la publicada ya no sirve); la PSK del Wi-Fi y el historial se mantienen. El análisis y el procedimiento
 > quedan en `docs/security-scan.md` §5 por si la decisión cambia.
 
 ---
