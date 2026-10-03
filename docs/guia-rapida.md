@@ -111,7 +111,7 @@ Si te equivocaste de clave no pasa nada: el robot no logra conectarse, vuelve a 
 |---|---|
 | `run_dashboard.sh` no encuentra el robot | ¿Pasaron 2 minutos? ¿La laptop está en la misma red? Si no, busca `SafeVision-Robot` |
 | No aparece ni la red del robot | Conecta un cable Ethernet entre robot y router, o monitor y teclado a la Raspberry |
-| `yahboom.local` no funciona pero la IP sí | Falta mDNS en la laptop: `sudo apt install -y avahi-daemon libnss-mdns` |
+| `yahboom.local` no funciona pero la IP sí | En Ubuntu falta mDNS: `sudo apt install -y avahi-daemon libnss-mdns`. **En WSL** es normal: Linux no recibe mDNS; `run_dashboard.sh` y el dashboard le preguntan el nombre a Windows. Para `ssh` usa la IP |
 | "Robot no conectado" | La laptop no está en la misma red que el robot. En su propia red el robot siempre es `10.42.0.1` |
 | `No module named 'requests'` | Reinstala el entorno: paso 2, la línea de la primera vez, tras `rm -rf misiones/pilotada/dashboard_src/.venv` |
 | El robot pita sin parar | Batería baja: apágalo bien y cárgalo |

@@ -82,6 +82,15 @@ ok "Entorno virtual activado (Python ${PY_VER:-$(python --version 2>&1 | cut -d'
 # ---------------------------------------------------------------
 info "Resolviendo la direccion del robot"
 
+# En WSL2 Linux vive detras de una red virtual (NAT): los avisos mDNS de la red
+# local no le llegan y 'yahboom.local' no resuelve, aunque Windows si lo hace.
+# En ese caso se le pregunta a Windows con la misma funcion que usa 'ping'.
+es_wsl() { grep -qi microsoft /proc/version 2>/dev/null && command -v powershell.exe >/dev/null 2>&1; }
+
+windows_ps() {
+    powershell.exe -NoProfile -NonInteractive -Command "$1" 2>/dev/null | tr -d '\r' | awk 'NF {print; exit}'
+}
+
 resolver_ipv4() {
     local destino="$1" ip=""
     if [[ "$destino" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -89,6 +98,11 @@ resolver_ipv4() {
     fi
     ip="$(getent ahostsv4 "$destino" 2>/dev/null | awk 'NR==1 {print $1}')" || true
     [ -z "$ip" ] && ip="$(getent hosts "$destino" 2>/dev/null | awk 'NR==1 {print $1}')" || true
+    if [ -z "$ip" ] && es_wsl && [[ "$destino" =~ ^[A-Za-z0-9.-]+$ ]]; then
+        ip="$(windows_ps "[System.Net.Dns]::GetHostAddresses('$destino') | Where-Object { \$_.AddressFamily -eq 'InterNetwork' } | Select-Object -First 1 | ForEach-Object { \$_.IPAddressToString }")" || true
+        [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ip=""
+        [ -n "$ip" ] && ok "Nombre resuelto a traves de Windows (WSL)" >&2
+    fi
     printf '%s' "$ip"
 }
 
@@ -99,8 +113,15 @@ ROBOT_IP="$(resolver_ipv4 "$ROBOT_HOST")"
 # Asi el script sobrevive a un cambio de Ethernet a Wi-Fi sin tocar nada.
 descubrir_robot() {
     local prefijo pid_list=() encontrado=""
-    prefijo="$(ip -4 -o addr show scope global 2>/dev/null \
-        | awk 'NR==1 {split($4,a,"/"); split(a[1],b,"."); print b[1]"."b[2]"."b[3]}')"
+    local ip_local=""
+    # En WSL la red propia es la virtual de WSL; hay que barrer la de Windows.
+    if es_wsl; then
+        ip_local="$(windows_ps "(Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null } | Select-Object -First 1).IPv4Address.IPAddress")" || true
+        [[ "$ip_local" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ip_local=""
+    fi
+    [ -z "$ip_local" ] && ip_local="$(ip -4 -o addr show scope global 2>/dev/null \
+        | awk 'NR==1 {split($4,a,"/"); print a[1]}')"
+    prefijo="$(printf '%s' "$ip_local" | awk -F. 'NF==4 {print $1"."$2"."$3}')"
     [ -z "$prefijo" ] && return 1
 
     local tmp; tmp="$(mktemp -d)"

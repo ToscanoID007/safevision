@@ -202,7 +202,9 @@ fi
 # Nombres .local (yahboom.local): necesitan avahi y libnss-mdns en esta PC.
 # Sin ellos el dashboard sigue funcionando (run_dashboard.sh busca al robot por
 # la red), pero 'ssh pi@yahboom.local' y la casilla con el nombre fallan.
-if grep -E '^hosts:.*mdns' /etc/nsswitch.conf >/dev/null 2>&1 \
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    ok "WSL detectado: 'yahboom.local' se resolvera a traves de Windows"
+elif grep -E '^hosts:.*mdns' /etc/nsswitch.conf >/dev/null 2>&1 \
    && systemctl is-active avahi-daemon >/dev/null 2>&1; then
     ok "Esta PC resuelve nombres .local (yahboom.local)"
 else
