@@ -534,9 +534,31 @@ def resolver_robot(valor):
         return None
     try:
         infos = socket.getaddrinfo(nombre, None, socket.AF_INET)
+        if infos:
+            return validar_ip(infos[0][4][0])
+    except Exception:
+        pass
+    return _resolver_desde_windows(nombre)
+
+
+def _resolver_desde_windows(nombre):
+    """En WSL2 los nombres .local no resuelven en Linux pero si en Windows."""
+    try:
+        with open("/proc/version") as handle:
+            if "microsoft" not in handle.read().lower():
+                return None
+        orden = (
+            "[System.Net.Dns]::GetHostAddresses('{}') | "
+            "Where-Object {{ $_.AddressFamily -eq 'InterNetwork' }} | "
+            "Select-Object -First 1 | ForEach-Object {{ $_.IPAddressToString }}"
+        ).format(nombre)
+        salida = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", orden],
+            capture_output=True, text=True, timeout=10
+        ).stdout.strip().splitlines()
     except Exception:
         return None
-    return validar_ip(infos[0][4][0]) if infos else None
+    return validar_ip(salida[0].strip()) if salida else None
 
 
 def ip_robot_por_defecto():
