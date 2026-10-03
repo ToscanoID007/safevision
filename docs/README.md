@@ -172,7 +172,6 @@ el estudiante prestador; quedan registradas como tales.
 |---|---|
 | `ros_master_uri` de `/runtime/status` debe informar del valor real del proceso | `red.md` §4-ter.7 |
 | Doble restauración de la localización al cerrar el mapeo (gestor de mapeo + gestor de runtime) | `estado-actual.md` §9-quater |
-| Conectar la sesión del dashboard desde cualquier página | `solucion-problemas.md` §10.7 |
 | Fusión RGB-D, opción A | `analisis-alcance.md` §4.4 |
 
 ## 5. Qué NO está en este alcance
