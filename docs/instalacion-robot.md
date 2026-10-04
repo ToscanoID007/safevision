@@ -66,6 +66,28 @@ ssh pi@yahboom.local 'sudo shutdown -h now'
 
 Espera a que se apaguen los LED, desconecta la alimentación y saca la microSD.
 
+#### Opción Windows — Win32 Disk Imager (la que se usó)
+
+> ⚠️ Al conectar la tarjeta, Windows dirá **«Hay que formatear el disco»** porque no lee la
+> partición Linux. **Pulsa Cancelar. Nunca «Formatear».** Formatear borra el robot.
+
+1. Descarga **Win32 Disk Imager** de su página oficial
+   (<https://sourceforge.net/projects/win32diskimager/>) e instálalo.
+2. Conecta la microSD con el adaptador. Fíjate en la letra de la unidad pequeña que aparece
+   (`system-boot`, unos 250 MB), por ejemplo `E:`.
+3. Abre Win32 Disk Imager **como administrador**. En *Image File* escribe la ruta del archivo
+   nuevo, por ejemplo `D:\respaldos\safevision-robot-2026-10-04.img`. En *Device* elige esa
+   letra.
+4. Pulsa **Read** (leer: de la tarjeta al archivo). **No pulses Write**: escribiría el archivo
+   encima de la tarjeta. Tarda 20-40 minutos y el archivo mide lo que la tarjeta, unos 64 GB.
+5. Al terminar, pulsa **Verify Only** para comprobar que el archivo coincide con la tarjeta.
+6. Comprime el archivo con **7-Zip** en formato **xz** (clic derecho → 7-Zip → *Añadir al
+   archivo* → formato `xz`). Con 29 GB ocupados queda en unos 10-15 GB. Raspberry Pi Imager
+   puede restaurar directamente un `.img.xz`.
+7. Guarda una copia fuera de la laptop (disco externo o nube) y anótalo abajo.
+
+Necesitas unos **80 GB libres** en total: 64 para la imagen y el resto para la versión comprimida.
+
 #### Opción 1 — Raspberry Pi Imager (gráfico, más sencillo)
 
 1. Instálalo: `sudo apt install rpi-imager`
