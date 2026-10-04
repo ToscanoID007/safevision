@@ -207,6 +207,40 @@ sin mapa activo — aplica antes un perfil con mapa).
 > lanzaba *launch* de fábrica con los mismos nombres de nodo y pisaba los de SafeVision.
 > **No uses ese menú con SafeVision en marcha.**
 
+---
+
+## 2-ter. Wi-Fi del robot (página *Wi-Fi*)
+
+**Para qué.** Cambiar el robot de red sin consola: ver las redes que tiene al alcance,
+guardar una nueva con su contraseña, conectarlo a una guardada u olvidarla.
+
+| Acción | Qué pasa |
+|---|---|
+| **Buscar redes** | Lista con señal y banda. En la red propia del robot muestra la lista que vio al encender |
+| **Elegir** + contraseña | Guarda la red, **fijada a 2.4 GHz**. Con *Conectar ahora*, el robot cambia de red |
+| **Conectar** (guardada) | Cambia de red sin pedir contraseña |
+| **Olvidar** | El robot deja de conectarse a esa red al encender |
+| **Pasar a la red propia** | El robot crea `SafeVision-Robot` en `10.42.0.1` |
+
+**Al cambiar de red** la laptop pierde la conexión con el robot. Conéctala a la red nueva y
+vuelve a la página: el dashboard busca al robot por su IP anterior, por `yahboom.local` y por
+`10.42.0.1`, y lo encuentra solo. Si la red nueva falla, el robot vuelve a su red propia en
+menos de un minuto.
+
+**Límites.** Sólo 2.4 GHz. No sirven redes con portal web ni empresariales (usuario y
+contraseña). No se puede cambiar la clave de la red en uso: conéctate antes a otra.
+
+**Actualizar el robot** a la versión de la laptop (necesario la primera vez que aparece esta
+página):
+
+```bash
+./scripts/robot_actualizar.sh            # o con la IP: ./scripts/robot_actualizar.sh 10.42.0.1
+```
+
+Reinicia el Robot Server: después hay que volver a aplicar el perfil en Pilotada.
+
+---
+
 ## 3. Teleoperación
 
 ### 3.1 Con mando

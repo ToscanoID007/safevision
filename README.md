@@ -165,6 +165,7 @@ safevision/
 ├── scripts/                       Instalación y arranque en la estación; utilidades para el robot
 │   ├── install_dashboard.sh       Instala el dashboard (una sola vez)
 │   ├── run_dashboard.sh           Arranca el dashboard y localiza el robot en la red
+│   ├── robot_actualizar.sh        Lleva la versión de la estación al robot y reinicia sus servicios
 │   └── robot.env.example          Plantilla de configuración local
 ├── misiones/
 │   ├── pilotada/
@@ -332,13 +333,10 @@ que corresponde. El detalle está en `docs/red.md`.
 | No existe ninguna red conocida | Crea su propia red, `SafeVision-Robot`, y adopta la dirección fija `10.42.0.1` | Conectar la estación a esa red |
 | Se ha perdido el acceso inalámbrico | El puerto Ethernet mantiene DHCP | Conectar un cable al robot |
 
-Para añadir una red a la lista de redes conocidas, desde la estación:
-
-```bash
-ssh -t pi@yahboom.local 'sudo nmcli dev wifi connect "NOMBRE_DE_LA_RED" --ask'
-```
-
-La contraseña se solicita de forma interactiva y no queda registrada en el historial.
+Para añadir una red a la lista de redes conocidas se usa la página **Wi-Fi** del dashboard
+(tarjeta 08): muestra las redes al alcance del robot con su banda, pide la contraseña y
+cambia el robot de red. **El robot sólo usa redes de 2.4 GHz.** El procedimiento, también por
+consola, está en `docs/guia-rapida.md` §4.
 
 **Puertos.** El Robot Server escucha en el puerto 8091 y el ROS Master en el 11311. Ninguno
 dispone de autenticación. **No deben exponerse a Internet en ningún caso**; el acceso remoto
@@ -536,6 +534,15 @@ acciones quedan deshabilitadas. Es la forma correcta de gestionar los nodos: el 
 terminal de la generación anterior (`api/gestor_nodos.py`) no debe utilizarse con el sistema
 en marcha, porque lanza nodos con los mismos nombres y provoca su cierre.
 
+### 9.10 Wi-Fi del robot
+
+La página *Wi-Fi* (tarjeta 08) lista las redes que ve el robot, con su señal y su banda, y
+permite guardar una nueva con su contraseña, conectar el robot a una red guardada u
+olvidarla. Las redes se guardan fijadas a 2.4 GHz; las de 5 GHz aparecen deshabilitadas. Al
+cambiar de red, el dashboard vuelve a localizar el robot por sí solo. Si la contraseña es
+incorrecta, el robot regresa a su red propia `SafeVision-Robot`. Detalle en
+`docs/manual-operacion.md` §2-ter.
+
 ## 10. Normas de seguridad
 
 ### 10.1 Seguridad física
@@ -583,7 +590,7 @@ ssh pi@yahboom.local 'systemctl status safevision-*'   # servicios del sistema
 |---|---|---|
 | `/health` indica `"ok": false` tras el arranque | Comportamiento normal: no se ha aplicado ningún perfil | Sección 8, paso 4 |
 | El robot no se mueve aunque el estado es correcto | Sin perfil, o vigilante activo ante órdenes aisladas | `docs/solucion-problemas.md`, sección 2 |
-| La interfaz rechaza la dirección como inválida | Solo admite direcciones IPv4 numéricas, no nombres | `run_dashboard.sh` muestra la dirección |
+| La interfaz rechaza la dirección como inválida | El nombre no se resuelve en esta estación | Usar la IP que muestra `run_dashboard.sh`, o `10.42.0.1` en la red propia del robot |
 | No se localiza el robot en la red | Cambio de red o de dirección | `docs/red.md`, sección 6 |
 | La aplicación del perfil falla en `core` | El robot se movió durante la calibración del giróscopo | Repetir con el robot inmóvil |
 | La aplicación del perfil falla en `lidar` | Conexión USB o puerto serie bloqueado por una sesión anterior | `docs/solucion-problemas.md`, sección 4.3 |

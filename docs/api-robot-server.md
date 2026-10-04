@@ -17,7 +17,7 @@ Consúltalo como referencia; no hace falta leerlo entero.
 
 ---
 
-## 1. Índice de los 46 endpoints
+## 1. Índice de los 51 endpoints
 
 | Método | Ruta | Sección |
 |---|---|---|
@@ -67,6 +67,11 @@ Consúltalo como referencia; no hace falta leerlo entero.
 | POST | `/models/<nombre>/rename` | [Modelos](#10-modelos) |
 | PUT | `/models/<nombre>/metadata` | [Modelos](#10-modelos) |
 | DELETE | `/models/<nombre>` | [Modelos](#10-modelos) |
+| GET | `/network/wifi` | [Wi-Fi](#10-bis-wi-fi-del-robot) |
+| GET | `/network/wifi/scan` | [Wi-Fi](#10-bis-wi-fi-del-robot) |
+| POST | `/network/wifi/add` | [Wi-Fi](#10-bis-wi-fi-del-robot) |
+| POST | `/network/wifi/connect` | [Wi-Fi](#10-bis-wi-fi-del-robot) |
+| POST | `/network/wifi/forget` | [Wi-Fi](#10-bis-wi-fi-del-robot) |
 
 **Convención de errores:** casi todos devuelven `{"ok": false, "error": "..."}` con código
 `400` (petición inválida), `404` (no existe) o `409` (conflicto de estado). Los endpoints de
@@ -550,6 +555,27 @@ Ejemplo real de `GET /models`:
 
 > Los modelos viven en el robot pero **la inferencia corre en la PC**: el dashboard los
 > descarga. Los pesos (`*.pt`, `*.torchscript`) **no se versionan** (`CLAUDE.md` 7).
+
+---
+
+## 10-bis. Wi-Fi del robot
+
+Módulo `sf_red_wifi.py`; lo usa la página **Wi-Fi** del dashboard. Ejecuta `nmcli` con
+`sudo -n`. Las claves sólo viajan en `add` y **nunca se devuelven**.
+
+| Endpoint | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /network/wifi` | — | `modo` (`cliente`, `ap`, `sin_conexion`), `ssid`, `ip`, `guardadas[]` (nombre, ssid, banda, activa), `ocupado` |
+| `GET /network/wifi/scan` | — | `redes[]` (ssid, senal, bandas, compatible, abierta, empresarial), `en_vivo`, `edad_s`, `aviso` |
+| `POST /network/wifi/add` | `{"ssid", "password", "connect": bool, "hidden": bool}` | Guarda (o reemplaza) el perfil, fijado a 2.4 GHz; con `connect` cambia de red |
+| `POST /network/wifi/connect` | `{"name"}` | Cambia de red **en segundo plano** (responde antes del corte). `SafeVision-AP` vuelve a la red propia |
+| `POST /network/wifi/forget` | `{"name"}` | Borra un perfil guardado |
+
+**Reglas.** Todo perfil creado aquí lleva `802-11-wireless.band bg` (sólo 2.4 GHz). En modo
+punto de acceso **no se escanea**: se devuelve la lista que guardó `sf_red_watchdog.sh` al
+arrancar (`en_vivo: false`). Si la red nueva falla al conectar, se levanta de inmediato
+`SafeVision-AP`. No se puede cambiar la clave ni olvidar la red en uso, ni tocar la red propia.
+Errores de regla: **409**.
 
 ---
 
