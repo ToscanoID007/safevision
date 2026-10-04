@@ -151,9 +151,15 @@ los ejemplos de la documentación.
 > Los mapas retirados siguen en el historial de Git: `git show <commit>^:mapping/maps/<n>.yaml`
 > los recupera si alguna vez hacen falta.
 
-**[PENDIENTE: construir el mapa del laboratorio en la práctica P03 y anotar aquí su nombre.
-Los mapas que siguen en el robot, en `/home/pi/robot_custom/mapping/maps/`, hay que
-borrarlos desde el dashboard o con `git pull` + limpieza manual.]**
+**`Casa_luis` (2026-10-03).** Primer mapa construido con el sistema terminado, en casa del
+estudiante (la sesión de laboratorio se hizo allí). 800 × 800 px a 0,05 m; unos 173 m² de
+espacio libre registrado y una extensión de 25 × 19 m; paredes rectas y sin duplicar. Los
+abanicos blancos que salen del contorno son rayos del LiDAR que atraviesan ventanas, puertas
+o cristales: no afectan a la navegación dentro de la casa. Versionado en `mapping/maps/` y en
+uso en el robot. `HAB2` resultó ser de la misma casa (coincide en un 40-50 %).
+
+**[PENDIENTE: si el profesor pide el mapa del propio laboratorio, repetir P03 allí; son unos
+20 minutos.]**
 
 ---
 

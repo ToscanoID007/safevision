@@ -142,7 +142,7 @@ el estudiante prestador; quedan registradas como tales.
 | 1 | Ejecutar el protocolo manual de 87 pruebas y rellenar resultados, fecha, responsable y evidencia | `validacion.md` §3-§11 |
 | 2 | Datos de la sesión de validación, persona con el mando, palabra de parada | `validacion.md` §1.4, §2 |
 | 3 | Definir el error de deriva aceptable (P-7) y la semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
-| 4 | Construir el mapa del laboratorio (P03) y anotar su nombre | `estado-actual.md` §2.2, `practicas/README.md` §3 |
+| 4 | ~~Construir un mapa (P03)~~ Hecho: `Casa_luis`, 2026-10-03. Repetir en el laboratorio sólo si el profesor lo pide | `estado-actual.md` §2.2 |
 | 5 | Crear la imagen de respaldo de la microSD y anotar dónde queda | `instalacion-robot.md` §2.1 |
 | 6 | Configurar la reserva DHCP en el módem | `red.md` §3 |
 | 7 | Fotografías, capturas, conclusión cuantitativa, referencias y firmas del reporte (datos generales ya puestos) | `reporte-final.md` §1, §8.4, §10, §12, §13 |
