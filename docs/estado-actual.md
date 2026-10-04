@@ -503,7 +503,7 @@ consultar `docs/solucion-problemas.md`.
 | Decidir qué mapas conservar de los 6 | profesor |
 | Renombrar los alias peligrosos a `legacy_*` | profesor |
 | Copiar `/etc/udev/rules.d/` para la reconstrucción (necesita `sudo`) | estudiante en el robot |
-| Probar el `.tar.gz` del dashboard en una PC limpia | estudiante |
+| ~~Probar el `.tar.gz` del dashboard en una PC limpia~~ | Retirado el 2026-10-03 |
 
 ---
 

@@ -718,9 +718,9 @@ El índice completo, con rutas de lectura según el perfil del lector, está en
 **Asignatura destinataria:** Percepción e Inteligencia Artificial
 **Modalidad:** Servicio Social en Investigación Tecnológica
 
-**Desarrollo:** [PENDIENTE: nombres de los prestadores de servicio social]
-**Asesor responsable:** [PENDIENTE: nombre del profesor responsable]
-**Periodo:** [PENDIENTE: fechas de inicio y término]
+**Desarrollo:** Luis Adrian Flores Bueno (22460736) y Andros Jair Toscano Farias (22460548)
+**Asesor responsable:** Armando Gaytan Godinez
+**Periodo:** Marzo a septiembre de 2026
 
 El código base de la plataforma (`yahboomcar_ws`) es material del fabricante Yahboom y no
 forma parte de este repositorio.
