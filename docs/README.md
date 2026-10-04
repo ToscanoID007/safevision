@@ -56,6 +56,7 @@ Localiza aquí el documento que necesitas; cada uno indica en su cabecera para q
 
 | Documento | Contenido |
 |---|---|
+| [`entrega/reporte-final.docx`](entrega/reporte-final.docx) | **Reporte final en Word (y PDF), listo para entregar.** Se regenera desde `reporte-final.md` con `scripts/reporte_docx/generar.sh` |
 | [`guia-rapida.md`](guia-rapida.md) | **Empieza aquí.** Lo básico en una página: encender, conectarte, abrir el dashboard, operar, agregar una red nueva |
 | [`manual-operacion.md`](manual-operacion.md) | **Manual técnico de operación.** Cada procedimiento con precondiciones, pasos, resultado esperado y qué hacer si falla |
 | [`solucion-problemas.md`](solucion-problemas.md) | Síntoma → causa → solución |
