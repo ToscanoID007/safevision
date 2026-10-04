@@ -294,7 +294,7 @@ quede sin red.
 |---|---|
 | **En el laboratorio o en casa** (red conocida) | Nada. El robot se conecta solo. `./scripts/run_dashboard.sh` encuentra su IP |
 | **En un sitio nuevo sin red** | Conecta el portátil a `SafeVision-Robot`. El robot está en `10.42.0.1` |
-| **Red nueva que quieres que recuerde** | Guárdala sin escanear con `nmcli connection add` y reinicia; procedimiento en `guia-rapida.md` §4. `nmcli dev wifi connect` sólo funciona si el robot está en modo cliente, porque en modo AP no escanea |
+| **Red nueva que quieres que recuerde** | Página **Wi-Fi** del dashboard (`manual-operacion.md` §2-ter), o por consola con `nmcli connection add` y reinicio (`guia-rapida.md` §4). `nmcli dev wifi connect` sólo funciona en modo cliente, porque en modo AP no escanea |
 | **Estás en modo AP y quieres pasar a una red** | `sudo nmcli connection up "<NOMBRE>"` |
 | **Te quedaste fuera** | Cable Ethernet. `eth0` sigue con DHCP y no depende de nada de esto |
 

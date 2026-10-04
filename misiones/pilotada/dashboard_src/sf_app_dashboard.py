@@ -532,12 +532,22 @@ def resolver_robot(valor):
     nombre = str(valor or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", nombre):
         return None
-    try:
-        infos = socket.getaddrinfo(nombre, None, socket.AF_INET)
-        if infos:
-            return validar_ip(infos[0][4][0])
-    except Exception:
-        pass
+    # Un nombre .local que no existe puede tardar 15 s en fallar: se limita.
+    resultado = []
+
+    def _buscar():
+        try:
+            infos = socket.getaddrinfo(nombre, None, socket.AF_INET)
+            if infos:
+                resultado.append(validar_ip(infos[0][4][0]))
+        except Exception:
+            pass
+
+    hilo = threading.Thread(target=_buscar, daemon=True)
+    hilo.start()
+    hilo.join(3.0)
+    if resultado and resultado[0]:
+        return resultado[0]
     return _resolver_desde_windows(nombre)
 
 
@@ -566,16 +576,55 @@ def ip_robot_por_defecto():
     return os.environ.get("SAFEVISION_ROBOT_IP", "").strip() or IP_RED_PROPIA_ROBOT
 
 
-def restaurar_sesion_robot():
-    """Si la sesion aun no conoce el robot, prueba las direcciones conocidas."""
+def _robot_responde(ip, timeout=1.0):
+    try:
+        requests.get("http://{}:8091/".format(ip), timeout=timeout).raise_for_status()
+        return True
+    except Exception:
+        return False
+
+
+_ultima_busqueda_fallida = [0.0]
+_cerrojo_busqueda = threading.Lock()
+
+
+def restaurar_sesion_robot(verificar=False):
+    """
+    Si la sesion no conoce el robot, prueba las direcciones conocidas.
+    Con verificar=True tambien comprueba que la direccion actual sigue
+    respondiendo: tras un cambio de red (pagina Wi-Fi) el robot cambia de IP.
+    """
     global robot_ip
     global robot_estado
     if robot_ip:
+        if not verificar or _robot_responde(robot_ip):
+            return
+        robot_ip = None
+        robot_estado = {}
+    # Una busqueda a la vez, y no repetirla enseguida si acaba de fallar:
+    # mientras el robot cambia de red, las paginas no deben quedarse esperando.
+    if time.time() - _ultima_busqueda_fallida[0] < 8:
         return
-    candidatos = [os.environ.get("SAFEVISION_ROBOT_IP", "").strip(), IP_RED_PROPIA_ROBOT]
+    if not _cerrojo_busqueda.acquire(blocking=False):
+        return
+    try:
+        _buscar_robot()
+    finally:
+        _cerrojo_busqueda.release()
+
+
+def _buscar_robot():
+    global robot_ip
+    global robot_estado
+    # Primero las direcciones rapidas de probar; el nombre, al final.
+    candidatos = [
+        os.environ.get("SAFEVISION_ROBOT_IP", "").strip(),
+        IP_RED_PROPIA_ROBOT,
+        os.environ.get("SAFEVISION_ROBOT_HOST", "").strip() or "yahboom.local",
+    ]
     for candidato in dict.fromkeys(c for c in candidatos if c):
         ip = resolver_robot(candidato)
-        if not ip:
+        if not ip or not _robot_responde(ip):
             continue
         try:
             robot_estado = consultar_robot(ip)
@@ -583,6 +632,7 @@ def restaurar_sesion_robot():
             return
         except Exception:
             continue
+    _ultima_busqueda_fallida[0] = time.time()
 
 
 def error(
@@ -643,14 +693,14 @@ def consultar_robot(ip):
 PAGINAS_CON_ROBOT = {
     "index", "redes_gestion", "pilotada_v2_page", "automatica_mision",
     "programar_mision", "mapas_gestion", "mapas_mapear", "mapa_editor_page",
-    "mission_files_page", "nodos",
+    "mission_files_page", "nodos", "wifi_page",
 }
 
 
 @app.before_request
 def _reconectar_en_paginas():
     if request.method == "GET" and request.endpoint in PAGINAS_CON_ROBOT:
-        restaurar_sesion_robot()
+        restaurar_sesion_robot(verificar=True)
 
 
 @app.route("/")
@@ -1609,6 +1659,62 @@ def _runtime_proxy_json(
             ),
             502
         )
+
+
+# =========================================================
+# WI-FI DEL ROBOT
+# =========================================================
+
+def _robot_proxy_json(method, path, payload=None, timeout=10, reintentar=True):
+    """Proxy al Robot Server. Si el robot cambio de red, lo busca y reintenta."""
+    if not robot_ip:
+        restaurar_sesion_robot()
+    if not robot_ip:
+        return error("Robot no conectado.", 409)
+    try:
+        response = requests.request(
+            method, "http://{}:8091{}".format(robot_ip, path),
+            json=payload, timeout=timeout
+        )
+        try:
+            data = response.json()
+        except Exception:
+            data = {"ok": False, "message": "Respuesta invalida del robot."}
+        data["robot_ip"] = robot_ip
+        return jsonify(data), response.status_code
+    except requests.exceptions.ConnectionError:
+        if reintentar:
+            restaurar_sesion_robot(verificar=True)
+            if robot_ip:
+                return _robot_proxy_json(method, path, payload, timeout, reintentar=False)
+        return error("Robot no conectado.", 409)
+    except Exception as exc:
+        return error("El robot no respondio: {}".format(exc), 502)
+
+
+@app.route("/wifi")
+def wifi_page():
+    return render_template("wifi.html")
+
+
+@app.route("/api/wifi")
+def api_wifi_status():
+    return _robot_proxy_json("GET", "/network/wifi", timeout=15)
+
+
+@app.route("/api/wifi/scan")
+def api_wifi_scan():
+    return _robot_proxy_json("GET", "/network/wifi/scan", timeout=45)
+
+
+@app.route("/api/wifi/<accion>", methods=["POST"])
+def api_wifi_accion(accion):
+    if accion not in ("add", "connect", "forget"):
+        return error("Accion desconocida.", 404)
+    return _robot_proxy_json(
+        "POST", "/network/wifi/" + accion,
+        payload=request.get_json(silent=True) or {}, timeout=60
+    )
 
 
 @app.route("/nodos")

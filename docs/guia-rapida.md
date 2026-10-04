@@ -80,28 +80,35 @@ La página **Nodos** muestra qué parte está encendida y deja encender o apagar
 
 ## 4. Enseñarle al robot una red nueva
 
-Sirve en cualquier sitio, aunque el robot no conozca ninguna red:
+**Desde el dashboard** (página **Wi-Fi**, tarjeta 08 de la portada):
 
-1. Enciende el robot y espera 2 minutos. Conecta la laptop a **`SafeVision-Robot`**.
-2. Entra al robot:
-   ```bash
-   ssh pi@10.42.0.1
-   ```
-3. Guarda la red nueva (cambia `NOMBRE` y `CLAVE`, respetando las comillas):
-   ```bash
-   sudo nmcli connection add type wifi ifname wlan0 con-name "NOMBRE" ssid "NOMBRE" \
-        wifi-sec.key-mgmt wpa-psk wifi-sec.psk "CLAVE" connection.autoconnect-priority 10
-   sudo reboot
-   ```
-4. Conecta la laptop a la red nueva y, a los 2 minutos, `./scripts/run_dashboard.sh`.
+1. Si el robot no conoce ninguna red del lugar, conecta la laptop a **`SafeVision-Robot`**
+   y arranca el dashboard. Si ya estás en la misma red que el robot, sáltate este paso.
+2. Abre **Wi-Fi**. Verás las redes que ve el robot, con su banda.
+   **El robot sólo usa redes de 2.4 GHz:** las de 5 GHz salen en gris.
+3. Pulsa **Elegir** en la red, escribe su contraseña y deja marcado **Conectar ahora**.
+4. Tu laptop perderá la conexión con el robot. Conéctala a esa misma red y vuelve a la
+   página: encuentra al robot sola, en menos de un minuto.
 
-Si te equivocaste de clave no pasa nada: el robot no logra conectarse, vuelve a crear
-`SafeVision-Robot` y repites desde el paso 1. Para borrar una red guardada:
+Si la contraseña era incorrecta, el robot vuelve a crear `SafeVision-Robot` y la página te
+lo dice. La red queda guardada: la próxima vez que el robot la vea al encender, se conecta solo.
+
+> En su red propia el robot no puede buscar redes sin desconectarte, así que muestra
+> **la lista que vio al encender**. Si la red no aparece, usa «¿No aparece? Escribe el nombre».
+> No sirven las redes que piden iniciar sesión en una página web ni las que piden usuario.
+
+**Por consola** (si no tienes el dashboard a mano):
+
+```bash
+ssh pi@10.42.0.1
+sudo nmcli connection add type wifi ifname wlan0 con-name "NOMBRE" ssid "NOMBRE" \
+     802-11-wireless.band bg wifi-sec.key-mgmt wpa-psk wifi-sec.psk "CLAVE" \
+     connection.autoconnect-priority 10
+sudo reboot
+```
+
+Para borrar una red guardada: botón **Olvidar** en la página, o
 `sudo nmcli connection delete "NOMBRE"`.
-
-> Este método guarda la red **sin buscarla**, que es lo que hace falta: mientras el robot
-> crea su propia red no puede buscar otras. No sirve con redes que piden iniciar sesión
-> en una página web (redes de invitados, algunas institucionales).
 
 ---
 
@@ -115,6 +122,7 @@ Si te equivocaste de clave no pasa nada: el robot no logra conectarse, vuelve a 
 | "Robot no conectado" | La laptop no está en la misma red que el robot. En su propia red el robot siempre es `10.42.0.1` |
 | `No module named 'requests'` | Reinstala el entorno: paso 2, la línea de la primera vez, tras `rm -rf misiones/pilotada/dashboard_src/.venv` |
 | El robot pita sin parar | Batería baja: apágalo bien y cárgalo |
+| La página Wi-Fi no existe o da error | El robot tiene una versión anterior: `./scripts/robot_actualizar.sh` (o con su IP) |
 | Aplicar el perfil falla | Pulsa **Aplicar** otra vez; el gestor reconstruye lo que falte. Si sigue, mira la página **Nodos** |
 
 Más casos en `solucion-problemas.md`.

@@ -217,12 +217,13 @@ echo "======================================================="
 echo " Para detenerlo: Ctrl+C"
 echo
 
-# La pagina /pilotada no expone panel de IP: lee SAFEVISION_ROBOT_IP del
-# entorno y, si falta, cae en una IP de respaldo que puede estar obsoleta.
-# Se la damos resuelta para que nunca dependa de ese respaldo.
+# El dashboard se conecta solo: primero a la IP encontrada aqui, despues al
+# nombre configurado (si el robot cambia de red desde la pagina Wi-Fi) y por
+# ultimo a 10.42.0.1, la direccion fija de la red propia del robot.
 if [ -n "$ROBOT_IP" ]; then
     export SAFEVISION_ROBOT_IP="$ROBOT_IP"
 fi
+export SAFEVISION_ROBOT_HOST="$ROBOT_HOST"
 
 cd "$DASH"
 exec python sf_app_dashboard.py

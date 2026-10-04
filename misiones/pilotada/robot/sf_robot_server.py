@@ -36,6 +36,7 @@ from flask import (
 import sf_mapping_manager
 import sf_model_manager
 import sf_runtime_manager
+import sf_red_wifi
 
 
 AUTOMATIC_ROBOT_DIR = (
@@ -5024,6 +5025,53 @@ def runtime_resource(nombre):
         CONTROL_MODE = "mando" if accion == "start" else "teclado"
 
     return jsonify(result), (200 if result.get("ok") else 409)
+
+
+# =========================================================
+# WI-FI DEL ROBOT (pagina Wi-Fi del dashboard)
+# =========================================================
+# Las claves solo viajan en POST /network/wifi/add y nunca se devuelven.
+
+@app.route("/network/wifi")
+def network_wifi_status():
+    return jsonify(sf_red_wifi.estado())
+
+
+@app.route("/network/wifi/scan")
+def network_wifi_scan():
+    resultado = sf_red_wifi.escanear()
+    return jsonify(resultado), (200 if resultado.get("ok") else 500)
+
+
+def _wifi_respuesta(resultado):
+    return jsonify(resultado), (200 if resultado.get("ok") else 409)
+
+
+@app.route("/network/wifi/add", methods=["POST"])
+def network_wifi_add():
+    data = request.get_json(silent=True) or {}
+    resultado = sf_red_wifi.agregar(
+        str(data.get("ssid") or ""),
+        str(data.get("password") or ""),
+        bool(data.get("hidden"))
+    )
+    if resultado.get("ok") and data.get("connect"):
+        cambio = sf_red_wifi.conectar(resultado["nombre"])
+        resultado["cambio"] = cambio
+        resultado["message"] = resultado["message"] + " " + cambio.get("message", "")
+    return _wifi_respuesta(resultado)
+
+
+@app.route("/network/wifi/connect", methods=["POST"])
+def network_wifi_connect():
+    data = request.get_json(silent=True) or {}
+    return _wifi_respuesta(sf_red_wifi.conectar(str(data.get("name") or "")))
+
+
+@app.route("/network/wifi/forget", methods=["POST"])
+def network_wifi_forget():
+    data = request.get_json(silent=True) or {}
+    return _wifi_respuesta(sf_red_wifi.olvidar(str(data.get("name") or "")))
 
 
 def main():

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SafeVision · Wi-Fi del robot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nodos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='wifi.css') }}">
+</head>
+<body class="pv2-body nd-body">
+
+<header class="pv2-topbar">
+    <div class="pv2-brand">
+        <span class="pv2-brand-title">SafeVision</span>
+        <span class="pv2-brand-sub">Wi-Fi del robot</span>
+    </div>
+    <nav class="pv2-nav">
+        <a href="/">Inicio</a>
+        <a href="/pilotada">Pilotada</a>
+        <a href="/mapas/mapear">Mapear</a>
+        <a href="/nodos">Nodos</a>
+        <a href="/wifi" class="is-active">Wi-Fi</a>
+    </nav>
+    <div class="nd-topstatus">
+        <span id="wfConexion" class="pv2-badge">consultando…</span>
+    </div>
+</header>
+
+<main class="nd-shell">
+
+    <section class="pv2-card wf-estado">
+        <div>
+            <div class="wf-etiqueta">Red actual del robot</div>
+            <div id="wfRedActual" class="wf-red-actual">—</div>
+            <div id="wfDetalle" class="wf-detalle"></div>
+        </div>
+        <button id="wfVolverAp" class="nd-btn" type="button" hidden>
+            Pasar a la red propia del robot
+        </button>
+    </section>
+
+    <section class="pv2-card">
+        <p class="wf-regla">
+            <strong>El robot sólo usa redes de 2.4 GHz.</strong>
+            Las redes de 5 GHz aparecen en gris y no se pueden elegir. Si tu módem emite las dos
+            bandas con nombres distintos, elige la de 2.4 GHz.
+        </p>
+        <p class="wf-nota">
+            Tampoco funcionan las redes que piden iniciar sesión en una página web ni las que piden
+            usuario además de contraseña (redes institucionales tipo empresa).
+            Si el robot no encuentra ninguna red conocida al encender, crea la suya:
+            <strong>SafeVision-Robot</strong>, siempre en <strong>10.42.0.1</strong>.
+        </p>
+    </section>
+
+    <section id="wfAviso" class="pv2-card wf-aviso" hidden></section>
+
+    <section class="pv2-card">
+        <div class="wf-cabecera">
+            <h3>Redes disponibles</h3>
+            <button id="wfBuscar" class="nd-btn" type="button">Buscar redes</button>
+        </div>
+        <p id="wfEscaneoInfo" class="wf-nota"></p>
+        <div id="wfLista" class="wf-lista"><div class="nd-empty">Pulsa «Buscar redes».</div></div>
+        <details class="wf-oculta">
+            <summary>¿No aparece? Escribe el nombre de la red</summary>
+            <div class="wf-form">
+                <input id="wfOcultaSsid" type="text" maxlength="32" placeholder="Nombre de la red (2.4 GHz)" autocomplete="off">
+                <button id="wfOcultaBtn" class="nd-btn start" type="button">Continuar</button>
+            </div>
+        </details>
+    </section>
+
+    <section class="pv2-card">
+        <h3>Redes guardadas en el robot</h3>
+        <p class="wf-nota">Al encender, el robot se conecta solo a la que tenga al alcance.</p>
+        <div id="wfGuardadas" class="wf-lista"><div class="nd-empty">—</div></div>
+    </section>
+
+    <section class="pv2-card nd-log-card">
+        <h3>Registro</h3>
+        <pre id="wfLog" class="nd-log"></pre>
+    </section>
+</main>
+
+<dialog id="wfDialogo" class="wf-dialogo">
+    <form method="dialog" id="wfForm">
+        <h3>Conectar el robot a <span id="wfDlgSsid"></span></h3>
+        <label id="wfDlgClaveFila">
+            Contraseña del Wi-Fi
+            <span class="wf-clave">
+                <input id="wfDlgClave" type="password" minlength="8" maxlength="64" autocomplete="off">
+                <button id="wfDlgVer" type="button" class="nd-btn">Ver</button>
+            </span>
+        </label>
+        <p id="wfDlgAbierta" class="wf-nota" hidden>Red abierta: no necesita contraseña.</p>
+        <label class="wf-check">
+            <input id="wfDlgAhora" type="checkbox" checked>
+            Conectar ahora (si no, sólo se guarda para la próxima vez)
+        </label>
+        <p class="wf-nota">
+            Si conectas ahora y tu laptop está en la red propia del robot, perderás la conexión:
+            pasa la laptop a la nueva red y vuelve a esta página. Si la contraseña es incorrecta,
+            el robot vuelve a crear <strong>SafeVision-Robot</strong> en menos de un minuto.
+        </p>
+        <p id="wfDlgError" class="wf-error" hidden></p>
+        <div class="wf-botones">
+            <button value="cancel" class="nd-btn" type="submit" formnovalidate>Cancelar</button>
+            <button id="wfDlgGuardar" class="nd-btn start" type="button">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="{{ url_for('static', filename='wifi.js') }}"></script>
+</body>
+</html>
