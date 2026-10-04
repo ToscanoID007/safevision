@@ -1206,7 +1206,10 @@ def mark_mapping_started(
         steps = []
 
         # Gmapping ya tomo /map.
-        # Ahora retiramos los recursos incompatibles.
+        # Ahora retiramos los recursos incompatibles. El exportador de pose NO
+        # lo es: solo lee la TF map -> base_footprint, que Gmapping tambien
+        # publica; mantenerlo permite ver el robot moverse en Mapear (antes
+        # desaparecia del mapa durante todo el mapeo).
         for name, action in [
             (
                 "nav_queue",
@@ -1215,10 +1218,6 @@ def mark_mapping_started(
             (
                 "navigation",
                 _stop_navigation,
-            ),
-            (
-                "pose_exporter",
-                _stop_pose_exporter,
             ),
         ]:
             ok = bool(
@@ -1280,7 +1279,6 @@ def mark_mapping_started(
             name
             for name in [
                 "localization",
-                "pose_exporter",
                 "navigation",
                 "nav_queue",
             ]

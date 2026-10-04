@@ -4251,6 +4251,9 @@ def mapping_session_status():
 )
 def mapping_session_start():
 
+    global LIVE_MAP_PNG
+    global LIVE_MAP_META
+
     data = request.get_json(
         silent=True
     ) or {}
@@ -4297,6 +4300,14 @@ def mapping_session_start():
             ),
             "runtime": runtime_prepare,
         }), 409
+
+    # El mapa en vivo guardado es el del map_server (el mapa de retorno, p. ej.
+    # HAB2). Se vacia para que Mapear no lo muestre como si fuera el mapa
+    # nuevo: la pagina espera al primer mapa de Gmapping. map_server publica
+    # una sola vez (latched), asi que no vuelve a llegar hasta la restauracion.
+    with LIVE_MAP_LOCK:
+        LIVE_MAP_PNG = None
+        LIVE_MAP_META = None
 
     result = sf_mapping_manager.start(
         name
