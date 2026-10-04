@@ -254,12 +254,16 @@ def escanear():
             edad = int(time.time() - os.path.getmtime(CACHE_ESCANEO))
         except Exception:
             pass
-        return {
-            "ok": True, "en_vivo": False, "edad_s": edad,
-            "aviso": ("El robot esta en su red propia y no puede buscar redes sin "
-                      "desconectarte. Esta es la lista que vio al arrancar."),
-            "redes": parsear_escaneo(texto),
-        }
+        redes = parsear_escaneo(texto)
+        if redes:
+            aviso = ("El robot esta en su red propia y no puede buscar redes sin "
+                     "desconectarte. Esta es la lista que vio al arrancar.")
+        else:
+            aviso = ("El robot esta en su red propia y no puede buscar redes sin "
+                     "desconectarte, y no tiene guardada la lista del arranque. "
+                     "Escribe el nombre de la red abajo, o reinicia el robot para que la vea.")
+        return {"ok": True, "en_vivo": False, "edad_s": edad if redes else None,
+                "aviso": aviso, "redes": redes}
     # Sin --rescan: NetworkManager 1.10 (Ubuntu 18.04) no lo conoce.
     if _nmcli(["device", "wifi", "rescan"], 15)[0] == 0:
         time.sleep(4)

@@ -6,14 +6,18 @@
     <title>SafeVision · Nodos</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_paginas.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='nodos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_ayuda.css') }}">
 </head>
-<body class="pv2-body nd-body">
-
+<body class="pilotada-v2-body sv-page">
 <header class="pv2-topbar">
     <div class="pv2-brand">
-        <span class="pv2-brand-title">SafeVision</span>
-        <span class="pv2-brand-sub">Gestor de nodos</span>
+        <div class="pv2-brand-mark">SV</div>
+        <div>
+            <h1>SafeVision</h1>
+            <span>Gestor de nodos</span>
+        </div>
     </div>
     <nav class="pv2-nav">
         <a href="/">Inicio</a>
@@ -22,52 +26,57 @@
         <a href="/nodos" class="is-active">Nodos</a>
         <a href="/wifi">Wi-Fi</a>
     </nav>
-    <div class="nd-topstatus">
-        <span id="ndProfile" class="pv2-badge">perfil: —</span>
-        <span id="ndConnection" class="pv2-badge">sin conexión</span>
+    <div class="pv2-top-status">
+        <span id="ndProfile" class="pv2-chip">perfil: —</span>
+        <span id="ndConnection" class="pv2-chip">sin conexión</span>
     </div>
 </header>
 
-<main class="nd-shell">
+<main class="sv-shell">
 
-    <section class="pv2-card nd-intro">
-        <h2>Recursos del runtime</h2>
+    <section class="sv-card">
+        <span class="sv-eyebrow">Runtime del robot</span>
+        <h2>Qué está encendido</h2>
         <p>
-            Cada fila es un recurso que el gestor de runtime del robot posee y vigila.
-            Arrancar un recurso arranca antes sus requisitos; detenerlo detiene antes lo que
-            depende de él. Todo pasa por el gestor: no se lanzan <em>launch</em> sueltos.
+            Cada fila es una parte del robot que el gestor de runtime controla y vigila.
+            <strong>Arrancar</strong> una parte arranca antes lo que necesita;
+            <strong>detenerla</strong> detiene antes lo que depende de ella.
+            Pulsar <strong>Aplicar</strong> en Pilotada también reconstruye lo que falte.
         </p>
-        <p id="ndMappingNotice" class="nd-notice" hidden>
+        <p id="ndMappingNotice" class="sv-callout warn" hidden>
             Hay una sesión de mapeo activa. Las acciones están deshabilitadas: gestiona el
             mapeo desde la página <a href="/mapas/mapear">Mapear</a>.
         </p>
     </section>
 
-    <section class="pv2-card nd-table-card">
-        <table class="nd-table">
-            <thead>
-                <tr>
-                    <th>Recurso</th>
-                    <th>Estado</th>
-                    <th>PID</th>
-                    <th>Requiere</th>
-                    <th>Dependen de él</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody id="ndRows">
-                <tr><td colspan="6" class="nd-empty">Consultando al robot…</td></tr>
-            </tbody>
-        </table>
+    <section class="sv-card">
+        <div class="sv-table-wrap">
+            <table class="nd-table">
+                <thead>
+                    <tr>
+                        <th>Recurso</th>
+                        <th>Estado</th>
+                        <th>PID</th>
+                        <th>Requiere</th>
+                        <th>Dependen de él</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="ndRows">
+                    <tr><td colspan="6" class="nd-empty">Consultando al robot…</td></tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 
-    <section class="pv2-card nd-log-card">
+    <section class="sv-card">
         <h3>Registro</h3>
-        <pre id="ndLog" class="nd-log"></pre>
+        <pre id="ndLog" class="sv-log"></pre>
     </section>
 
 </main>
 
 <script src="{{ url_for('static', filename='nodos.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_ayuda.js') }}"></script>
 </body>
 </html>

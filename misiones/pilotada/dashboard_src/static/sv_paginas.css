@@ -1,0 +1,143 @@
+/* =========================================================
+   SafeVision - paginas de utilidad (Nodos, Wi-Fi)
+   Usa los tokens de pilotada_v2.css (--pv2-*) para verse igual
+   que Pilotada: misma barra superior, mismos recuadros.
+   ========================================================= */
+
+.sv-page {
+    min-height: 100vh;
+    color: var(--pv2-text);
+}
+
+/* Barra superior: completa lo que pilotada_v2.css no define */
+.sv-page .pv2-brand h1 { line-height: 1.1; }
+.sv-page .pv2-brand span { display: block; margin-top: 2px; }
+.sv-page .pv2-nav a.is-active {
+    background: rgba(77, 142, 255, 0.14);
+    color: var(--pv2-text);
+}
+
+/* Contenido */
+.sv-shell {
+    width: min(1100px, calc(100% - 32px));
+    margin: 20px auto 48px;
+    display: grid;
+    gap: 14px;
+}
+
+.sv-card {
+    min-width: 0;
+    padding: 18px 20px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 12px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.018), transparent 75%),
+        var(--pv2-panel);
+}
+
+.sv-card > :first-child { margin-top: 0; }
+.sv-card > :last-child { margin-bottom: 0; }
+
+.sv-card h2,
+.sv-card h3 {
+    margin: 0 0 6px;
+    font-size: 1.02rem;
+    line-height: 1.25;
+}
+
+.sv-card p {
+    margin: 6px 0;
+    color: var(--pv2-muted);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.sv-card p strong { color: var(--pv2-text); }
+
+.sv-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--pv2-muted);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.sv-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.sv-card-head h2,
+.sv-card-head h3 { margin: 0; }
+
+.sv-callout {
+    margin: 0 0 8px;
+    padding: 11px 14px;
+    border: 1px solid rgba(77, 142, 255, 0.35);
+    border-radius: 9px;
+    background: rgba(77, 142, 255, 0.10);
+    color: var(--pv2-text) !important;
+}
+
+.sv-callout.warn {
+    border-color: rgba(255, 200, 87, 0.4);
+    background: rgba(255, 200, 87, 0.10);
+    color: #ffd98a !important;
+}
+
+.sv-table-wrap { overflow-x: auto; }
+
+.sv-btn {
+    padding: 7px 13px;
+    border: 1px solid var(--pv2-line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--pv2-text);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.sv-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.10); filter: none; }
+.sv-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sv-btn.primario { border-color: rgba(77, 142, 255, 0.6); background: rgba(77, 142, 255, 0.18); }
+.sv-btn.ok { border-color: rgba(66, 211, 146, 0.55); }
+.sv-btn.peligro { border-color: rgba(255, 107, 107, 0.55); }
+
+.sv-log {
+    max-height: 220px;
+    min-height: 44px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+}
+
+.sv-log:empty::before { content: "Sin actividad todavía."; color: var(--pv2-muted); }
+
+@media (max-width: 760px) {
+    .sv-page .pv2-topbar {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px 14px;
+    }
+    .sv-page .pv2-nav { justify-content: flex-start; flex-wrap: wrap; }
+    .sv-card { padding: 16px; }
+}
+
+/* Pilotada oculta su menu por debajo de 1180 px; aqui es la unica navegacion. */
+@media (max-width: 1180px) {
+    .sv-page .pv2-nav { display: flex; flex-wrap: wrap; }
+}

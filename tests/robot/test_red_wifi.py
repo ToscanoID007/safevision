@@ -145,6 +145,20 @@ class Reglas(unittest.TestCase):
         self.assertTrue(r["ok"])
         self.assertFalse(r["cambio"])
 
+    def test_escaneo_en_modo_ap_sin_lista_guardada(self):
+        self.activa = w.AP_NOMBRE
+        orig = w.CACHE_ESCANEO
+        w.CACHE_ESCANEO = os.path.join(self.tmp, "no_existe.txt")
+        try:
+            r = w.escanear()
+        finally:
+            w.CACHE_ESCANEO = orig
+        self.assertTrue(r["ok"])
+        self.assertFalse(r["en_vivo"])
+        self.assertEqual(r["redes"], [])
+        self.assertIn("Escribe el nombre", r["aviso"])
+        self.assertEqual(self.ordenes, [])   # en modo AP nunca escanea
+
     def test_conectar_con_cerrojo_vigente(self):
         with open(w.CERROJO, "w") as h:
             h.write(str(int(time.time())))

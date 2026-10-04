@@ -423,6 +423,10 @@ soltarlo.
 Cada procedimiento se describe con sus condiciones previas, pasos, resultado esperado y
 acciones ante fallo en `docs/manual-operacion.md`. Esta sección presenta el resumen.
 
+El propio dashboard incluye ayuda: el botón **Tutorial** de la portada recorre lo básico
+paso a paso, y cada tarjeta y enlace del menú muestra, al pasar el ratón por encima, qué
+hace la sección, cuándo usarla y qué requiere.
+
 ### 9.1 Teleoperación
 
 **Con mando.** Aplique un perfil con `"control":"mando"`. El movimiento requiere mantener

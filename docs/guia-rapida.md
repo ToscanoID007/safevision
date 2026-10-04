@@ -55,6 +55,11 @@ el dashboard ya está conectado, **no hay que escribir ninguna IP**.
 Si alguna vez la necesitas escribir: en la red propia del robot es **siempre `10.42.0.1`**;
 en cualquier otra red usa **`yahboom.local`**.
 
+**Ayuda dentro del dashboard.** El botón **Tutorial** de la portada recorre todo esto paso a
+paso, resaltando cada parte de la pantalla. Y al pasar el ratón sobre cualquier tarjeta o
+enlace del menú aparece qué hace, cuándo usarlo y qué necesitas antes (en el móvil, el
+primer toque muestra la ficha y el segundo abre la sección).
+
 **Sólo la primera vez en una laptop**, instala el entorno (tarda unos minutos):
 
 ```bash
