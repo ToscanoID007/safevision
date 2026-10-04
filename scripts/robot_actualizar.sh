@@ -105,6 +105,18 @@ info "4/5  Instalando en el robot"
 scp -q "${SSH_OPC[@]}" "$BUNDLE" "pi@$IP:/tmp/sv-actualizacion.bundle"
 rsh "set -e; cd $REPO_ROBOT
      git fetch -q /tmp/sv-actualizacion.bundle '+refs/heads/$RAMA:refs/remotes/laptop/$RAMA' '+refs/tags/*:refs/tags/*'
+     # Mapas hechos en el robot y luego versionados desde la laptop: el robot los
+     # tiene sin seguimiento y git se negaria a sobrescribirlos. Si son
+     # identicos se quitan (el checkout los repone); si difieren, se para.
+     for f in \$(git ls-tree -r --name-only laptop/$RAMA -- mapping/maps); do
+         if [ -f \"\$f\" ] && ! git ls-files --error-unmatch \"\$f\" >/dev/null 2>&1; then
+             if [ \"\$(git hash-object \"\$f\")\" = \"\$(git rev-parse laptop/$RAMA:\$f)\" ]; then
+                 rm -f \"\$f\"
+             else
+                 echo \"  ERROR: \$f existe en el robot y es distinto del de la laptop. No se toca.\"; exit 3
+             fi
+         fi
+     done
      git checkout -q -B $RAMA laptop/$RAMA
      rm -f /tmp/sv-actualizacion.bundle
      echo \"  version: \$(git log --oneline -1 | cut -c1-60)\""
