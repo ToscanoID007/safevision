@@ -100,6 +100,8 @@ curl -X POST $R/runtime/profile -H 'Content-Type: application/json' \
 
 > **¿Por qué hace falta un mapa para mapear?** Porque el sistema necesita saber **a qué
 > perfil y a qué mapa volver** cuando termines. Es parte del mecanismo de *rollback*.
+> **En el dashboard este paso es automático:** escribe el nombre en *Mapear* y pulsa
+> *Iniciar mapeo*; si el robot no está listo, se prepara solo (hasta 2 minutos).
 
 **B.2** Coloca el robot en un punto de referencia claro (una esquina) y **márcalo en el
 suelo con cinta**. Anótalo en el croquis.

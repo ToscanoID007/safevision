@@ -138,6 +138,6 @@ Para borrar una red guardada: botón **Olvidar** en la página, o
 | La página Wi-Fi no existe o da error | El robot tiene una versión anterior: `./scripts/robot_actualizar.sh` (o con su IP) |
 | Activar el modo falla | Pulsa otra vez el botón del modo; el gestor reconstruye lo que falte. Si sigue, mira la página **Nodos** |
 | Pulsas Misión Pilotada y no pasa nada | Falta elegir el mapa en la lista de la derecha; el cuadro *Actividad* lo avisa |
-| Mapear dice que no puede iniciar | El robot debe estar en Misión Pilotada con un mapa; ver §3 |
+| Mapear tarda en arrancar | Normal la primera vez: *Iniciar mapeo* pone antes el robot en Misión Pilotada con un mapa de retorno (hasta 2 minutos) |
 
 Más casos en `solucion-problemas.md`.

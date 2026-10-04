@@ -1624,6 +1624,85 @@ async function refreshMappingSession() {
 }
 
 
+// Mapear necesita que el robot este en Mision Pilotada (o Automatica) con un
+// mapa: es el estado al que vuelve al guardar o descartar. Si no lo esta, se
+// prepara solo, usando como punto de retorno el ultimo mapa elegido en
+// Pilotada, HAB2 o el primero que haya. El mapa de retorno no se modifica.
+async function prepararRobotParaMapear() {
+
+    const estado =
+        await mappingSessionFetch(
+            "/runtime/status"
+        );
+
+    const perfil =
+        (estado && estado.profile) || {};
+
+    if (
+        ["pilotada", "automatica"].includes(perfil.requested)
+        &&
+        perfil.map
+    ) {
+        return null;
+    }
+
+    const lista =
+        await mappingSessionFetch(
+            "/maps"
+        );
+
+    const nombres =
+        ((lista && lista.maps) || [])
+            .map(m => (typeof m === "string" ? m : m && m.name))
+            .filter(Boolean);
+
+    if (!nombres.length) {
+        throw new Error(
+            "No hay ningún mapa guardado en el robot al que volver al terminar. " +
+            "Importa uno en Mapas (por ejemplo HAB2) y vuelve a intentarlo."
+        );
+    }
+
+    let preferido = "";
+
+    try {
+        preferido =
+            JSON.parse(
+                localStorage.getItem("safevision.pilotada.ui.v2") || "{}"
+            ).selectedMap || "";
+    } catch (_) {
+        preferido = "";
+    }
+
+    const mapa =
+        nombres.includes(preferido)
+            ? preferido
+            : (nombres.includes("HAB2") ? "HAB2" : nombres[0]);
+
+    mappingSessionMessage(
+        "Preparando el robot: Misión Pilotada con el mapa " + mapa +
+        " como punto de retorno (no se modifica). Puede tardar hasta 2 minutos…"
+    );
+
+    await mappingSessionFetch(
+        "/runtime/profile",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                profile: "pilotada",
+                map: mapa,
+                control: estado.control_mode || "mando"
+            })
+        }
+    );
+
+    return mapa;
+}
+
+
 async function startMappingSession() {
 
     if (mappingSessionState.busy) {
@@ -1666,11 +1745,17 @@ async function startMappingSession() {
     mappingSessionState.ultimoError = null;
 
     mappingSessionMessage(
-        "Iniciando mapeo..."
+        "Comprobando el robot..."
     );
 
 
     try {
+
+        await prepararRobotParaMapear();
+
+        mappingSessionMessage(
+            "Iniciando mapeo..."
+        );
 
         await mappingSessionFetch(
             "/mapping/session/start",
