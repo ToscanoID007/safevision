@@ -547,6 +547,28 @@ rosnode list | grep sf_joy_repetidor
 rostopic hz /joy_mando      # ~20 Hz con la palanca sostenida
 ```
 
+## 10.9 En el mapa el robot gira o se desplaza estando quieto
+
+**Síntoma.** El robot está parado, pero en el mapa aparece girando sin parar; un mapeo hecho
+así sale retorcido.
+
+**Causa (caso real 2026-10-03).** Al arrancar el núcleo (`core`), `apply_calib` mide el sesgo
+del giróscopo. Si el robot se mueve en ese momento, guarda un sesgo falso y después «ve» un
+giro constante: se midió `/imu/imu_raw` ≈ 0 y `/imu/imu_data` = 4,54 rad/s con el robot
+quieto. Pasó al reiniciar el robot mientras alguien lo conducía.
+
+**Comprobación.**
+
+```bash
+rostopic echo -n 5 /imu/imu_raw/angular_velocity/z    # ~0 con el robot quieto
+rostopic echo -n 5 /imu/imu_data/angular_velocity/z   # debe ser parecido
+```
+
+**Solución.** Con el robot inmóvil y sin tocar el mando, reinicia el núcleo: página *Nodos*,
+*Detener* «Odometría + IMU + EKF» y vuelve a activar el modo en Pilotada. Desde esa fecha el
+gestor lo comprueba solo: si la calibración sale mal, se niega a continuar y lo explica
+(«el robot se movió mientras se calibraba el giróscopo…»).
+
 ## 11. Dónde están los registros
 
 | Qué | Dónde |
