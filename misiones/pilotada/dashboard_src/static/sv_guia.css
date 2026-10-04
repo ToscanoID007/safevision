@@ -14,19 +14,22 @@
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-/* Boton flotante */
+/* Pestana en el borde derecho, a media altura: no tapa botones de las
+   esquinas (Descartar en Mapear, Cancelar en Pilotada...). */
 .sv-guia-boton {
     position: fixed;
-    right: 18px;
-    bottom: 18px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 2500;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    height: 40px;
-    padding: 0 16px;
+    gap: 8px;
+    writing-mode: vertical-rl;
+    padding: 14px 8px;
     border: 1px solid #3d6ea0;
-    border-radius: 999px;
+    border-right: none;
+    border-radius: 10px 0 0 10px;
     background: #184978;
     color: #eef6ff;
     font-size: 14px;
@@ -202,5 +205,4 @@ body.sv-guia-redimension { user-select: none; cursor: col-resize; }
 
 @media (max-width: 760px) {
     .sv-guia-cuerpo { padding: 14px 16px 60px; }
-    .sv-guia-boton { right: 12px; bottom: 12px; }
 }
