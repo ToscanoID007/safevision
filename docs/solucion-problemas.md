@@ -526,6 +526,27 @@ hacen por sí solas.
 dirección que encontró `run_dashboard.sh`, o a `10.42.0.1` si no encontró ninguna. Si lo
 ves igualmente, el robot no está en la red de la laptop: revisa `manual-operacion.md` §1.0.
 
+## 10.8 El robot avanza a tirones con la palanca sostenida
+
+**Síntoma.** Con la palanca empujada y quieta, el robot se detiene de golpe cada medio segundo
+y vuelve a arrancar al mover un poco la palanca.
+
+**Causa (medida el 2026-10-03).** `joy_node` sólo publica cuando el mando **cambia**. Con la
+palanca quieta no llega nada y el *watchdog* del selector (0,5 s) para el robot. Se midió un
+hueco de 3,8 s sin mensajes con la palanca sostenida.
+
+**Solución, en vigor desde entonces.** `sf_joy_repetidor.py` se interpone entre `joy_node` y
+`yahboom_joy`: reenvía cada cambio y, mientras la palanca está quieta, repite su posición a
+20 Hz con los botones a cero (una pulsación cuenta una vez). Deja de repetir tras 8 s sin
+ningún cambio real, para que un mando congelado no mantenga el robot en marcha.
+
+**Si vuelve a pasar,** comprueba en la página *Nodos* que el recurso *Mando* está activo, o:
+
+```bash
+rosnode list | grep sf_joy_repetidor
+rostopic hz /joy_mando      # ~20 Hz con la palanca sostenida
+```
+
 ## 11. Dónde están los registros
 
 | Qué | Dónde |

@@ -256,6 +256,11 @@ demasiado rápida para maniobras finas. Hay dos ajustes, que se combinan:
 Para mapear o maniobrar cerca de muebles, 30-40 % es un buen punto de partida. La
 navegación autónoma no se ve afectada por este ajuste.
 
+**Palanca a fondo = velocidad máxima constante.** Con la palanca sostenida, el robot mantiene
+la velocidad elegida en el deslizador; soltarla lo para en medio segundo. Si sostienes la
+palanca **totalmente inmóvil más de 8 segundos**, el robot se para por seguridad (podría ser
+un mando congelado): basta con moverla un poco. Detalle en `solucion-problemas.md` §10.8.
+
 **Precondiciones:** perfil aplicado con `"control":"mando"`; mando encendido y emparejado.
 
 **Pasos**
