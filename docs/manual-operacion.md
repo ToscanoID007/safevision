@@ -342,7 +342,9 @@ curl -s $R/map_pose | python3 -m json.tool
 mando.
 
 **Pasos**
-1. En el dashboard, marca uno o varios puntos sobre el mapa.
+1. En Pilotada, con Misión Pilotada activa, pulsa **Agregar puntos** (barra del mapa) y haz clic
+   en uno o varios sitios libres. **Iniciar** arranca la cola; **Cancelar** la detiene. Durante
+   la navegación autónoma soltar el mando **no** para el robot: usa **Cancelar** o **R2** a fondo.
 2. Carga la cola (el dashboard lo hace; por terminal):
 
 ```bash
