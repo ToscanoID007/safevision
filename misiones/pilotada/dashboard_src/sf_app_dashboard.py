@@ -1779,6 +1779,17 @@ def nodos():
     return render_template("nodos.html")
 
 
+@app.route("/runtime/speed", methods=["GET", "POST"])
+def dashboard_runtime_speed():
+    if request.method == "GET":
+        return _runtime_proxy_json("GET", "/speed", timeout=6)
+    return _runtime_proxy_json(
+        "POST", "/speed",
+        request.get_json(silent=True) or {},
+        timeout=8
+    )
+
+
 @app.route("/runtime/resources")
 def dashboard_runtime_resources():
     return _runtime_proxy_json(

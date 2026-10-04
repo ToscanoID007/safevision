@@ -1,0 +1,8 @@
+/* Control de velocidad del mando (sv_velocidad.js) */
+.sv-velocidad { margin: 12px 0 6px; display: grid; gap: 6px; }
+.sv-velocidad-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sv-velocidad-cabeza span { color: var(--pv2-muted, #8fa5b8); font-size: 0.72rem; font-weight: 800;
+                            letter-spacing: 0.04em; }
+.sv-velocidad-cabeza strong { font-size: 0.95rem; }
+.sv-velocidad input[type=range] { width: 100%; accent-color: #4c91ff; }
+.sv-velocidad small { color: var(--pv2-muted, #8fa5b8); font-size: 0.68rem; line-height: 1.4; }

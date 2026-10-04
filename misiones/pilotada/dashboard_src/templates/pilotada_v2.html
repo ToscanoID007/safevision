@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='sv_ayuda.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_velocidad.css') }}">
 </head>
 
 <body class="pilotada-v2-body">
@@ -71,6 +72,16 @@
                 <button id="controlKeyboardButton" type="button" class="pv2-segment">
                     Teclado
                 </button>
+            </div>
+
+            <div class="sv-velocidad" data-sv-velocidad>
+                <div class="sv-velocidad-cabeza">
+                    <span>Velocidad del mando</span>
+                    <strong data-sv-velocidad-valor>—</strong>
+                </div>
+                <input type="range" min="10" max="100" step="10" value="100"
+                       aria-label="Velocidad del control manual" data-sv-velocidad-rango disabled>
+                <small data-sv-velocidad-detalle>Consultando…</small>
             </div>
 
             <div class="pv2-mode-footer">
@@ -384,5 +395,6 @@
 <script src="{{ url_for('static', filename='sv_ayuda.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
 <script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_velocidad.js') }}"></script>
 </body>
 </html>

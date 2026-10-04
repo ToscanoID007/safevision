@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 import rospy
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32
 from std_msgs.msg import String
 from nav_msgs.msg import OccupancyGrid
 from flask import (
@@ -37,6 +38,7 @@ import sf_mapping_manager
 import sf_model_manager
 import sf_runtime_manager
 import sf_red_wifi
+import sf_velocidad_manual
 
 
 AUTOMATIC_ROBOT_DIR = (
@@ -69,6 +71,7 @@ CONTROL_MODE = "desconocido"
 
 NAV_COMMAND_PUB = None
 KEYBOARD_CMD_PUB = None
+SPEED_SCALE_PUB = None
 NAV_STATUS_RECEIVED = False
 NAV_STATUS_VERSION = 0
 
@@ -4487,6 +4490,7 @@ def mapping_session_discard():
 def iniciar_nav_bridge():
     global NAV_COMMAND_PUB
     global KEYBOARD_CMD_PUB
+    global SPEED_SCALE_PUB
 
     if not rospy.core.is_initialized():
         rospy.init_node(
@@ -4505,6 +4509,17 @@ def iniciar_nav_bridge():
         "/cmd_vel_manual",
         Twist,
         queue_size=10
+    )
+
+    # Latched: el selector la recibe aunque arranque despues.
+    SPEED_SCALE_PUB = rospy.Publisher(
+        sf_velocidad_manual.TOPICO,
+        Float32,
+        queue_size=1,
+        latch=True
+    )
+    SPEED_SCALE_PUB.publish(
+        Float32(data=sf_velocidad_manual.leer())
     )
 
     rospy.Subscriber(
@@ -5025,6 +5040,30 @@ def runtime_resource(nombre):
         CONTROL_MODE = "mando" if accion == "start" else "teclado"
 
     return jsonify(result), (200 if result.get("ok") else 409)
+
+
+# =========================================================
+# VELOCIDAD DEL CONTROL MANUAL (mando y teclado web)
+# =========================================================
+# El selector de cmd_vel aplica el factor; aqui solo se guarda y se publica.
+
+@app.route("/runtime/speed", methods=["GET", "POST"])
+def runtime_speed():
+    if request.method == "GET":
+        return jsonify(dict(ok=True, **sf_velocidad_manual.resumen(sf_velocidad_manual.leer())))
+    data = request.get_json(silent=True) or {}
+    try:
+        factor = sf_velocidad_manual.guardar(data.get("factor"))
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "message": "No se pudo guardar: {}".format(exc)}), 500
+    if SPEED_SCALE_PUB is not None:
+        SPEED_SCALE_PUB.publish(Float32(data=factor))
+    resultado = sf_velocidad_manual.resumen(factor)
+    resultado["ok"] = True
+    resultado["message"] = "Velocidad del control manual al {} %.".format(resultado["porcentaje"])
+    return jsonify(resultado)
 
 
 # =========================================================

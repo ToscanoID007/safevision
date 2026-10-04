@@ -19,8 +19,18 @@
         type="yahboom_joy.py"
         output="screen"
     >
+        <!-- yahboom_joy.py lee xspeed_limit/yspeed_limit; antes se pasaba
+             linear_speed_limit, que el nodo ignoraba. Mismos valores que sus
+             defectos: la reduccion fina se hace en el selector
+             (/runtime/speed, pagina Pilotada). -->
         <param
-            name="linear_speed_limit"
+            name="xspeed_limit"
+            type="double"
+            value="1.0"
+        />
+
+        <param
+            name="yspeed_limit"
             type="double"
             value="1.0"
         />
