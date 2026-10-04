@@ -32,6 +32,12 @@ AP_NOMBRE="${SAFEVISION_AP_NOMBRE:-SafeVision-AP}"
 ESPERA_INICIAL="${SAFEVISION_RED_ESPERA:-20}"
 INTERVALO="${SAFEVISION_RED_INTERVALO:-20}"
 IFAZ="wlan0"
+# Lista de redes vista antes de levantar el AP; la lee el dashboard (pagina Wi-Fi)
+# porque en modo AP no se puede escanear sin tirar a los clientes.
+CACHE_ESCANEO="/tmp/safevision_redes_wifi.txt"
+# El dashboard lo crea mientras cambia de red; el vigilante no interviene.
+CERROJO="/tmp/safevision_red_ocupada"
+CERROJO_TTL=90
 
 log() { echo "[sf-red] $*"; }
 
@@ -60,7 +66,22 @@ ssid_de_perfil() {
 }
 
 ssids_al_alcance() {
-    nmcli -t -f SSID device wifi list 2>/dev/null | grep -v '^$' | sort -u
+    # Guarda la lista completa para el dashboard y devuelve solo los SSID.
+    local lista
+    # Formas compatibles con NetworkManager 1.10 (Ubuntu 18.04): sin --rescan.
+    nmcli device wifi rescan >/dev/null 2>&1 && sleep 4
+    lista="$(nmcli -t -e yes -f SSID,SIGNAL,SECURITY,FREQ device wifi list 2>/dev/null)"
+    if [ -n "$lista" ]; then
+        printf '%s\n' "$lista" > "${CACHE_ESCANEO}.tmp" && mv -f "${CACHE_ESCANEO}.tmp" "$CACHE_ESCANEO"
+        chmod 644 "$CACHE_ESCANEO" 2>/dev/null || true
+    fi
+    printf '%s\n' "$lista" | sed 's/\\:/\x01/g' | cut -d: -f1 | sed 's/\x01/:/g; s/\\\\/\\/g' | grep -v '^$' | sort -u
+}
+
+cerrojo_vigente() {
+    [ -f "$CERROJO" ] || return 1
+    local edad=$(( $(date +%s) - $(stat -c %Y "$CERROJO" 2>/dev/null || echo 0) ))
+    [ "$edad" -lt "$CERROJO_TTL" ]
 }
 
 # ---------------------------------------------------------------
@@ -107,6 +128,10 @@ log "iniciando; espera inicial ${ESPERA_INICIAL}s"
 sleep "$ESPERA_INICIAL"
 
 while true; do
+    if cerrojo_vigente; then
+        sleep "$INTERVALO"
+        continue
+    fi
     estado="$(estado_wlan)"
     activa="$(conexion_activa)"
 
