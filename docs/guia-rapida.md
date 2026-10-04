@@ -84,7 +84,8 @@ Al encender, el robot **no se mueve**: sólo arranca lo mínimo. Para operarlo:
 3. No hay botón «Aplicar»: **ese clic ya activa el modo**. Espera hasta 2 minutos; el cuadro
    *Actividad* muestra cada parte que arranca y la insignia de arriba cambia al terminar.
 
-Ya puedes moverlo con el mando. **Para pararlo: suelta el mando.** Se detiene en medio
+Ya puedes moverlo con el mando. Si va demasiado rápido, baja **Velocidad del mando** en la
+misma página (30-40 % va bien para mapear). **Para pararlo: suelta el mando.** Se detiene en medio
 segundo, también si se corta el Wi-Fi o cierras el dashboard.
 
 La página **Nodos** muestra qué parte está encendida y deja encender o apagar cada una.

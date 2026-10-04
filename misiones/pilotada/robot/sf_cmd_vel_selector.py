@@ -7,9 +7,12 @@ import rospy
 
 from actionlib_msgs.msg import GoalID
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32
 from std_msgs.msg import String
 from std_srvs.srv import SetBool
 from std_srvs.srv import SetBoolResponse
+
+import sf_velocidad_manual
 
 
 class CmdVelSelector:
@@ -25,6 +28,10 @@ class CmdVelSelector:
 
         self.last_active_command = None
         self.zero_sent = False
+
+        # Velocidad del control manual (0.1-1.0). Se lee del archivo al arrancar
+        # y el Robot Server la actualiza por el topico (latched).
+        self.factor_manual = sf_velocidad_manual.leer()
 
         self.cmd_pub = rospy.Publisher(
             "/cmd_vel",
@@ -50,6 +57,13 @@ class CmdVelSelector:
             Twist,
             self.manual_callback,
             queue_size=10
+        )
+
+        rospy.Subscriber(
+            sf_velocidad_manual.TOPICO,
+            Float32,
+            self.factor_callback,
+            queue_size=1
         )
 
         rospy.Subscriber(
@@ -96,12 +110,34 @@ class CmdVelSelector:
             )
         )
 
+    def factor_callback(self, msg):
+        factor = sf_velocidad_manual.normalizar(msg.data)
+        if factor is not None:
+            self.factor_manual = factor
+            rospy.loginfo(
+                "SafeVision: velocidad manual al {:.0f} %".format(factor * 100)
+            )
+
     def manual_callback(self, msg):
         if self.mode != "manual":
             return
 
         self.last_active_command = time.monotonic()
         self.zero_sent = False
+
+        if self.factor_manual < 1.0:
+            escalado = Twist()
+            (
+                escalado.linear.x,
+                escalado.linear.y,
+                escalado.angular.z,
+            ) = sf_velocidad_manual.escalar(
+                msg.linear.x,
+                msg.linear.y,
+                msg.angular.z,
+                self.factor_manual
+            )
+            msg = escalado
 
         self.cmd_pub.publish(
             msg

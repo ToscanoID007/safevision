@@ -245,6 +245,17 @@ Reinicia el Robot Server: después hay que volver a aplicar el perfil en Pilotad
 
 ### 3.1 Con mando
 
+**Velocidad.** Por defecto el mando va a la velocidad de fábrica (1 m/s y 5 rad/s al girar),
+demasiado rápida para maniobras finas. Hay dos ajustes, que se combinan:
+
+| Ajuste | Dónde | Efecto |
+|---|---|---|
+| **Velocidad del mando** (10 % a 100 %) | Deslizador en Pilotada y en Mapear (`POST /runtime/speed`) | El robot reduce todas las órdenes manuales, también las del teclado. Se guarda en el robot y se mantiene tras reiniciar |
+| Marchas del propio mando | Pulsar hacia abajo el joystick izquierdo (avance: 1/3, 2/3, completa) o el derecho (giro: 1/4, 1/2, 3/4, completa) | Lo hace el nodo de Yahboom; se pierde al reiniciar el mando |
+
+Para mapear o maniobrar cerca de muebles, 30-40 % es un buen punto de partida. La
+navegación autónoma no se ve afectada por este ajuste.
+
 **Precondiciones:** perfil aplicado con `"control":"mando"`; mando encendido y emparejado.
 
 **Pasos**

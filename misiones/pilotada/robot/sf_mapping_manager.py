@@ -210,6 +210,15 @@ def _map_has_publisher(
     )
 
 
+# roslaunch en la Raspberry Pi tarda en arrancar: solo cargar roscore.xml puede
+# llevar 9 s con el sistema en marcha (medido el 2026-10-03, cuando 10 s de
+# espera hicieron fallar "slam_gmapping no inicio"). Todas las esperas de un
+# nodo lanzado con roslaunch usan este margen; si el nodo aparece antes, no se
+# espera de mas.
+ESPERA_ROSLAUNCH = 45.0
+ESPERA_PUBLICADOR_MAPA = 20.0
+
+
 def _wait_map_publisher(
     expected,
     timeout=10.0
@@ -842,7 +851,7 @@ def _restore_localization(
         if not _wait_node(
             "/sf_map_server",
             True,
-            timeout=20.0
+            timeout=ESPERA_ROSLAUNCH
         ):
             raise RuntimeError(
                 "sf_map_server no volvió a iniciar"
@@ -851,7 +860,7 @@ def _restore_localization(
         if not _wait_node(
             "/amcl",
             True,
-            timeout=8.0
+            timeout=ESPERA_PUBLICADOR_MAPA
         ):
             raise RuntimeError(
                 "AMCL no volvió a iniciar"
@@ -859,7 +868,7 @@ def _restore_localization(
 
         if not _wait_map_publisher(
             "/sf_map_server",
-            timeout=8.0
+            timeout=ESPERA_PUBLICADOR_MAPA
         ):
             raise RuntimeError(
                 "sf_map_server no recuperó /map"
@@ -1064,7 +1073,7 @@ def start(name):
         if not _wait_node(
             "/slam_gmapping",
             True,
-            timeout=10.0
+            timeout=ESPERA_ROSLAUNCH
         ):
             raise RuntimeError(
                 "slam_gmapping no inició"
@@ -1072,7 +1081,7 @@ def start(name):
 
         if not _wait_map_publisher(
             "/slam_gmapping",
-            timeout=10.0
+            timeout=ESPERA_PUBLICADOR_MAPA
         ):
             raise RuntimeError(
                 "Gmapping no tomó control de /map"
