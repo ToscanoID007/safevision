@@ -164,11 +164,16 @@ the robot asked for three things: everything working, a documented and
 easy-to-install repo, and a structured final report. **No cloud, no containers,
 no refactor.** The user (a student) took over all scope decisions.
 
-### State at handoff (2026-10-03)
+### State at handoff (2026-10-04)
 
 - Branch `wip-handoff` is GitHub's default branch and the only integration
-  branch. Latest tag: `v2.0-sistema-validado` (full-system test passed). The
-  robot runs exactly that tag. Old feature branches are all merged.
+  branch. Latest tag: `v3.0-entrega` (field validation with the student; see
+  `docs/estado-actual.md` §9-quinquies). Old feature branches are all merged.
+- Deploy to the robot with `scripts/robot_actualizar.sh` (restarts the Robot
+  Server: make sure nobody is driving, the gyro calibrates on profile apply).
+- Robot facts learned in the field: roslaunch takes ~9 s to start on the Pi;
+  joy_node publishes only on change (hence `sf_joy_repetidor.py`); the gyro
+  bias is calibrated at core start and must be done with the robot still.
 - Start with `docs/guia-rapida.md` (one-page basics) and `docs/README.md` §4
   (what is still open, who owns it, decisions already taken).
 - Done and verified: dashboard versioned (V-1 passed), runtime manager fix
@@ -181,13 +186,9 @@ no refactor.** The user (a student) took over all scope decisions.
 
 ### Still open (student-owned, in order)
 
-1. Learn the basics with `docs/guia-rapida.md`, including §4 (teach the robot a
-   new Wi-Fi with `nmcli connection add` + reboot). **That §4 procedure is not
-   yet verified on the robot.** A backup of the home Wi-Fi profile is at
-   `/home/pi/respaldo-red/` on the robot.
-2. Run the manual protocol `docs/validacion.md` (84 rows) and record results.
-3. Build the lab map (practice P03), fill report data (`docs/reporte-final.md`),
-   DHCP reservation, microSD backup image.
+See `docs/README.md` §4.1 (microSD backup, rest of the validation protocol,
+report formatting). The Wi-Fi page was verified on the robot (it moved the robot
+back to the home network from AP mode).
 
 ### Working with the robot from an agent session
 

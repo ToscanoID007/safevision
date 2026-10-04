@@ -594,6 +594,27 @@ siguiente ciclo lo limpia (verificado). Esa doble restauración queda como mejor
 
 **Etiqueta:** `v2.0-sistema-validado`.
 
+## 9-quinquies. Versión de entrega `v3.0-entrega` (2026-10-04)
+
+Integra 26 ramas desde `v2.0-sistema-validado`, casi todas surgidas de usar el sistema con
+el estudiante en su casa el 2026-10-03.
+
+| Área | Qué cambió |
+|---|---|
+| Conexión | El dashboard se conecta solo en todas las páginas; acepta `10.42.0.1` y `yahboom.local`; en WSL resuelve el nombre a través de Windows; reconecta si el robot cambia de IP |
+| Red | Página **Wi-Fi**: redes al alcance con su banda, alta con contraseña (fijada a 2.4 GHz), conectar, olvidar, volver a la red propia |
+| Ayuda | Botón **Tutorial**, fichas informativas en cada tarjeta y enlace, panel **Guía** con las prácticas y los manuales al lado de la página, indicador de espera en cada acción |
+| Mando | Velocidad ajustable (10-100 %) en el selector; repetidor que mantiene la velocidad con la palanca sostenida; parámetros del launch corregidos |
+| Mapeo | *Iniciar mapeo* prepara el robot solo; arranca en blanco; el robot visible durante el mapeo; esperas de `roslaunch` a 45 s |
+| Robustez | Comprobación del giróscopo al arrancar el núcleo; motivo legible en los fallos de recursos |
+| Diseño | Wi-Fi y Nodos con recuadros coherentes; barra del mapa de Pilotada sin botones tapados |
+| Datos | Mapa `Casa_luis` versionado; evidencias en `docs/evidencias/2026-10-03/`; reglas `udev` copiadas |
+| Herramientas | `robot_actualizar.sh` (lleva la versión de la laptop al robot) |
+
+Verificación final: 49 pruebas unitarias, las 10 páginas y los 13 documentos del panel
+*Guía* responden; 15 pruebas del protocolo superadas en el robot (`validacion.md` §10-bis).
+El robot ejecuta el código de `2a39d32`, idéntico en su parte de runtime a `v3.0-entrega`.
+
 ## 10. Documentos relacionados
 
 - `docs/runtime-boot.md` — cómo arranca el runtime y por qué hay dos caminos.

@@ -663,6 +663,7 @@ en `/home/pi/robot_custom` indica cuál ejecuta.
 | `v1.1-gestor-robusto` | El gestor de runtime se recupera solo cuando un nodo muere por fuera |
 | `v1.2-gestor-nodos` | Página *Nodos* y endpoints de recursos individuales |
 | `v2.0-sistema-validado` | Prueba final del sistema completo superada; tiempos de espera del mapeo corregidos |
+| `v3.0-entrega` | Validación con el estudiante en un entorno real (mapa `Casa_luis`, navegación con evasión); Wi-Fi desde el dashboard, tutorial, fichas de ayuda, panel *Guía* con las prácticas, indicador de espera, velocidad del mando, conexión automática; cinco fallos de campo corregidos |
 
 ### 13.3 Reglas de trabajo
 
