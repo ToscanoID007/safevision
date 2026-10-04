@@ -1692,6 +1692,63 @@ def _robot_proxy_json(method, path, payload=None, timeout=10, reintentar=True):
         return error("El robot no respondio: {}".format(exc), 502)
 
 
+# =========================================================
+# GUIAS: documentos del repositorio en el panel lateral
+# =========================================================
+# Solo se sirven los documentos de esta lista (nunca una ruta arbitraria).
+
+GUIAS_DIR = Path(
+    os.environ.get("SAFEVISION_DOCS_DIR")
+    or Path(__file__).resolve().parents[3] / "docs"
+)
+
+GUIAS = [
+    ("guia-rapida", "guia-rapida.md", "Guía rápida", "Empieza aquí"),
+    ("practicas", "practicas/README.md", "Índice y seguridad", "Prácticas de laboratorio"),
+    ("P01", "practicas/P01-arranque-teleoperacion.md", "P01 · Arranque y teleoperación", "Prácticas de laboratorio"),
+    ("P02", "practicas/P02-percepcion-lidar.md", "P02 · Percepción con LiDAR", "Prácticas de laboratorio"),
+    ("P03", "practicas/P03-mapeo-slam.md", "P03 · Mapeo SLAM", "Prácticas de laboratorio"),
+    ("P04", "practicas/P04-localizacion-amcl.md", "P04 · Localización AMCL", "Prácticas de laboratorio"),
+    ("P05", "practicas/P05-navegacion-autonoma.md", "P05 · Navegación autónoma", "Prácticas de laboratorio"),
+    ("P06", "practicas/P06-yolo-misiones.md", "P06 · YOLO y misiones", "Prácticas de laboratorio"),
+    ("manual", "manual-operacion.md", "Manual de operación", "Manuales"),
+    ("problemas", "solucion-problemas.md", "Solución de problemas", "Manuales"),
+    ("red", "red.md", "Red y conexión", "Manuales"),
+    ("validacion", "validacion.md", "Protocolo de validación", "Manuales"),
+    ("misiones", "lenguaje-misiones.md", "Lenguaje de misiones", "Manuales"),
+]
+
+
+@app.route("/api/guias")
+def api_guias():
+    lista = []
+    for ident, ruta, titulo, grupo in GUIAS:
+        lista.append({
+            "id": ident, "ruta": "docs/" + ruta, "titulo": titulo, "grupo": grupo,
+            "disponible": (GUIAS_DIR / ruta).is_file(),
+        })
+    return jsonify({"ok": True, "guias": lista})
+
+
+@app.route("/api/guias/<ident>")
+def api_guia(ident):
+    for gid, ruta, titulo, grupo in GUIAS:
+        if gid == ident:
+            archivo = GUIAS_DIR / ruta
+            try:
+                texto = archivo.read_text(encoding="utf-8")
+            except Exception:
+                return error(
+                    "No se encuentra {} en esta copia del repositorio.".format("docs/" + ruta),
+                    404
+                )
+            return jsonify({
+                "ok": True, "id": gid, "ruta": "docs/" + ruta,
+                "titulo": titulo, "grupo": grupo, "markdown": texto,
+            })
+    return error("Guía desconocida.", 404)
+
+
 @app.route("/wifi")
 def wifi_page():
     return render_template("wifi.html")

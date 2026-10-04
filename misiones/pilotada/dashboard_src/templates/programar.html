@@ -15,6 +15,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='programar.css', v='programacion-v1o') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 
@@ -500,6 +501,8 @@ orientar(0)
         src="{{ url_for('static', filename='programar_sim.js', v='programacion-v1o') }}"
     ></script>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 
 </html>

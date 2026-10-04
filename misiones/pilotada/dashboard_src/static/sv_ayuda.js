@@ -269,10 +269,17 @@
                    "entonces apaga el interruptor."
         },
         {
+            sel: "#svGuiaBtn",
+            titulo: "10 · Prácticas y manuales",
+            texto: "El botón <b>Guía</b> abre las prácticas de laboratorio y los manuales en un panel " +
+                   "al lado. La página sigue funcionando: lees un paso y lo haces sin cambiar de " +
+                   "ventana. El panel recuerda qué documento y qué parte estabas leyendo."
+        },
+        {
             sel: "#svTutorialBtn",
             titulo: "Listo",
             texto: "Pasa el ratón sobre cualquier tarjeta o enlace del menú para ver qué hace antes de " +
-                   "abrirlo. La guía de una página está en <code>docs/guia-rapida.md</code> del repositorio."
+                   "abrirlo. La guía rápida, en el panel <b>Guía</b>, resume todo esto en una página."
         }
     ];
 
@@ -306,7 +313,9 @@
 
     function objetivo() {
         var paso = PASOS[indice];
-        return paso.sel ? document.querySelector(paso.sel) : null;
+        var el = paso.sel ? document.querySelector(paso.sel) : null;
+        // Un elemento oculto (por ejemplo el boton Guia con el panel abierto) no se resalta.
+        return el && el.getClientRects().length ? el : null;
     }
 
     function situar() {

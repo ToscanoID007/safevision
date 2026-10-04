@@ -20,6 +20,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='redes.css', v='redes-v3b') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 
@@ -443,5 +444,7 @@
     src="{{ url_for('static', filename='redes.js', v='redes-v3b') }}"
 ></script>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 </html>
