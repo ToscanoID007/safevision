@@ -10,8 +10,8 @@ sobre la marcha. Una prueba sin fecha ni responsable no es una prueba.
 
 **Origen:** el *acceptance test* del handoff §59, convertido en tablas rellenables y
 ampliado con lo verificado en `docs/estado-actual.md`.
-**Estado:** **todos los resultados están en `[PENDIENTE]`.** Nadie ha ejecutado este
-protocolo todavía. **No se ha inventado ningún resultado.**
+**Estado:** 15 pruebas ejecutadas el 2026-10-03 (§10-bis); el resto sigue en `[PENDIENTE]`.
+**No se ha inventado ningún resultado:** cada fila rellenada dice quién la observó o midió.
 
 ---
 
@@ -154,8 +154,8 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 
 | # | Prueba | Procedimiento | Resultado esperado | Resultado | Fecha | Responsable | Evidencia |
 |---|---|---|---|---|---|---|---|
-| C-1 | Mando | Perfil con `control: mando`. Mover el joystick | El robot se mueve en la dirección esperada | `[PENDIENTE]` | | | |
-| C-2 | **Watchdog** | Con el robot en marcha, **soltar el mando** | Se detiene en **≤ 0,5 s** | `[PENDIENTE]` | | | |
+| C-1 | Mando | Perfil con `control: mando`. Mover el joystick | El robot se mueve en la dirección esperada | **OK** | 2026-10-03 | L. A. Flores Bueno | Avanza y gira según la palanca; `/cmd_vel` registrado. Con la palanca sostenida mantiene velocidad constante tras la corrección del repetidor del mando |
+| C-2 | **Watchdog** | Con el robot en marcha, **soltar el mando** | Se detiene en **≤ 0,5 s** | **OK** | 2026-10-03 | L. A. Flores Bueno | Se detiene al soltar el mando |
 | C-3 | Teclado web | `POST $R/runtime/control {"mode":"teclado"}`, luego órdenes repetidas a `/runtime/keyboard` | El robot se mueve | `[PENDIENTE]` | | | |
 | C-4 | Watchdog en teclado | Dejar de enviar órdenes | Se detiene en ≤ 0,5 s | `[PENDIENTE]` | | | |
 | C-5 | Exclusión mutua | Durante navegación, intentar mover con el mando | El manual no interfiere con `/cmd_vel_nav` | `[PENDIENTE]` | | | |
@@ -190,9 +190,9 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 | # | Prueba | Procedimiento | Resultado esperado | Resultado | Fecha | Responsable | Evidencia |
 |---|---|---|---|---|---|---|---|
 | P-1 | Pose sin AMCL | `curl -s $R/map_pose` sin perfil | `localized: false`, sin romperse | `[PENDIENTE]` | | | |
-| P-2 | Pose inicial | `POST $R/initialpose` con la posición real | `ok: true` | `[PENDIENTE]` | | | |
-| P-3 | Pose disponible | `curl -s $R/map_pose` | `localized: true` con pose coherente | `[PENDIENTE]` | | | |
-| P-4 | Pose en el dashboard | Mirar el mapa en la interfaz | El robot aparece donde está de verdad | `[PENDIENTE]` | | | |
+| P-2 | Pose inicial | `POST $R/initialpose` con la posición real | `ok: true` | **OK** | 2026-10-03 | L. A. Flores Bueno | «Calibrar pose» en Pilotada (dos clics) sobre `Casa_luis` |
+| P-3 | Pose disponible | `curl -s $R/map_pose` | `localized: true` con pose coherente | **OK** | 2026-10-03 | Medición remota en el robot | `localized: true`, x 1,56 m, y 0,27 m, −65° |
+| P-4 | Pose en el dashboard | Mirar el mapa en la interfaz | El robot aparece donde está de verdad | **OK** | 2026-10-03 | L. A. Flores Bueno | El marcador coincide con la posición real tras calibrar |
 | P-5 | Convergencia | Teleoperar 1-2 m y girar | La pose se ajusta y se estabiliza | `[PENDIENTE]` | | | |
 | P-6 | Frecuencia | Observar la actualización de la pose | ≈10 Hz | `[PENDIENTE]` | | | |
 | P-7 | Deriva | Recorrer 5 m y volver al punto de partida | El error acumulado es aceptable | `[PENDIENTE: definir "aceptable" en cm — medirlo primero]` | | | |
@@ -203,13 +203,13 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 
 | # | Prueba | Procedimiento | Resultado esperado | Resultado | Fecha | Responsable | Evidencia |
 |---|---|---|---|---|---|---|---|
-| N-1 | Un punto | Cargar un punto alcanzable y arrancar | Llega y se detiene | `[PENDIENTE]` | | | |
+| N-1 | Un punto | Cargar un punto alcanzable y arrancar | Llega y se detiene | **OK** | 2026-10-03 | Medición remota en el robot + L. A. Flores Bueno | Punto A (3,27; 2,45): llegó a 0,08 m (tolerancia 0,08 m); `completed_count` 1 |
 | N-2 | Varios puntos | Cola de 3 puntos | Los recorre en orden; `completed_count` sube | `[PENDIENTE]` | | | |
 | N-3 | **Ruta imposible** | Punto dentro de una pared | **Se rechaza al cargar la cola** (`409`), sin mover el robot | `[PENDIENTE]` | | | |
 | N-4 | Mapa incorrecto | Cola con un mapa distinto al activo | Se rechaza | `[PENDIENTE]` | | | |
 | N-5 | Cancelar | `POST $R/nav/cancel` a mitad de trayecto | Se detiene; selector a MANUAL | `[PENDIENTE]` | | | |
 | N-6 | Vaciar | `POST $R/nav/clear` | La cola queda vacía | `[PENDIENTE]` | | | |
-| N-7 | **Evasión dinámica** | Interponer una caja **alta (>15 cm)** en el trayecto | El robot la rodea o se detiene sin chocar | `[PENDIENTE]` | | | |
+| N-7 | **Evasión dinámica** | Interponer una caja **alta (>15 cm)** en el trayecto | El robot la rodea o se detiene sin chocar | **OK** | 2026-10-03 | L. A. Flores Bueno | Rodeó un obstáculo puesto en el trayecto y llegó al punto. [PENDIENTE: vídeo o capturas] |
 | N-8 | Recovery | Rodear al robot de obstáculos | Ejecuta la recuperación (gira) e informa | `[PENDIENTE]` | | | |
 | N-9 | **Límite del LiDAR 2D** | Interponer un obstáculo **por encima** del plano del LiDAR (mesa a 40 cm, patas finas) | **Se espera que NO lo detecte.** Documenta la limitación | `[PENDIENTE]` | | | |
 
@@ -223,14 +223,14 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 
 | # | Prueba | Procedimiento | Resultado esperado | Resultado | Fecha | Responsable | Evidencia |
 |---|---|---|---|---|---|---|---|
-| M-1 | Precondición | `POST $R/mapping/session/start` **sin** perfil aplicado | Se rechaza con `409` y un mensaje claro | `[PENDIENTE]` | | | |
-| M-2 | Inicio | Con perfil aplicado, iniciar sesión | `mapping: true`; AMCL se retira | `[PENDIENTE]` | | | |
-| M-3 | Mapa en vivo | Pilotar y observar `$R/mapping/map` | El mapa crece | `[PENDIENTE]` | | | |
-| M-4 | Guardar | `POST $R/mapping/session/save` | Mapa guardado (`.yaml` + `.pgm`) | `[PENDIENTE]` | | | |
-| M-5 | **Restaurar tras guardar** | Comprobar `runtime/status` después de M-4 | Vuelve al perfil anterior **con el mapa nuevo**; AMCL y `map_server` de vuelta | `[PENDIENTE]` | | | |
-| M-6 | Descartar | Nueva sesión, `POST $R/mapping/session/discard` | Vuelve al perfil anterior con el mapa **anterior** | `[PENDIENTE]` | | | |
-| M-7 | **Rollback ante fallo** | Provocar un fallo (p. ej. desconectar el LiDAR durante el inicio) | El sistema restaura el estado anterior, no se queda a medias | `[PENDIENTE]` | | | |
-| M-8 | Calidad del mapa | Comparar el mapa con la sala real | Paredes rectas, sin duplicados, bucles cerrados | `[PENDIENTE]` | | | |
+| M-1 | Precondición | `POST $R/mapping/session/start` **sin** perfil aplicado | Se rechaza con `409` y un mensaje claro | **OK** | 2026-10-03 | Medición remota en el robot | Sin perfil con mapa: `409` «Mapear requiere Pilotada o Automatica con mapa activo». Desde el dashboard, *Iniciar mapeo* ya prepara el perfil solo |
+| M-2 | Inicio | Con perfil aplicado, iniciar sesión | `mapping: true`; AMCL se retira | **OK** | 2026-10-03 | Medición remota en el robot | Sesión iniciada en 55-58 s; AMCL y `map_server` retirados |
+| M-3 | Mapa en vivo | Pilotar y observar `$R/mapping/map` | El mapa crece | **OK** | 2026-10-03 | Medición remota en el robot | El mapa en vivo pasó de 9.700 a 17.700 celdas en 12 s conduciendo; el robot visible en el mapa |
+| M-4 | Guardar | `POST $R/mapping/session/save` | Mapa guardado (`.yaml` + `.pgm`) | **OK** | 2026-10-03 | L. A. Flores Bueno | `Casa_luis.yaml` + `.pgm` guardados |
+| M-5 | **Restaurar tras guardar** | Comprobar `runtime/status` después de M-4 | Vuelve al perfil anterior **con el mapa nuevo**; AMCL y `map_server` de vuelta | **OK** | 2026-10-03 | Medición remota en el robot | Vuelve a `pilotada` con `Casa_luis`, 9/9 recursos |
+| M-6 | Descartar | Nueva sesión, `POST $R/mapping/session/discard` | Vuelve al perfil anterior con el mapa **anterior** | **OK** | 2026-10-03 | Medición remota en el robot | 58-63 s; vuelve a `pilotada` con `HAB2`, sin mapa residual |
+| M-7 | **Rollback ante fallo** | Provocar un fallo (p. ej. desconectar el LiDAR durante el inicio) | El sistema restaura el estado anterior, no se queda a medias | **OK** | 2026-10-03 | Medición remota en el robot | Caso real: «slam_gmapping no inició» (espera de 10 s, ya corregida a 45 s) → se restauró `HAB2` solo |
+| M-8 | Calidad del mapa | Comparar el mapa con la sala real | Paredes rectas, sin duplicados, bucles cerrados | **OK** | 2026-10-03 | Medición remota en el robot | Paredes rectas, sin duplicar, contorno cerrado; 173 m² libres. Rayos a través de ventanas, sin efecto |
 
 ---
 
@@ -281,6 +281,21 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 | X-6 | Ciclo completo | Apagar, encender y repetir A-1…A-7 | Comportamiento idéntico | `[PENDIENTE]` | | | |
 
 ---
+
+## 10-bis. Sesión de validación del 2026-10-03 (casa del estudiante)
+
+Primera sesión con el robot operado por el estudiante, en su casa. Se ejecutaron 15 pruebas
+de los bloques de control, localización, navegación y mapeo (marcadas arriba con su
+evidencia). Durante la sesión aparecieron y se corrigieron cinco fallos reales, cada uno
+con su commit en `wip-handoff`:
+
+| Fallo observado | Causa medida | Corrección |
+|---|---|---|
+| Mapear no arrancaba («slam_gmapping no inició») | `roslaunch` tardaba 9 s solo en cargar; la espera era de 10 s | Esperas de `roslaunch` a 45 s |
+| El robot avanzaba a tirones con la palanca sostenida | `joy_node` sólo publica cambios; el watchdog paraba a los 0,5 s | `sf_joy_repetidor.py` (20 Hz, botones a cero) |
+| En el mapa giraba estando quieto | Sesgo del giróscopo calibrado con el robot en movimiento (4,54 rad/s) | Comprobación automática al arrancar el core |
+| Mapear mostraba `HAB2` y no el robot | Caché del mapa anterior y exportador de pose detenido | Mapa vacío al iniciar; pose activa durante el mapeo |
+| No aparecían *Agregar puntos* ni *Iniciar* | Barra del mapa comprimida con el escalado de Windows | La barra ya no se encoge |
 
 ## 11-bis. Pruebas automatizadas ejecutadas (2026-09-13)
 
