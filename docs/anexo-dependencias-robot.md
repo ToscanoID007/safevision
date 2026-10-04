@@ -208,8 +208,7 @@ de los servicios. Una copia de `yahboomcar_ws/src` vive en el portátil en
 
 Los enlaces `rplidar` y `myserial` son **reglas `udev`**: por eso el sistema no depende del
 orden en que se enumeren los puertos USB. Es un detalle que hay que preservar en cualquier
-reinstalación. **[PENDIENTE: copiar el contenido de `/etc/udev/rules.d/` al reconstruir;
-requiere `sudo cat`, no ejecutado en esta sesión.]**
+reinstalación. Copia de las reglas en `misiones/pilotada/udev/` (2026-10-03).
 
 ## 6. Estado del repositorio en el robot
 

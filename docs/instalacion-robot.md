@@ -246,8 +246,18 @@ cd ~/yahboomcar_ws && catkin_make
 cd ~/software/library_ws && catkin_make
 ```
 
-**[PENDIENTE: el origen exacto de `library_ws` y `world_canvas` no está documentado.
-Preguntar al profesor o recuperarlos de la imagen de la tarjeta.]**
+**Origen, verificado en el robot el 2026-10-03.** Ninguno de los dos es un repositorio Git:
+son carpetas copiadas por la imagen de fábrica de Yahboom, en `~/software/`. No hay forma de
+descargarlos "de su sitio"; la fuente fiable es **la imagen de la tarjeta** (§2).
+
+| Carpeta | Paquetes (versión) |
+|---|---|
+| `~/software/library_ws/src` | `astra_camera` 0.3.0, `astra_launch` 0.2.2, `imu_calib`, `imu_filter_madgwick` 1.1.6, `opencv_apps` 2.0.2, `robot_localization` 2.6.11, `rplidar_ros` 1.10.0, `rrt_exploration` |
+| `~/software/world_canvas/src` | `world_canvas_msgs`, `world_canvas_server`, `world_canvas_libs` (de Yujin Robot) |
+
+Varios tienen equivalente en `apt` (`ros-melodic-rplidar-ros`, `-imu-filter-madgwick`,
+`-robot-localization`, `-opencv-apps`), que es lo que conviene usar si se reconstruye sin
+imagen; `astra_camera` y `imu_calib` hay que compilarlos desde sus repositorios públicos.
 
 ### 3.4 Python 3.7.3 — el paso más delicado
 
@@ -267,8 +277,12 @@ sudo make -j4
 sudo make altinstall      # altinstall: NO sustituye al python3 del sistema
 ```
 
-**[PENDIENTE: el procedimiento original no está documentado; estos pasos son la
-reconstrucción estándar y NO se han verificado contra este robot.]**
+**Cómo se compiló el actual (verificado en el robot el 2026-10-03):** desde
+`~/software/Python-3.7.3`, con `./configure --prefix=/usr/local/python3` (sin
+`--enable-optimizations`), instalado el 2022-03-05. `/usr/local/bin/python3` y
+`/usr/local/bin/python3.7` son enlaces a `/usr/local/python3/bin/python3`. Para reproducirlo
+igual, usa ese `--prefix` y crea los dos enlaces; los pasos de arriba (con `altinstall` y sin
+prefijo) dan un resultado equivalente pero con otras rutas, y no se han probado.
 
 Después, los paquetes de `docs/anexo-pip-freeze.txt`:
 
@@ -299,9 +313,9 @@ El sistema depende de dos nombres estables:
 
 Sin ellos, el LiDAR y el driver fallan cuando el USB se enumera en otro orden.
 
-**[PENDIENTE: capturar el contenido de `/etc/udev/rules.d/` del robot actual (requiere
-`sudo cat`, no ejecutado en la sesión de sólo lectura) y pegarlo aquí. Es material del
-fabricante Yahboom.]**
+**Copiadas al repositorio el 2026-10-03:** `misiones/pilotada/udev/`, con su `LEEME.md`
+(qué hace cada archivo y cómo instalarlas). La que importa es `rplidar.rules`, que crea los
+dos nombres por el modelo de chip USB (CP210x para el LiDAR, CH340 para el chasis).
 
 Para obtener los identificadores y reconstruirlas:
 

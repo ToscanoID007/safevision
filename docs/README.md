@@ -144,12 +144,10 @@ el estudiante prestador; quedan registradas como tales.
 | 3 | Definir el error de deriva aceptable (P-7) y la semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
 | 4 | Construir el mapa del laboratorio (P03) y anotar su nombre | `estado-actual.md` §2.2, `practicas/README.md` §3 |
 | 5 | Crear la imagen de respaldo de la microSD y anotar dónde queda | `instalacion-robot.md` §2.1 |
-| 6 | Copiar `/etc/udev/rules.d/` y documentar el origen de `library_ws`/`world_canvas` y la compilación de Python 3.7.3 | `instalacion-robot.md` §3 |
 | 7 | Configurar la reserva DHCP en el módem | `red.md` §3 |
 | 8 | Probar el `.tar.gz` del dashboard en una PC limpia, o retirarlo | `instalacion-pc.md` §9, `scripts/LEEME-empaquetado.md` |
 | 9 | Fotografías, capturas, conclusión cuantitativa, referencias, firmas y datos generales del reporte | `reporte-final.md` §1, §8.4, §10, §12, §13 |
 | 10 | Nombres, asesor y periodo en los créditos | `README.md` §15 |
-| 11 | Anotar el modelo YOLO disponible en P06 | `practicas/P06-yolo-misiones.md` §4 |
 
 ### 4.2 Decisiones tomadas
 
