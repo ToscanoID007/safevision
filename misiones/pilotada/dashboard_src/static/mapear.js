@@ -972,22 +972,42 @@ function setLiveMapUnavailable(
         $mp("mapPlaceholder");
 
 
+    // Si el robot se quedo sin mapa (al empezar un mapeo se vacia a proposito),
+    // no se deja a la vista el anterior: pareceria que el mapa nuevo es el
+    // viejo. Un fallo puntual de red no borra la imagen.
+    const sinMapa =
+        /no disponible/i.test(String(message || ""));
+
+    const mapeando =
+        typeof mappingSessionState !== "undefined"
+        && mappingSessionState.data
+        && mappingSessionState.data.mapping;
+
+    const texto =
+        sinMapa && mapeando
+            ? "Esperando el primer mapa del robot (unos segundos)…"
+            : message;
+
     if (
+        sinMapa
+        ||
         liveMapState.version === null
     ) {
+
+        liveMapState.version = null;
 
         scene.hidden = true;
 
         placeholder.hidden = false;
 
         placeholder.textContent =
-            message;
+            texto;
     }
 
 
     $mp("toolbarStatus")
     .textContent =
-        message;
+        texto;
 }
 
 
