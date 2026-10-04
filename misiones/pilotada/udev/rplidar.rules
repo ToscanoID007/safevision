@@ -1,0 +1,16 @@
+# set the udev rule , make the device_port be fixed by rplidar
+#
+
+KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0501", MODE:="0777", SYMLINK+="video0"
+
+KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE:="0777", SYMLINK+="rplidar"
+
+#KERNEL=="ttyUSB*", ATTRS{devpath}=="1.4.3",ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE:="0777", #SYMLINK+="myserial"
+
+#KERNEL=="ttyUSB*" ,ATTRS{devpath}=="1.4.2",MODE:="0777",ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523",  #SYMLINK+="myspeech"
+
+KERNEL=="ttyUSB*",ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE:="0777", SYMLINK+="myserial"
+
+
+
+

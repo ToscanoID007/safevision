@@ -83,8 +83,9 @@ arquitectónica deliberada, y vas a razonar sobre ella.
 - Mando
 - Cronómetro
 
-**[PENDIENTE: anotar aquí el modelo disponible y sus clases. En el robot verificado había
-uno con las clases: persona, teléfono, lentes, botas.]**
+**Modelo disponible (verificado el 2026-10-03):** `yolov8n`, «YOLOv8 Prueba», versión 1.0,
+con cuatro clases: **persona, teléfono, lentes, botas**. Úsalo en la parte B. En el robot hay
+otros dos nombres (`yolov` y `yolov8nttttt`) con los mismos metadatos: son copias de prueba.
 
 ## 5. Seguridad
 
