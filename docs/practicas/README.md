@@ -37,6 +37,10 @@ localización de P04. Conviene respetar el orden.
 **Opcional pero recomendable a partir de P02:**
 - Acceso SSH al robot, para ver los tópicos ROS de verdad
 
+**Cómo seguir la práctica:** en el dashboard, botón **Guía** (abajo a la derecha) y elige la
+práctica en la lista. Se abre en un panel al lado y la página sigue funcionando: lees el paso
+y lo ejecutas sin cambiar de ventana. Los comandos tienen botón **Copiar**.
+
 Todas las prácticas se pueden completar **sólo con el dashboard**. Los apartados que
 requieren SSH están marcados como *ampliación* y pueden omitirse.
 

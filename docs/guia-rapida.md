@@ -60,6 +60,11 @@ paso, resaltando cada parte de la pantalla. Y al pasar el ratón sobre cualquier
 enlace del menú aparece qué hace, cuándo usarlo y qué necesitas antes (en el móvil, el
 primer toque muestra la ficha y el segundo abre la sección).
 
+**Las guías dentro del dashboard.** El botón **Guía**, abajo a la derecha en todas las
+páginas, abre esta guía, el manual y las seis prácticas en un panel al lado. La página sigue
+funcionando mientras lees, y el panel recuerda qué documento y qué parte estabas leyendo al
+cambiar de página. Funciona sin internet.
+
 **Sólo la primera vez en una laptop**, instala el entorno (tarda unos minutos):
 
 ```bash

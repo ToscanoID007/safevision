@@ -20,6 +20,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='automatica.css', v='automatica-v3') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 
@@ -497,6 +498,8 @@
     src="{{ url_for('static', filename='automatica.js', v='automatica-v4') }}"
 ></script>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 
 </html>

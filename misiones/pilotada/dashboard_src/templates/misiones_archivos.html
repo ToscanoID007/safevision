@@ -82,6 +82,7 @@
             text-align: center;
         }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 <body>
@@ -143,5 +144,7 @@
 
     </div>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 </html>

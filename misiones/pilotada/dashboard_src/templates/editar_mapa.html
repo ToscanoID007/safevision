@@ -19,6 +19,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='editar_mapa.css') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 <body class="editor-page">
@@ -251,5 +252,7 @@ window.SAFEVISION_EDITOR_MAP =
     src="{{ url_for('static', filename='editar_mapa.js') }}"
 ></script>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 </html>

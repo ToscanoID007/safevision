@@ -20,6 +20,7 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='mapear.css') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_guia.css') }}">
 </head>
 
 
@@ -349,5 +350,7 @@
     src="{{ url_for('static', filename='mapear_realtime_v2.js', v='realtime-v2c') }}"
 ></script>
 
+<script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_guia.js') }}"></script>
 </body>
 </html>
