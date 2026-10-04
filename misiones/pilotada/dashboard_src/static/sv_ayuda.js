@@ -35,7 +35,7 @@
             titulo: "Mapear",
             que: "Dibuja el plano de un lugar nuevo mientras manejas el robot con el mando. Con ese plano el robot sabe dónde está y puede navegar solo.",
             cuando: "La primera vez que usas el robot en un sitio, por ejemplo el laboratorio.",
-            antes: "En Pilotada, elige un mapa existente (HAB2 sirve) y pulsa Misión Pilotada: al terminar de mapear, el robot vuelve a él.",
+            antes: "Nada: Iniciar mapeo prepara el robot solo. Usa un mapa existente (HAB2 sirve) sólo como punto de retorno; no lo modifica.",
             ojo: "Muévelo despacio y recorre todo el cuarto. Guarda el mapa con un nombre claro."
         },
         "/programar": {
@@ -246,8 +246,8 @@
             sel: '.card[data-name="Mapear"]',
             titulo: "6 · Mapa de un lugar nuevo",
             texto: "Para que el robot navegue solo necesita el plano del lugar. En <b>Mapear</b> lo " +
-                   "dibujas manejándolo con el mando. Antes, en Pilotada, elige un mapa (HAB2 sirve) y pulsa Misión Pilotada " +
-                   "existente: el robot vuelve a él al terminar."
+                   "dibujas manejándolo con el mando. Escribe un nombre y pulsa Iniciar mapeo: el robot se prepara solo, " +
+                   "con un mapa existente como punto de retorno que no se modifica."
         },
         {
             sel: '.card[data-name="Wi-Fi"]',

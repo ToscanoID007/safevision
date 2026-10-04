@@ -372,6 +372,9 @@ curl -X POST $R/nav/cancel
 
 **Precondiciones:** perfil `pilotada`/`automatica` **ya aplicado con un mapa existente**
 (el sistema necesita saber a dónde volver); mando listo; sala ordenada.
+**Desde el dashboard no hace falta prepararlo:** *Iniciar mapeo* comprueba el perfil y, si no
+está listo, activa antes Misión Pilotada con el último mapa elegido en Pilotada, `HAB2` o el
+primero disponible. Ese mapa sólo es el punto de retorno y no se modifica.
 
 > **El mapeo se hace pilotando el robot a mano.** No es automático.
 
