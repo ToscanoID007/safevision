@@ -693,10 +693,18 @@ def _ensure_selector():
     )
 
 
+MANDO_NODOS = {
+    "/joy_node",
+    "/yahboom_joy",
+    "/sf_joy_repetidor",
+}
+
+
 def _stop_mando():
 
     _rosnode_kill(
         "/yahboom_joy",
+        "/sf_joy_repetidor",
         "/joy_node"
     )
 
@@ -704,13 +712,14 @@ def _stop_mando():
         "mando"
     )
 
+    _terminate_owned(
+        "mando_repetidor"
+    )
+
     return _wait(
         lambda:
             _nodes_absent(
-                {
-                    "/yahboom_joy",
-                    "/joy_node"
-                }
+                MANDO_NODOS
             ),
         7
     )
@@ -722,39 +731,60 @@ def _ensure_mando():
         return False
 
     if _nodes_present(
+        MANDO_NODOS
+    ):
+        return True
+
+    if not _nodes_present(
         {
             "/joy_node",
             "/yahboom_joy"
         }
     ):
-        return True
+        launch = (
+            ROBOT_DIR
+            /
+            "sf_control_mando.launch"
+        )
 
-    launch = (
-        ROBOT_DIR
-        /
-        "sf_control_mando.launch"
-    )
-
-    _spawn(
-        "mando",
-        (
-            "roslaunch "
-            +
-            shlex.quote(
-                str(launch)
+        _spawn(
+            "mando",
+            (
+                "roslaunch "
+                +
+                shlex.quote(
+                    str(launch)
+                )
             )
         )
-    )
 
+    if not _nodes_present(
+        {
+            "/sf_joy_repetidor"
+        }
+    ):
+        _spawn(
+            "mando_repetidor",
+            (
+                "python3 "
+                +
+                shlex.quote(
+                    str(
+                        ROBOT_DIR
+                        /
+                        "sf_joy_repetidor.py"
+                    )
+                )
+            )
+        )
+
+    # roslaunch puede tardar mas de 10 s en la Raspberry (ver sf_mapping_manager).
     return _wait(
         lambda:
             _nodes_present(
-                {
-                    "/joy_node",
-                    "/yahboom_joy"
-                }
+                MANDO_NODOS
             ),
-        10
+        30
     )
 
 
@@ -1445,7 +1475,8 @@ def status(control_mode=None):
 
         "mando": _resource(
             _node_alive("/joy_node")
-            and _node_alive("/yahboom_joy"),
+            and _node_alive("/yahboom_joy")
+            and _node_alive("/sf_joy_repetidor"),
             connected=os.path.exists("/dev/input/js0"),
         ),
 

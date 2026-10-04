@@ -45,6 +45,14 @@
             from="cmd_vel"
             to="/cmd_vel_manual"
         />
+
+        <!-- Lee el mando a traves de sf_joy_repetidor.py (lo lanza el gestor de
+             runtime junto a este launch), que repite el estado de los ejes
+             mientras la palanca esta quieta. Sin el, el robot avanza a tirones. -->
+        <remap
+            from="joy"
+            to="/joy_mando"
+        />
     </node>
 
 </launch>
