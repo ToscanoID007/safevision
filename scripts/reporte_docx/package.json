@@ -1,0 +1,8 @@
+{
+  "name": "safevision-reporte-docx",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Genera docs/entrega/reporte-final.docx a partir de docs/reporte-final.md",
+  "main": "generar_reporte.js",
+  "dependencies": { "docx": "^9.0.0" }
+}

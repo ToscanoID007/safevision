@@ -10,11 +10,10 @@ Los detalles técnicos viven en los documentos anexos; aquí está el argumento.
 
 ---
 
-> **Estado de este documento.** La estructura, el contenido técnico y el análisis están
-> completos y verificados contra el sistema real. Lo que falta es lo que **sólo puede
-> aportar una persona**: nombres, fechas, fotografías y los resultados de ejecutar el
-> protocolo de validación. Cada uno de esos huecos está marcado como `[PENDIENTE: ...]` y
-> se puede localizar con `grep -rn "PENDIENTE" docs/`.
+> **Estado de este documento.** Versión de entrega `v3.0-entrega` (octubre de 2026). El
+> contenido técnico está verificado contra el sistema real y la validación de campo del
+> 2026-10-03 está incorporada (§8.4). Existe una versión en Word lista para imprimir:
+> `docs/entrega/reporte-final.docx`.
 
 ---
 
@@ -119,7 +118,7 @@ publicador–suscriptor. El **ROS Master** actúa de registro.
 La ventaja para un sistema como éste es el desacoplamiento: el nodo que lee el LiDAR no sabe
 quién consume `/scan`, y pueden ser a la vez el algoritmo de localización y el de
 planificación. La contrapartida es que ROS 1 **no ofrece autenticación ni cifrado**, lo que
-tiene consecuencias de seguridad que se tratan en §7.8.
+tiene consecuencias de seguridad que se tratan en §7.9.
 
 ### 5.2 SLAM y Gmapping
 
@@ -210,7 +209,7 @@ Se siguió la metodología de la propuesta, en seis etapas:
 | Integración sensorial | LiDAR, IMU con calibración, odometría, cámara |
 | Percepción y mapeo | Gmapping, gestión de sesiones de mapeo con *rollback* |
 | Localización y navegación | AMCL, `move_base` + DWA, cola de navegación con prevalidación |
-| Validación experimental | Protocolo de 87 pruebas (`docs/validacion.md`) |
+| Validación experimental | Protocolo de 84 pruebas (`docs/validacion.md`) |
 | Documentación | Manuales, guía de prácticas y este reporte |
 
 **Nota metodológica relevante.** El trabajo partió de un sistema **preexistente y en
@@ -292,8 +291,10 @@ modo de fallo real: el RPLIDAR puede quedar vivo y silencioso tras una transici�
 | **Cámara Orbbec Astra Pro** | Canal **RGB** por V4L2 (`/dev/video0`) → MJPEG 640×480 @30 fps. Canal de **profundidad: no integrado** |
 
 La calibración del giróscopo se ejecuta al arrancar, lo que exige que **el robot esté quieto
-durante el arranque**. Es la causa número uno de fallo al aplicar un perfil, y está
-documentada en `docs/solucion-problemas.md` §4.2.
+durante el arranque**. Si el robot se mueve en ese momento, guarda un sesgo falso y después
+«ve» un giro inexistente; ocurrió en la validación de campo (4,54 rad/s con el robot quieto).
+Desde entonces el gestor compara la lectura calibrada con la cruda al arrancar y se niega a
+continuar si no coinciden (`docs/solucion-problemas.md` §10.9).
 
 ### 7.4 Mapeo
 
@@ -302,10 +303,13 @@ Se implementó SLAM 2D con Gmapping, orquestado por `sf_mapping_manager.py`.
 La dificultad real no es ejecutar Gmapping, sino **la transición**: mapear y localizarse son
 incompatibles, porque ambos publican `/map`. La secuencia implementada:
 
-1. Se exige un perfil activo con mapa (para saber a qué estado volver).
+1. Se exige un perfil activo con mapa (para saber a qué estado volver). Desde el dashboard,
+   *Iniciar mapeo* lo activa solo si hace falta.
 2. Se lanza Gmapping **manteniendo viva la cola de navegación**, porque el gestor necesita
    publicar la cancelación antes de retirar AMCL.
-3. Sólo entonces se apagan cola, `move_base`, exportador de pose y AMCL.
+3. Sólo entonces se apagan cola, `move_base` y AMCL. El exportador de pose sigue activo,
+   porque Gmapping también publica la transformada `map → base_footprint`: así el robot se
+   ve moverse sobre el mapa mientras se construye.
 4. Al guardar o descartar, se restaura automáticamente el perfil anterior con el mapa que
    corresponda.
 
@@ -341,7 +345,9 @@ Sobre `move_base`, SafeVision añade dos mecanismos propios:
   robot. La cola queda además atada al mapa activo.
 - **Selector de `cmd_vel` con *watchdog***: garantiza exclusión mutua entre mando y
   navegación, detiene el robot tras 0,5 s sin órdenes válidas, y al volver a modo manual
-  publica explícitamente la cancelación del objetivo.
+  publica explícitamente la cancelación del objetivo. Aplica además la **velocidad máxima
+  del mando** elegida en el dashboard (10-100 %), y recibe las órdenes del mando a través de
+  un repetidor que mantiene la velocidad constante con la palanca sostenida.
 
 > El *watchdog* es, en pocas líneas de código, la pieza de seguridad más importante del
 > sistema: hace que la pérdida de comunicación se traduzca en **parada**, no en
@@ -406,6 +412,8 @@ La auditoría de seguridad (`docs/security-scan.md`) encontró y documentó:
 | Evasión de obstáculos (LiDAR 2D) | ✅ funcionando |
 | Gestión de mapas y de modelos | ✅ funcionando |
 | Misiones (`ir`, `esperar`, `orientar`) | ✅ funcionando |
+| Cambio de red Wi-Fi desde el dashboard | ✅ verificado en el robot |
+| Ayuda integrada: tutorial, fichas y guías de prácticas | ✅ funcionando |
 | Fusión RGB-D en el costmap | ❌ no integrada (§9) |
 
 ### 8.2 Estado verificado del robot
@@ -476,7 +484,8 @@ misiones y apagado) y las pruebas de cola múltiple (N-2), ruta imposible (N-3),
 | ![Pose calibrada](evidencias/2026-10-03/03-pilotada-pose-calibrada.webp) | ![Navegación completada](evidencias/2026-10-03/07-navegacion-completada.webp) |
 | *Fig. 5. Misión Pilotada con la pose calibrada sobre `Casa_luis`.* | *Fig. 6. Cola completada tras navegar a un punto.* |
 
-**[PENDIENTE: capturas del costmap con y sin obstáculo (P02/P05).]**
+Las capturas del costmap con y sin obstáculo no se incluyen en esta entrega; se obtienen en
+las prácticas P02 y P05.
 
 Pruebas cuyo resultado tiene especial valor para este reporte:
 
@@ -581,8 +590,9 @@ Estimación: **entre media jornada y dos jornadas** de trabajo con el robot pres
 
 1. **Se logró una plataforma funcional para prácticas**, que cubre el ciclo completo de la
    robótica móvil: percepción, mapeo, localización, planificación, evasión, detección de
-   objetos y programación de comportamientos. Ocho de los diez objetivos específicos están
-   cumplidos; los dos parciales corresponden a la misma brecha, analizada en §9.
+   objetos y programación de comportamientos. Siete de los diez objetivos específicos están
+   cumplidos; dos son parciales por la misma brecha, analizada en §9, y la validación está en
+   curso con 15 pruebas superadas en un entorno real.
 
 2. **La arquitectura en tres capas con frontera explícita demostró ser la decisión más
    valiosa.** Mantener los lazos de control en el robot hace que el sistema se comporte de
@@ -624,11 +634,12 @@ En orden de prioridad.
 
 | # | Tarea | Por qué |
 |---|---|---|
-| 1 | Versionar el dashboard operativo (§8.3) | El producto 1 depende hoy de un directorio sin versionar |
-| 2 | Ejecutar `docs/validacion.md` | Sin ello, el objetivo 8 no tiene evidencia |
-| 3 | ~~Rotar las credenciales expuestas~~ | Descartado por decisión (2026-09-12); ver §7.9 |
-| 4 | Depurar el catálogo de mapas | Quedan mapas de prueba sin limpiar |
-| 5 | Crear la imagen de respaldo de la microSD | Hoy la plataforma tiene un punto único de fallo |
+| 1 | Crear la imagen de respaldo de la microSD | Hoy la plataforma tiene un punto único de fallo |
+| 2 | Completar `docs/validacion.md` | 15 de 84 pruebas ejecutadas; faltan arranque, sensores, cámara e IA, misiones y apagado |
+| 3 | Mapa del laboratorio (práctica P03) | El mapa entregado es de una vivienda |
+
+Ya resueltas durante el proyecto: versionar el dashboard operativo (§8.3), depurar el
+catálogo de mapas y la decisión sobre las credenciales (§7.9).
 
 ### 11.2 Corto plazo
 
@@ -667,34 +678,40 @@ de estas líneas debe abordarse **de una en una** y sólo sobre una línea base 
 
 ## 12. Referencias
 
-1. Quigley, M. et al. (2009). *ROS: an open-source Robot Operating System*. ICRA Workshop
-   on Open Source Software.
-2. Grisetti, G., Stachniss, C., Burgard, W. (2007). *Improved Techniques for Grid Mapping
-   with Rao-Blackwellized Particle Filters*. IEEE Transactions on Robotics, 23(1), 34-46.
-3. Fox, D., Burgard, W., Dellaert, F., Thrun, S. (1999). *Monte Carlo Localization:
-   Efficient Position Estimation for Mobile Robots*. AAAI.
-4. Fox, D., Burgard, W., Thrun, S. (1997). *The Dynamic Window Approach to Collision
-   Avoidance*. IEEE Robotics & Automation Magazine, 4(1), 23-33.
-5. Thrun, S., Burgard, W., Fox, D. (2005). *Probabilistic Robotics*. MIT Press.
-6. Redmon, J., Divvala, S., Girshick, R., Farhadi, A. (2016). *You Only Look Once: Unified,
-   Real-Time Object Detection*. CVPR.
-7. Madgwick, S., Harrison, A., Vaidyanathan, R. (2011). *Estimation of IMU and MARG
-   orientation using a gradient descent algorithm*. IEEE ICORR.
-8. Moore, T., Stouch, D. (2014). *A Generalized Extended Kalman Filter Implementation for
-   the Robot Operating System*. IAS-13.
-9. Marder-Eppstein, E. et al. (2010). *The Office Marathon: Robust Navigation in an Indoor
-   Office Environment*. ICRA.
-10. Documentación oficial de ROS Melodic: `navigation`, `gmapping`, `amcl`, `move_base`,
-    `robot_localization`, `depthimage_to_laserscan`. <http://wiki.ros.org>
-11. Yahboom. *ROSMASTER X3 — documentación del fabricante y paquetes `yahboomcar_ws`*.
-12. Jocher, G., Chaurasia, A., Qiu, J. (2023). *Ultralytics YOLOv8* (software).
-    <https://github.com/ultralytics/ultralytics>
-13. Paquete `joy` de ROS (controlador de mandos, versión 1.14). <http://wiki.ros.org/joy>
-14. Pallets Projects. *Flask* (framework web del Robot Server y del dashboard).
-    <https://flask.palletsprojects.com>
+Formato APA (7.ª ed.).
 
-**[PENDIENTE: ajustar al formato que exija la academia (APA o IEEE) y añadir las fuentes
-propias que se consultaran.]**
+1. Fox, D., Burgard, W., Dellaert, F., & Thrun, S. (1999). Monte Carlo localization:
+   Efficient position estimation for mobile robots. En *Proceedings of the Sixteenth
+   National Conference on Artificial Intelligence (AAAI-99)* (pp. 343-349). AAAI Press.
+2. Fox, D., Burgard, W., & Thrun, S. (1997). The dynamic window approach to collision
+   avoidance. *IEEE Robotics & Automation Magazine, 4*(1), 23-33.
+   https://doi.org/10.1109/100.580977
+3. Grisetti, G., Stachniss, C., & Burgard, W. (2007). Improved techniques for grid mapping
+   with Rao-Blackwellized particle filters. *IEEE Transactions on Robotics, 23*(1), 34-46.
+   https://doi.org/10.1109/TRO.2006.889486
+4. Jocher, G., Chaurasia, A., & Qiu, J. (2023). *Ultralytics YOLOv8* (Versión 8.0.0)
+   [Software]. https://github.com/ultralytics/ultralytics
+5. Madgwick, S. O. H., Harrison, A. J. L., & Vaidyanathan, R. (2011). Estimation of IMU and
+   MARG orientation using a gradient descent algorithm. En *2011 IEEE International
+   Conference on Rehabilitation Robotics* (pp. 1-7). IEEE.
+6. Marder-Eppstein, E., Berger, E., Foote, T., Gerkey, B., & Konolige, K. (2010). The Office
+   Marathon: Robust navigation in an indoor office environment. En *2010 IEEE International
+   Conference on Robotics and Automation* (pp. 300-307). IEEE.
+7. Moore, T., & Stouch, D. (2016). A generalized extended Kalman filter implementation for
+   the Robot Operating System. En *Intelligent Autonomous Systems 13* (pp. 335-348).
+   Springer.
+8. Open Robotics. (s. f.). *ROS Wiki: navigation, gmapping, amcl, move_base,
+   robot_localization, joy*. Recuperado de http://wiki.ros.org
+9. Pallets Projects. (s. f.). *Flask* [Software]. https://flask.palletsprojects.com
+10. Quigley, M., Conley, K., Gerkey, B., Faust, J., Foote, T., Leibs, J., Wheeler, R., & Ng,
+    A. Y. (2009). ROS: An open-source Robot Operating System. En *ICRA Workshop on Open
+    Source Software*.
+11. Redmon, J., Divvala, S., Girshick, R., & Farhadi, A. (2016). You only look once:
+    Unified, real-time object detection. En *Proceedings of the IEEE Conference on Computer
+    Vision and Pattern Recognition* (pp. 779-788).
+12. Thrun, S., Burgard, W., & Fox, D. (2005). *Probabilistic robotics*. MIT Press.
+13. Yahboom Technology. (s. f.). *ROSMASTER X3: documentación del fabricante y paquetes
+    yahboomcar_ws*. Shenzhen Yahboom Technology Co., Ltd.
 
 ---
 
@@ -715,7 +732,7 @@ Toda la documentación técnica forma parte de este reporte por referencia:
 |---|---|
 | B.1 | [`arquitectura.md`](arquitectura.md) — capas, grafo ROS y flujos |
 | B.2 | [`runtime-boot.md`](runtime-boot.md) — arranque del runtime |
-| B.3 | [`api-robot-server.md`](api-robot-server.md) — los 44 endpoints |
+| B.3 | [`api-robot-server.md`](api-robot-server.md) — los 51 endpoints |
 | B.4 | [`lenguaje-misiones.md`](lenguaje-misiones.md) — el DSL |
 
 ### C. Instalación y operación
@@ -730,7 +747,7 @@ Toda la documentación técnica forma parte de este reporte por referencia:
 ### D. Validación y docencia
 | Anexo | Documento |
 |---|---|
-| D.1 | [`validacion.md`](validacion.md) — protocolo de 87 pruebas |
+| D.1 | [`validacion.md`](validacion.md) — protocolo de 84 pruebas |
 | D.2 | [`practicas/`](practicas/) — **guía de prácticas P01-P06** |
 
 ### E. Análisis y auditoría
@@ -748,9 +765,16 @@ Carpeta `docs/evidencias/2026-10-03/`, con un `LEEME.md` que describe cada archi
 prueba que respalda: mapa `Casa_luis`, mapeo en vivo, pose calibrada, cola de navegación,
 robot entre obstáculos y navegación completada (§8.4, figuras 1 a 6).
 
-**[PENDIENTE: fotografías en el laboratorio y de sesiones de prácticas con estudiantes, si las
-hubiera; capturas del costmap.]**
+No se incluyen fotografías en el laboratorio ni de sesiones de prácticas con estudiantes:
+la validación de campo se hizo en la vivienda del estudiante.
 
 ---
 
-**[PENDIENTE: firmas y fechas requeridas por el formato institucional del TecNM.]**
+## Firmas
+
+Colima, Colima, octubre de 2026.
+
+| | |
+|---|---|
+| Luis Adrian Flores Bueno · 22460736 · Prestador | Andros Jair Toscano Farias · 22460548 · Prestador |
+| Armando Gaytan Godinez · Asesor responsable | |
