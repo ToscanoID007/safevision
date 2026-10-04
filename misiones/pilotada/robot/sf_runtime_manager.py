@@ -528,6 +528,48 @@ def _ensure_nav_queue():
     return _wait(lambda: _nodes_present({"/sf_nav_queue"}), 8)
 
 
+# Motivo legible del ultimo fallo de un recurso, para el mensaje al usuario.
+MOTIVOS = {}
+
+
+def _motivo(nombre):
+    texto = MOTIVOS.pop(nombre, "")
+    return (": " + texto) if texto else ""
+
+
+# Giroscopo: apply_calib mide el sesgo al arrancar el core. Si el robot se mueve
+# en ese momento guarda un sesgo falso y, quieto, "ve" un giro constante (caso
+# real 2026-10-03: 4,54 rad/s, el robot giraba en el mapa estando parado). Se
+# compara la salida calibrada con la cruda: un sesgo sano es de centesimas.
+SESGO_GIRO_MAX = 0.2   # rad/s
+
+
+def _giro_medio_z(topic, muestras=15, timeout=5):
+    result = _run_ros(
+        "timeout {} rostopic echo -p -n {} {} 2>/dev/null".format(
+            int(timeout), int(muestras), shlex.quote(topic)
+        ),
+        timeout=int(timeout) + 2,
+    )
+    lineas = [l for l in (result.stdout or "").splitlines() if l.strip()]
+    if len(lineas) < 2:
+        return None
+    cabecera = lineas[0].split(",")
+    try:
+        col = cabecera.index("field.angular_velocity.z")
+        valores = [float(l.split(",")[col]) for l in lineas[1:]]
+    except Exception:
+        return None
+    return sum(valores) / len(valores) if valores else None
+
+
+def calibracion_giroscopo_ok(crudo, calibrado):
+    """Logica pura: None si no se pudo medir (no se bloquea), True/False si no."""
+    if crudo is None or calibrado is None:
+        return None
+    return abs(calibrado - crudo) < SESGO_GIRO_MAX
+
+
 def _topic_has_message(
     topic,
     timeout=10
@@ -638,10 +680,24 @@ def _ensure_core():
     if not nodes_ok:
         return False
 
-    return _topic_has_message(
+    if not _topic_has_message(
         "/imu/imu_data",
         timeout=15
-    )
+    ):
+        return False
+
+    calibrado = _giro_medio_z("/imu/imu_data")
+    crudo = _giro_medio_z("/imu/imu_raw")
+    if calibracion_giroscopo_ok(crudo, calibrado) is False:
+        MOTIVOS["core"] = (
+            "el robot se movió mientras se calibraba el giróscopo "
+            "(cree que gira {:.1f} rad/s estando quieto). Déjalo inmóvil, "
+            "sin tocar el mando, y vuelve a intentarlo".format(calibrado - crudo)
+        )
+        _stop_core()
+        return False
+
+    return True
 
 
 def _ensure_selector():
@@ -948,6 +1004,8 @@ def _ensure_base(
                     "No se pudo iniciar "
                     +
                     name
+                    +
+                    _motivo(name)
                 ),
                 steps=steps,
                 status=status(
@@ -1647,7 +1705,7 @@ def apply_profile(profile, map_name=None, control_mode=None):
             if not ok:
                 return _result(
                     False,
-                    "No se pudo iniciar " + name,
+                    "No se pudo iniciar " + name + _motivo(name),
                     steps=steps,
                     status=status(control_mode),
                 )
@@ -1852,9 +1910,9 @@ def start_resource(name):
             steps.append({"resource": r, "ok": ok})
             if not ok:
                 if r == name:
-                    msg = "No se pudo iniciar {}".format(r)
+                    msg = "No se pudo iniciar {}{}".format(r, _motivo(r))
                 else:
-                    msg = "No se pudo iniciar {} (requisito de {})".format(r, name)
+                    msg = "No se pudo iniciar {} (requisito de {}){}".format(r, name, _motivo(r))
                 return _result(False, msg, steps=steps)
         msg = "{} activo.".format(name) if plan else "{} ya estaba activo.".format(name)
         return _result(True, msg, steps=steps)

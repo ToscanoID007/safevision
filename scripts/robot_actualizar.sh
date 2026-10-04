@@ -114,6 +114,9 @@ ok "Codigo actualizado"
 # 5. Reiniciar servicios
 # ---------------------------------------------------------------
 info "5/5  Reiniciando los servicios de SafeVision"
+aviso "Suelta el mando y deja el robot quieto: al volver a activar un modo se"
+aviso "recalibra el giróscopo, y si el robot se mueve la calibración sale mal."
+sleep 3
 rsh "sudo -n systemctl restart safevision-robot-server && (systemctl list-unit-files safevision-red.service >/dev/null 2>&1 && sudo -n systemctl restart safevision-red || true)" \
     || fatal "No se pudieron reiniciar los servicios (¿sudo pide contrasena?)."
 for _ in $(seq 1 30); do
