@@ -184,7 +184,8 @@ const routes = {
   "Mapear": "/mapas/mapear",
   "Programar misión": "/programar",
   "Mapas": "/mapas",
-  "Nodos": "/nodos"
+  "Nodos": "/nodos",
+  "Wi-Fi": "/wifi"
 };
 
 document.querySelectorAll("[data-name]").forEach(button => {
