@@ -1097,3 +1097,24 @@
     color: #e2e8f0;
 }
 
+
+
+/*
+ * La barra del mapa no puede encogerse. Con la tarjeta en columna y altura fija,
+ * el navegador la comprimia a 48 px y, en pantallas con escalado de Windows
+ * (125-150 %), la tercera fila de botones (Agregar puntos, Iniciar, Cancelar)
+ * quedaba tapada por el mapa. Ahora cede altura el mapa, no la barra.
+ */
+.pv2-map-card > :not(#mapViewport) {
+    flex-shrink: 0;
+}
+
+.pv2-map-card #mapViewport {
+    min-height: 260px !important;
+}
+
+/* Hay dos controles de giro de dos etapas del frontend; el antiguo vivia en la
+   barra y solo "no se veia" porque la barra se recortaba. Se deja el actual. */
+.pv2-map-card:has(#pv2RotationSimpleControl) #pv2MapRotationControl {
+    display: none !important;
+}
