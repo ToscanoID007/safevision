@@ -389,8 +389,9 @@ aplica un perfil. Existen cuatro:
 | `automatica` | Idéntico a `pilotada` | Ejecución de misiones |
 | `mapear` | No se aplica directamente; se activa al iniciar una sesión de mapeo | Construcción de mapas |
 
-Desde el dashboard, en la página *Pilotada*: seleccione el mapa (`HAB2` es el de
-referencia) y el tipo de control, y pulse *Aplicar*. La activación comprueba cada recurso
+Desde el dashboard, en la página *Pilotada*: para el perfil `libre`, pulse *Modo Libre*; para
+`pilotada`, seleccione primero el mapa en el panel *Localización · Mapa* (`HAB2` es el de
+referencia) y pulse *Misión Pilotada*. El clic en el modo es el que lo activa. La activación comprueba cada recurso
 en secuencia y puede tardar hasta dos minutos.
 
 Desde una terminal, el equivalente es:

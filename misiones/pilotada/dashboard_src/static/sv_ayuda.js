@@ -21,7 +21,7 @@
             titulo: "Misión Pilotada",
             que: "Manejas el robot con el mando mientras ves su cámara. En el modo «Misión Pilotada» además carga un mapa, ubica al robot en él y puedes mandarlo a puntos con un clic.",
             cuando: "Para operar el robot y comprobar que todo funciona.",
-            antes: "Robot conectado. Elige el modo y el control, y pulsa Aplicar (tarda hasta 2 minutos).",
+            antes: "Robot conectado. Pulsa Modo Libre, o elige un mapa a la derecha y pulsa Misión Pilotada: ese clic es el que lo activa (hasta 2 minutos).",
             ojo: "Para pararlo, suelta el mando: se detiene en medio segundo. Usa un mapa del lugar donde estás."
         },
         "/automatica": {
@@ -35,7 +35,7 @@
             titulo: "Mapear",
             que: "Dibuja el plano de un lugar nuevo mientras manejas el robot con el mando. Con ese plano el robot sabe dónde está y puede navegar solo.",
             cuando: "La primera vez que usas el robot en un sitio, por ejemplo el laboratorio.",
-            antes: "Aplica Misión Pilotada con cualquier mapa existente (HAB2 sirve): al terminar, el robot vuelve a él.",
+            antes: "En Pilotada, elige un mapa existente (HAB2 sirve) y pulsa Misión Pilotada: al terminar de mapear, el robot vuelve a él.",
             ojo: "Muévelo despacio y recorre todo el cuarto. Guarda el mapa con un nombre claro."
         },
         "/programar": {
@@ -237,15 +237,16 @@
         {
             sel: '.card[data-name="Misión Pilotada"]',
             titulo: "5 · Mover el robot",
-            texto: "Entra a <b>Misión Pilotada</b>, elige <b>Modo Libre</b> y control <b>Mando</b>, y pulsa " +
-                   "<b>Aplicar</b> (hasta 2 minutos). Ya puedes moverlo con el mando.<br>" +
+            texto: "Entra a <b>Misión Pilotada</b> y pulsa <b>Modo Libre</b> con el control en <b>Mando</b>. " +
+                   "No hay botón Aplicar: ese clic ya lo activa (hasta 2 minutos; el cuadro Actividad " +
+                   "muestra el avance). Ya puedes moverlo con el mando.<br>" +
                    "<b>Para pararlo, suelta el mando</b>: se detiene en medio segundo."
         },
         {
             sel: '.card[data-name="Mapear"]',
             titulo: "6 · Mapa de un lugar nuevo",
             texto: "Para que el robot navegue solo necesita el plano del lugar. En <b>Mapear</b> lo " +
-                   "dibujas manejándolo con el mando. Antes aplica Misión Pilotada con cualquier mapa " +
+                   "dibujas manejándolo con el mando. Antes, en Pilotada, elige un mapa (HAB2 sirve) y pulsa Misión Pilotada " +
                    "existente: el robot vuelve a él al terminar."
         },
         {
@@ -259,7 +260,7 @@
             sel: '.card[data-name="Nodos"]',
             titulo: "8 · Si algo no responde",
             texto: "<b>Nodos</b> muestra cada parte del robot y deja encenderla o apagarla en orden. " +
-                   "Pulsar <b>Aplicar</b> otra vez en Misión Pilotada también reconstruye lo que falte."
+                   "Pulsar otra vez el botón del modo (Modo Libre o Misión Pilotada) también reconstruye lo que falte."
         },
         {
             titulo: "9 · Apagar bien",

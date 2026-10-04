@@ -77,9 +77,12 @@ PYTHON_BIN=python3.8 ./scripts/install_dashboard.sh    # cualquier python3 >= 3.
 
 Al encender, el robot **no se mueve**: sólo arranca lo mínimo. Para operarlo:
 
-1. En el dashboard entra a **Pilotada**.
-2. Elige el mapa (`HAB2` o el tuyo) y el control (**mando**).
-3. Pulsa **Aplicar** y espera hasta 2 minutos. El registro muestra cada parte que arranca.
+1. En el dashboard entra a **Pilotada**. Comprueba que el control está en **Mando**.
+2. **Sólo manejar:** pulsa **Modo Libre**.
+   **Con mapa:** elige el mapa en la lista de la derecha (*Localización · Mapa*) y pulsa
+   **Misión Pilotada**.
+3. No hay botón «Aplicar»: **ese clic ya activa el modo**. Espera hasta 2 minutos; el cuadro
+   *Actividad* muestra cada parte que arranca y la insignia de arriba cambia al terminar.
 
 Ya puedes moverlo con el mando. **Para pararlo: suelta el mando.** Se detiene en medio
 segundo, también si se corta el Wi-Fi o cierras el dashboard.
@@ -133,6 +136,8 @@ Para borrar una red guardada: botón **Olvidar** en la página, o
 | `No module named 'requests'` | Reinstala el entorno: paso 2, la línea de la primera vez, tras `rm -rf misiones/pilotada/dashboard_src/.venv` |
 | El robot pita sin parar | Batería baja: apágalo bien y cárgalo |
 | La página Wi-Fi no existe o da error | El robot tiene una versión anterior: `./scripts/robot_actualizar.sh` (o con su IP) |
-| Aplicar el perfil falla | Pulsa **Aplicar** otra vez; el gestor reconstruye lo que falte. Si sigue, mira la página **Nodos** |
+| Activar el modo falla | Pulsa otra vez el botón del modo; el gestor reconstruye lo que falte. Si sigue, mira la página **Nodos** |
+| Pulsas Misión Pilotada y no pasa nada | Falta elegir el mapa en la lista de la derecha; el cuadro *Actividad* lo avisa |
+| Mapear dice que no puede iniciar | El robot debe estar en Misión Pilotada con un mapa; ver §3 |
 
 Más casos en `solucion-problemas.md`.

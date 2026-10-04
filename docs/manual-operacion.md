@@ -141,7 +141,7 @@ existente si el perfil es `pilotada`/`automatica`.
 
 ### Pasos — opción A: dashboard
 
-Página **Pilotada** (portada, tarjeta 01): elige el mapa (`HAB2` de referencia) y el control, pulsa **Aplicar**. Tarda hasta dos minutos; el registro de la página muestra cada recurso. Verificado a través del dashboard el 2026-09-13 (prueba final PF.2, 54 s).
+Página **Pilotada** (portada, tarjeta 01): para `libre`, pulsa **Modo Libre**; para `pilotada`, elige el mapa en *Localización · Mapa* (`HAB2` de referencia) y pulsa **Misión Pilotada**. No hay botón «Aplicar»: el clic en el modo es el que lo activa. Tarda hasta dos minutos; el registro de la página muestra cada recurso. Verificado a través del dashboard el 2026-09-13 (prueba final PF.2, 54 s).
 
 ### Pasos — opción B: terminal
 
