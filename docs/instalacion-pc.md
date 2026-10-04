@@ -205,23 +205,7 @@ rm -f  ~/safevision/scripts/robot.env
 
 No queda nada fuera del repositorio: la instalación es completamente local.
 
-## 9. Alternativa: el paquete precompilado para Ubuntu 18.04
-
-**CONFIRMADO:** el robot sirve un paquete `.tar.gz` de 395 MB con el dashboard empaquetado
-para Ubuntu 18.04 x86_64, en el puerto **8090**
-(`misiones/pilotada/robot/sf_servidor_descarga.py`).
-
-Sólo es útil si tu PC es Ubuntu 18.04 y no quieres instalar dependencias. Tiene dos
-inconvenientes serios:
-
-- es del **8 de agosto de 2026**, anterior a todo el desarrollo posterior del frontend;
-- **no incluye la página `/pilotada`** ni los controles de perfil.
-
-**RECOMENDACIÓN:** usa la instalación de este documento. El paquete queda como opción de
-emergencia.
-**[PENDIENTE: nadie ha verificado que ese paquete arranque en una PC limpia.]**
-
-## 10. Documentos relacionados
+## 9. Documentos relacionados
 
 - `docs/red.md` — cómo se encuentran la PC y el robot, y qué puertos no exponer.
 - `docs/manual-operacion.md` — cómo operar el robot una vez conectado.

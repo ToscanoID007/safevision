@@ -28,9 +28,9 @@ Los detalles técnicos viven en los documentos anexos; aquí está el argumento.
 | Especialidad | Sistemas Mecatrónicos Inteligentes |
 | Modalidad | Servicio Social en Investigación Tecnológica |
 | Duración | 6 meses · 20 horas semanales por prestador |
-| Prestadores | `[PENDIENTE: nombres y números de control]` |
-| Asesor responsable | `[PENDIENTE: nombre y cargo]` |
-| Periodo | `[PENDIENTE: fecha de inicio y de término]` |
+| Prestadores | Luis Adrian Flores Bueno (22460736) · Andros Jair Toscano Farias (22460548) |
+| Asesor responsable | Armando Gaytan Godinez |
+| Periodo | Marzo a septiembre de 2026 |
 | Asignatura destinataria | Percepción e Inteligencia Artificial |
 | Repositorio | <https://github.com/ToscanoID007/safevision> |
 

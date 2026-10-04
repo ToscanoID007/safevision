@@ -144,10 +144,8 @@ el estudiante prestador; quedan registradas como tales.
 | 3 | Definir el error de deriva aceptable (P-7) y la semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
 | 4 | Construir el mapa del laboratorio (P03) y anotar su nombre | `estado-actual.md` §2.2, `practicas/README.md` §3 |
 | 5 | Crear la imagen de respaldo de la microSD y anotar dónde queda | `instalacion-robot.md` §2.1 |
-| 7 | Configurar la reserva DHCP en el módem | `red.md` §3 |
-| 8 | Probar el `.tar.gz` del dashboard en una PC limpia, o retirarlo | `instalacion-pc.md` §9, `scripts/LEEME-empaquetado.md` |
-| 9 | Fotografías, capturas, conclusión cuantitativa, referencias, firmas y datos generales del reporte | `reporte-final.md` §1, §8.4, §10, §12, §13 |
-| 10 | Nombres, asesor y periodo en los créditos | `README.md` §15 |
+| 6 | Configurar la reserva DHCP en el módem | `red.md` §3 |
+| 7 | Fotografías, capturas, conclusión cuantitativa, referencias y firmas del reporte (datos generales ya puestos) | `reporte-final.md` §1, §8.4, §10, §12, §13 |
 
 ### 4.2 Decisiones tomadas
 
@@ -160,7 +158,7 @@ el estudiante prestador; quedan registradas como tales.
 | Servicio de perfil por defecto | No | `solucion-problemas.md` §10.2 |
 | Reserva DHCP / Tailscale | Reserva sí (pendiente de hacer); Tailscale no | `red.md` §3, §7.1 |
 | Dashboard | Versionada la instantánea completa de desarrollo | `estado-actual.md` §5 |
-| `SafeVision.spec` | Versionada en `scripts/` | `scripts/LEEME-empaquetado.md` |
+| Paquete `.tar.gz` del dashboard | **Retirado de la documentación** (2026-10-03): nunca se probó y `git clone` + `install_dashboard.sh` lo sustituyen. La receta sigue en el historial de Git | — |
 | Rama por defecto en GitHub | Cambiada a `wip-handoff` el 2026-09-12 (verificado con la API) | `README.md` §13 |
 | Credenciales expuestas en GitHub (SSH del robot y PSK del Wi-Fi) | Por decisión del estudiante, la contraseña SSH del robot **se cambió el 2026-10-03** (la publicada ya no sirve); la PSK del Wi-Fi y el historial se mantienen. Se mantienen tal cual; el análisis queda en `security-scan.md` como referencia | `security-scan.md` §5 |
 
