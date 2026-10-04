@@ -1475,6 +1475,14 @@ function updateMappingSessionUI(
         );
 
 
+    // Si el ultimo intento fallo, el motivo se queda a la vista: el sondeo
+    // periodico no debe taparlo con "Listo para iniciar mapeo".
+    const ultimoError = mappingSessionState.ultimoError;
+    if (ultimoError && Date.now() - ultimoError.cuando < 120000) {
+        mappingSessionMessage(ultimoError.texto);
+        return;
+    }
+
     mappingSessionMessage(
         currentMap
             ?
@@ -1655,6 +1663,8 @@ async function startMappingSession() {
         mappingSessionState.data
     );
 
+    mappingSessionState.ultimoError = null;
+
     mappingSessionMessage(
         "Iniciando mapeo..."
     );
@@ -1691,10 +1701,26 @@ async function startMappingSession() {
 
     } catch (error) {
 
-        mappingSessionMessage(
+        let texto =
             error.message
             ||
-            "No se pudo iniciar el mapeo."
+            "No se pudo iniciar el mapeo.";
+
+        // El caso mas comun: el robot esta en Modo Libre o sin mapa.
+        if (/requiere (Pilotada|un mapa)/i.test(texto)) {
+            texto =
+                "No se pudo iniciar: el robot debe estar en «Misión Pilotada» " +
+                "con un mapa (sirve HAB2), para tener a dónde volver al terminar. " +
+                "Ve a Pilotada, elige Misión Pilotada, el mapa y Aplicar; luego vuelve aquí.";
+        }
+
+        mappingSessionState.ultimoError = {
+            texto: texto,
+            cuando: Date.now()
+        };
+
+        mappingSessionMessage(
+            texto
         );
 
     } finally {
