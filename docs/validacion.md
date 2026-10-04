@@ -192,7 +192,7 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 | P-1 | Pose sin AMCL | `curl -s $R/map_pose` sin perfil | `localized: false`, sin romperse | `[PENDIENTE]` | | | |
 | P-2 | Pose inicial | `POST $R/initialpose` con la posición real | `ok: true` | **OK** | 2026-10-03 | L. A. Flores Bueno | «Calibrar pose» en Pilotada (dos clics) sobre `Casa_luis` |
 | P-3 | Pose disponible | `curl -s $R/map_pose` | `localized: true` con pose coherente | **OK** | 2026-10-03 | Medición remota en el robot | `localized: true`, x 1,56 m, y 0,27 m, −65° |
-| P-4 | Pose en el dashboard | Mirar el mapa en la interfaz | El robot aparece donde está de verdad | **OK** | 2026-10-03 | L. A. Flores Bueno | El marcador coincide con la posición real tras calibrar |
+| P-4 | Pose en el dashboard | Mirar el mapa en la interfaz | El robot aparece donde está de verdad | **OK** | 2026-10-03 | L. A. Flores Bueno | El marcador coincide con la posición real tras calibrar. Captura `evidencias/2026-10-03/03` |
 | P-5 | Convergencia | Teleoperar 1-2 m y girar | La pose se ajusta y se estabiliza | `[PENDIENTE]` | | | |
 | P-6 | Frecuencia | Observar la actualización de la pose | ≈10 Hz | `[PENDIENTE]` | | | |
 | P-7 | Deriva | Recorrer 5 m y volver al punto de partida | El error acumulado es aceptable | `[PENDIENTE: definir "aceptable" en cm — medirlo primero]` | | | |
@@ -209,7 +209,7 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 | N-4 | Mapa incorrecto | Cola con un mapa distinto al activo | Se rechaza | `[PENDIENTE]` | | | |
 | N-5 | Cancelar | `POST $R/nav/cancel` a mitad de trayecto | Se detiene; selector a MANUAL | `[PENDIENTE]` | | | |
 | N-6 | Vaciar | `POST $R/nav/clear` | La cola queda vacía | `[PENDIENTE]` | | | |
-| N-7 | **Evasión dinámica** | Interponer una caja **alta (>15 cm)** en el trayecto | El robot la rodea o se detiene sin chocar | **OK** | 2026-10-03 | L. A. Flores Bueno | Rodeó un obstáculo puesto en el trayecto y llegó al punto. [PENDIENTE: vídeo o capturas] |
+| N-7 | **Evasión dinámica** | Interponer una caja **alta (>15 cm)** en el trayecto | El robot la rodea o se detiene sin chocar | **OK** | 2026-10-03 | L. A. Flores Bueno | Rodeó un obstáculo puesto en el trayecto y llegó al punto. Fotos `evidencias/2026-10-03/05` y `06` |
 | N-8 | Recovery | Rodear al robot de obstáculos | Ejecuta la recuperación (gira) e informa | `[PENDIENTE]` | | | |
 | N-9 | **Límite del LiDAR 2D** | Interponer un obstáculo **por encima** del plano del LiDAR (mesa a 40 cm, patas finas) | **Se espera que NO lo detecte.** Documenta la limitación | `[PENDIENTE]` | | | |
 
@@ -230,7 +230,7 @@ Se necesitan **dos personas como mínimo** para las pruebas de movimiento:
 | M-5 | **Restaurar tras guardar** | Comprobar `runtime/status` después de M-4 | Vuelve al perfil anterior **con el mapa nuevo**; AMCL y `map_server` de vuelta | **OK** | 2026-10-03 | Medición remota en el robot | Vuelve a `pilotada` con `Casa_luis`, 9/9 recursos |
 | M-6 | Descartar | Nueva sesión, `POST $R/mapping/session/discard` | Vuelve al perfil anterior con el mapa **anterior** | **OK** | 2026-10-03 | Medición remota en el robot | 58-63 s; vuelve a `pilotada` con `HAB2`, sin mapa residual |
 | M-7 | **Rollback ante fallo** | Provocar un fallo (p. ej. desconectar el LiDAR durante el inicio) | El sistema restaura el estado anterior, no se queda a medias | **OK** | 2026-10-03 | Medición remota en el robot | Caso real: «slam_gmapping no inició» (espera de 10 s, ya corregida a 45 s) → se restauró `HAB2` solo |
-| M-8 | Calidad del mapa | Comparar el mapa con la sala real | Paredes rectas, sin duplicados, bucles cerrados | **OK** | 2026-10-03 | Medición remota en el robot | Paredes rectas, sin duplicar, contorno cerrado; 173 m² libres. Rayos a través de ventanas, sin efecto |
+| M-8 | Calidad del mapa | Comparar el mapa con la sala real | Paredes rectas, sin duplicados, bucles cerrados | **OK** | 2026-10-03 | Medición remota en el robot | Paredes rectas, sin duplicar, contorno cerrado; 173 m² libres. Rayos a través de ventanas, sin efecto. Imagen `evidencias/2026-10-03/01` |
 
 ---
 

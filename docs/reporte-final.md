@@ -100,7 +100,7 @@ académicas en la asignatura de Percepción e Inteligencia Artificial.
 | 5 | Implementar algoritmos de localización | **CUMPLIDO** |
 | 6 | Diseñar e implementar planificación de trayectorias | **CUMPLIDO** |
 | 7 | Desarrollar estrategias de evasión de obstáculos | **PARCIAL** — evasión 2D completa; sin contribución de la profundidad (§9) |
-| 8 | Validar el sistema en entornos estructurados | **PENDIENTE DE EJECUCIÓN** — protocolo listo (`validacion.md`) |
+| 8 | Validar el sistema en entornos estructurados | **EN CURSO** — 15 pruebas superadas el 2026-10-03 (control, localización, navegación con evasión y ciclo completo de mapeo); el resto del protocolo, pendiente (§8.4) |
 | 9 | Documentar la arquitectura del sistema | **CUMPLIDO** |
 | 10 | Elaborar manuales de uso para prácticas | **CUMPLIDO** |
 
@@ -444,12 +444,39 @@ con una página dedicada y los cuatro proxies necesarios. Comparada con la versi
 
 ### 8.4 Resultados de la validación
 
-**[PENDIENTE: ejecutar el protocolo de `docs/validacion.md` (87 pruebas agrupadas en 11
-bloques) y trasladar aquí el resumen: total de pruebas superadas, fallidas y no aplicables,
-con las observaciones relevantes.]**
+**Sesión del 2026-10-03.** El estudiante operó el robot en su casa, que hizo de entorno
+estructurado, y se ejecutaron 15 pruebas del protocolo, **todas superadas**. El detalle está en
+`docs/validacion.md` §10-bis.
 
-**[PENDIENTE: incorporar fotografías del robot en operación, capturas del dashboard, del
-mapa construido y del costmap con y sin obstáculo.]**
+| Bloque | Pruebas | Resultado destacado |
+|---|---|---|
+| Control | C-1, C-2 | Mando con velocidad máxima ajustable (10-100 %) y constante con la palanca sostenida; parada al soltar |
+| Localización | P-2, P-3, P-4 | Pose calibrada con dos clics; `localized: true` y marcador coincidente con la posición real |
+| Navegación | N-1, N-7 | Llegada al punto con **0,08 m** de error (la tolerancia configurada); un obstáculo interpuesto fue rodeado |
+| Mapeo | M-1 a M-8 | Mapa `Casa_luis`: unos 173 m² libres, 25 × 19 m, paredes rectas sin duplicar; inicio en 55-58 s, guardado y descarte con restauración automática |
+
+Durante la sesión aparecieron **cinco fallos reales**, todos diagnosticados con medidas en el
+robot y corregidos el mismo día: la espera del arranque de Gmapping era más corta que lo que
+tarda `roslaunch` en la Raspberry Pi; el mando dejaba de publicar con la palanca quieta; el
+giróscopo se calibraba con el robot en movimiento; la página de mapeo mostraba el mapa anterior
+y no el robot; y los botones de navegación quedaban ocultos con el escalado de Windows.
+
+**Quedan sin ejecutar** el resto de bloques del protocolo (arranque, sensores, cámara e IA,
+misiones y apagado) y las pruebas de cola múltiple (N-2), ruta imposible (N-3), cancelación
+(N-5) y límite del LiDAR 2D (N-9).
+
+**Evidencias:**
+
+| | |
+|---|---|
+| ![Mapa Casa_luis](evidencias/2026-10-03/01-mapa-casa-luis.png) | ![Robot entre obstáculos](evidencias/2026-10-03/05-robot-entre-obstaculos.jpg) |
+| *Fig. 1. Mapa `Casa_luis` construido con Gmapping.* | *Fig. 2. El robot navegando entre dos cajas usadas como obstáculos.* |
+| ![Mapear](evidencias/2026-10-03/02-mapear-robot-visible.png) | ![Cola de tres puntos](evidencias/2026-10-03/04-cola-tres-puntos.jpg) |
+| *Fig. 3. Mapeo en vivo con el robot visible.* | *Fig. 4. Cola de navegación de tres puntos en curso.* |
+| ![Pose calibrada](evidencias/2026-10-03/03-pilotada-pose-calibrada.webp) | ![Navegación completada](evidencias/2026-10-03/07-navegacion-completada.webp) |
+| *Fig. 5. Misión Pilotada con la pose calibrada sobre `Casa_luis`.* | *Fig. 6. Cola completada tras navegar a un punto.* |
+
+**[PENDIENTE: capturas del costmap con y sin obstáculo (P02/P05).]**
 
 Pruebas cuyo resultado tiene especial valor para este reporte:
 
@@ -581,8 +608,11 @@ Estimación: **entre media jornada y dos jornadas** de trabajo con el robot pres
    instalación, operación y diagnóstico, un manifiesto de dependencias, un protocolo de
    validación y una guía de prácticas.
 
-**[PENDIENTE: añadir una conclusión sobre los resultados cuantitativos de la validación, una
-vez ejecutada.]**
+7. **La validación en un entorno real confirma el funcionamiento y endureció el sistema.**
+   El robot construyó un mapa limpio de una vivienda, se localizó en él y navegó hasta un
+   punto con 8 cm de error, rodeando un obstáculo interpuesto. La misma sesión destapó cinco
+   fallos que no aparecían en las pruebas sin operador; los cinco se midieron en el robot y se
+   corrigieron, y el protocolo los recoge para que no se repitan sin ser vistos.
 
 ---
 
@@ -709,9 +739,12 @@ Toda la documentación técnica forma parte de este reporte por referencia:
 
 ### F. Evidencias
 
-**[PENDIENTE: incorporar fotografías del robot y del laboratorio, capturas del dashboard en
-operación, imagen del mapa construido, capturas del costmap con y sin obstáculo, y
-fotografías de las sesiones de prácticas con estudiantes, si las hubiera.]**
+Carpeta `docs/evidencias/2026-10-03/`, con un `LEEME.md` que describe cada archivo y la
+prueba que respalda: mapa `Casa_luis`, mapeo en vivo, pose calibrada, cola de navegación,
+robot entre obstáculos y navegación completada (§8.4, figuras 1 a 6).
+
+**[PENDIENTE: fotografías en el laboratorio y de sesiones de prácticas con estudiantes, si las
+hubiera; capturas del costmap.]**
 
 ---
 
