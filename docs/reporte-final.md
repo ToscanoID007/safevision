@@ -687,9 +687,14 @@ de estas líneas debe abordarse **de una en una** y sólo sobre una línea base 
 10. Documentación oficial de ROS Melodic: `navigation`, `gmapping`, `amcl`, `move_base`,
     `robot_localization`, `depthimage_to_laserscan`. <http://wiki.ros.org>
 11. Yahboom. *ROSMASTER X3 — documentación del fabricante y paquetes `yahboomcar_ws`*.
+12. Jocher, G., Chaurasia, A., Qiu, J. (2023). *Ultralytics YOLOv8* (software).
+    <https://github.com/ultralytics/ultralytics>
+13. Paquete `joy` de ROS (controlador de mandos, versión 1.14). <http://wiki.ros.org/joy>
+14. Pallets Projects. *Flask* (framework web del Robot Server y del dashboard).
+    <https://flask.palletsprojects.com>
 
-**[PENDIENTE: completar con las referencias específicas que se hayan consultado durante el
-desarrollo, en el formato que exija la academia.]**
+**[PENDIENTE: ajustar al formato que exija la academia (APA o IEEE) y añadir las fuentes
+propias que se consultaran.]**
 
 ---
 

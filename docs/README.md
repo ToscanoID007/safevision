@@ -137,15 +137,16 @@ el estudiante prestador; quedan registradas como tales.
 
 ### 4.1 Estudiante, con el robot delante
 
+Estado tras `v3.0-entrega` (2026-10-04).
+
 | # | Qué falta | Dónde |
 |---|---|---|
-| 1 | Ejecutar el protocolo manual de 87 pruebas y rellenar resultados, fecha, responsable y evidencia | `validacion.md` §3-§11 |
-| 2 | Datos de la sesión de validación, persona con el mando, palabra de parada | `validacion.md` §1.4, §2 |
-| 3 | Definir el error de deriva aceptable (P-7) y la semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
-| 4 | ~~Construir un mapa (P03)~~ Hecho: `Casa_luis`, 2026-10-03. Repetir en el laboratorio sólo si el profesor lo pide | `estado-actual.md` §2.2 |
-| 5 | Crear la imagen de respaldo de la microSD y anotar dónde queda | `instalacion-robot.md` §2.1 |
-| 6 | Configurar la reserva DHCP en el módem | `red.md` §3 |
-| 7 | Fotografías, capturas, conclusión cuantitativa, referencias y firmas del reporte (datos generales ya puestos) | `reporte-final.md` §1, §8.4, §10, §12, §13 |
+| 1 | Imagen de respaldo de la microSD (falta el adaptador) y anotar fecha, tamaño y lugar | `instalacion-robot.md` §2.1 |
+| 2 | Resto del protocolo: arranque, sensores, cámara e IA (P06), misiones, apagado, y N-2, N-3, N-5, N-9 | `validacion.md` |
+| 3 | Error de deriva aceptable (P-7) y semántica de `orientar()` (S-13) | `validacion.md`, `lenguaje-misiones.md` §3.3 |
+| 4 | Reporte: formato de referencias, firmas y formato institucional; capturas del costmap | `reporte-final.md` §8.4, §12, §13 |
+| 5 | Si el profesor lo pide: mapa del propio laboratorio (P03, unos 20 min) | `estado-actual.md` §2.2 |
+| 6 | Opcional: reserva DHCP en el router | `red.md` §3 |
 
 ### 4.2 Decisiones tomadas
 
