@@ -1,0 +1,161 @@
+/* =========================================================
+   SafeVision - fichas informativas y tutorial (sv_ayuda.js)
+   Colores propios con respaldo: funciona en la portada y en
+   las paginas que usan pilotada_v2.css.
+   ========================================================= */
+.sv-ficha,
+.sv-tuto-caja {
+    --sva-panel: #0f1c29;
+    --sva-line: #2c4355;
+    --sva-text: #eef6ff;
+    --sva-muted: #8fa5b8;
+    --sva-accent: #4c91ff;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--sva-text);
+}
+
+/* ---------- Ficha ---------- */
+.sv-ficha {
+    position: fixed;
+    z-index: 3000;
+    width: min(330px, calc(100vw - 24px));
+    padding: 14px 16px;
+    border: 1px solid var(--sva-line);
+    border-radius: 12px;
+    background: var(--sva-panel);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.sv-ficha.interactiva { pointer-events: auto; }
+.sv-ficha h4 { margin: 0 0 6px; font-size: 15px; }
+.sv-ficha p { margin: 0 0 8px; color: var(--sva-text); }
+.sv-ficha dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 0; }
+.sv-ficha dt {
+    color: var(--sva-accent);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-top: 2px;
+}
+.sv-ficha dd { margin: 0; color: var(--sva-muted); }
+.sv-ficha-pie { margin-top: 10px; color: var(--sva-muted); font-size: 11px; }
+.sv-ficha-abrir {
+    display: block;
+    margin-top: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--sva-accent);
+    color: #fff;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+}
+
+/* ---------- Boton y enlace del tutorial ---------- */
+.sv-tuto-lanzar {
+    height: 34px;
+    margin-right: 10px;
+    padding: 0 14px;
+    border: 1px solid #3d6ea0;
+    border-radius: 9px;
+    background: #184978;
+    color: #e8f3ff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+.sv-tuto-lanzar:hover { filter: brightness(1.15); }
+.sv-tuto-pulso { animation: sv-pulso 1.8s ease-in-out infinite; }
+@keyframes sv-pulso {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76, 145, 255, 0.55); }
+    50% { box-shadow: 0 0 0 8px rgba(76, 145, 255, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .sv-tuto-pulso { animation: none; } }
+
+.pv2-nav a.sv-nav-tutorial { color: #8fbaff; }
+
+/* ---------- Tutorial ---------- */
+.sv-tuto-velo { position: fixed; inset: 0; z-index: 2990; background: transparent; }
+.sv-tuto-velo.oscuro { background: rgba(3, 8, 14, 0.72); }
+.sv-tuto-foco {
+    position: fixed;
+    z-index: 2995;
+    border: 2px solid #4c91ff;
+    border-radius: 16px;
+    box-shadow: 0 0 0 9999px rgba(3, 8, 14, 0.72);
+    pointer-events: none;
+    transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+}
+.sv-tuto-caja {
+    position: fixed;
+    z-index: 3001;
+    width: min(400px, calc(100vw - 24px));
+    padding: 16px 18px 14px;
+    border: 1px solid var(--sva-line);
+    border-radius: 14px;
+    background: var(--sva-panel);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+    font-size: 14px;
+    line-height: 1.55;
+}
+.sv-tuto-caja.centrada { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); }
+.sv-tuto-cabeza {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--sva-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.sv-tuto-x {
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--sva-muted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.sv-tuto-caja h3 { margin: 6px 0 6px; font-size: 17px; }
+.sv-tuto-texto { color: #c9d8e6; }
+.sv-tuto-texto b { color: var(--sva-text); }
+.sv-tuto-texto code,
+.sv-tuto-texto pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 5px;
+}
+.sv-tuto-texto code { padding: 1px 5px; }
+.sv-tuto-texto pre { margin: 8px 0; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.sv-tuto-pie {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+.sv-tuto-puntos { display: flex; gap: 5px; flex-wrap: wrap; }
+.sv-tuto-puntos i { width: 7px; height: 7px; border-radius: 50%; background: #2c4355; }
+.sv-tuto-puntos i.activo { background: #4c91ff; }
+.sv-tuto-botones { display: flex; gap: 8px; }
+.sv-tuto-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--sva-line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sva-text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+.sv-tuto-btn.primario { border-color: #3d6ea0; background: #1d5590; }
+.sv-tuto-btn:hover { filter: brightness(1.15); }
+body.sv-tuto-activo .card:hover { transform: none; }

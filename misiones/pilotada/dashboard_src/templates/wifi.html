@@ -6,15 +6,18 @@
     <title>SafeVision · Wi-Fi del robot</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='pilotada_v2.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='nodos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_paginas.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='wifi.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sv_ayuda.css') }}">
 </head>
-<body class="pv2-body nd-body">
-
+<body class="pilotada-v2-body sv-page">
 <header class="pv2-topbar">
     <div class="pv2-brand">
-        <span class="pv2-brand-title">SafeVision</span>
-        <span class="pv2-brand-sub">Wi-Fi del robot</span>
+        <div class="pv2-brand-mark">SV</div>
+        <div>
+            <h1>SafeVision</h1>
+            <span>Wi-Fi del robot</span>
+        </div>
     </div>
     <nav class="pv2-nav">
         <a href="/">Inicio</a>
@@ -23,31 +26,31 @@
         <a href="/nodos">Nodos</a>
         <a href="/wifi" class="is-active">Wi-Fi</a>
     </nav>
-    <div class="nd-topstatus">
-        <span id="wfConexion" class="pv2-badge">consultando…</span>
+    <div class="pv2-top-status">
+        <span id="wfConexion" class="pv2-chip">consultando…</span>
     </div>
 </header>
 
-<main class="nd-shell">
+<main class="sv-shell">
 
-    <section class="pv2-card wf-estado">
+    <section class="sv-card wf-estado">
         <div>
-            <div class="wf-etiqueta">Red actual del robot</div>
+            <span class="sv-eyebrow">Red actual del robot</span>
             <div id="wfRedActual" class="wf-red-actual">—</div>
             <div id="wfDetalle" class="wf-detalle"></div>
         </div>
-        <button id="wfVolverAp" class="nd-btn" type="button" hidden>
+        <button id="wfVolverAp" class="sv-btn" type="button" hidden>
             Pasar a la red propia del robot
         </button>
     </section>
 
-    <section class="pv2-card">
-        <p class="wf-regla">
+    <section class="sv-card">
+        <p class="sv-callout">
             <strong>El robot sólo usa redes de 2.4 GHz.</strong>
             Las redes de 5 GHz aparecen en gris y no se pueden elegir. Si tu módem emite las dos
             bandas con nombres distintos, elige la de 2.4 GHz.
         </p>
-        <p class="wf-nota">
+        <p>
             Tampoco funcionan las redes que piden iniciar sesión en una página web ni las que piden
             usuario además de contraseña (redes institucionales tipo empresa).
             Si el robot no encuentra ninguna red conocida al encender, crea la suya:
@@ -55,33 +58,41 @@
         </p>
     </section>
 
-    <section id="wfAviso" class="pv2-card wf-aviso" hidden></section>
+    <section id="wfAviso" class="sv-card sv-callout warn" hidden></section>
 
-    <section class="pv2-card">
-        <div class="wf-cabecera">
-            <h3>Redes disponibles</h3>
-            <button id="wfBuscar" class="nd-btn" type="button">Buscar redes</button>
+    <section class="sv-card">
+        <div class="sv-card-head">
+            <div>
+                <span class="sv-eyebrow">Al alcance del robot</span>
+                <h3>Redes disponibles</h3>
+            </div>
+            <button id="wfBuscar" class="sv-btn primario" type="button">Buscar redes</button>
         </div>
-        <p id="wfEscaneoInfo" class="wf-nota"></p>
-        <div id="wfLista" class="wf-lista"><div class="nd-empty">Pulsa «Buscar redes».</div></div>
+        <p id="wfEscaneoInfo"></p>
+        <div id="wfLista" class="wf-lista"><div class="wf-vacio">Pulsa «Buscar redes».</div></div>
         <details class="wf-oculta">
             <summary>¿No aparece? Escribe el nombre de la red</summary>
             <div class="wf-form">
                 <input id="wfOcultaSsid" type="text" maxlength="32" placeholder="Nombre de la red (2.4 GHz)" autocomplete="off">
-                <button id="wfOcultaBtn" class="nd-btn start" type="button">Continuar</button>
+                <button id="wfOcultaBtn" class="sv-btn primario" type="button">Continuar</button>
             </div>
         </details>
     </section>
 
-    <section class="pv2-card">
-        <h3>Redes guardadas en el robot</h3>
-        <p class="wf-nota">Al encender, el robot se conecta solo a la que tenga al alcance.</p>
-        <div id="wfGuardadas" class="wf-lista"><div class="nd-empty">—</div></div>
+    <section class="sv-card">
+        <div class="sv-card-head">
+            <div>
+                <span class="sv-eyebrow">Memoria del robot</span>
+                <h3>Redes guardadas</h3>
+            </div>
+        </div>
+        <p>Al encender, el robot se conecta solo a la primera de estas que tenga al alcance.</p>
+        <div id="wfGuardadas" class="wf-lista"><div class="wf-vacio">—</div></div>
     </section>
 
-    <section class="pv2-card nd-log-card">
+    <section class="sv-card">
         <h3>Registro</h3>
-        <pre id="wfLog" class="nd-log"></pre>
+        <pre id="wfLog" class="sv-log"></pre>
     </section>
 </main>
 
@@ -92,7 +103,7 @@
             Contraseña del Wi-Fi
             <span class="wf-clave">
                 <input id="wfDlgClave" type="password" minlength="8" maxlength="64" autocomplete="off">
-                <button id="wfDlgVer" type="button" class="nd-btn">Ver</button>
+                <button id="wfDlgVer" type="button" class="sv-btn">Ver</button>
             </span>
         </label>
         <p id="wfDlgAbierta" class="wf-nota" hidden>Red abierta: no necesita contraseña.</p>
@@ -107,12 +118,13 @@
         </p>
         <p id="wfDlgError" class="wf-error" hidden></p>
         <div class="wf-botones">
-            <button value="cancel" class="nd-btn" type="submit" formnovalidate>Cancelar</button>
-            <button id="wfDlgGuardar" class="nd-btn start" type="button">Guardar</button>
+            <button value="cancel" class="sv-btn" type="submit" formnovalidate>Cancelar</button>
+            <button id="wfDlgGuardar" class="sv-btn primario" type="button">Guardar</button>
         </div>
     </form>
 </dialog>
 
 <script src="{{ url_for('static', filename='wifi.js') }}"></script>
+<script src="{{ url_for('static', filename='sv_ayuda.js') }}"></script>
 </body>
 </html>

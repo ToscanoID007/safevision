@@ -94,12 +94,12 @@
 
     function pintarGuardadas() {
         var lista = (estado && estado.guardadas) || [];
-        if (!lista.length) { $("wfGuardadas").innerHTML = '<div class="nd-empty">Ninguna.</div>'; return; }
+        if (!lista.length) { $("wfGuardadas").innerHTML = '<div class="wf-vacio">Ninguna.</div>'; return; }
         $("wfGuardadas").innerHTML = lista.map(function (p) {
             var acciones = p.activa ? '<span class="wf-activa">● en uso</span>' :
-                '<button class="nd-btn start" data-conectar="' + esc(p.nombre) + '">Conectar</button>' +
-                '<button class="nd-btn stop" data-olvidar="' + esc(p.nombre) + '">Olvidar</button>';
-            return '<div class="wf-fila"><div><div class="wf-ssid">' + esc(p.ssid) + '</div>' +
+                '<button class="sv-btn ok" data-conectar="' + esc(p.nombre) + '">Conectar</button>' +
+                '<button class="sv-btn peligro" data-olvidar="' + esc(p.nombre) + '">Olvidar</button>';
+            return '<div class="wf-fila' + (p.activa ? " en-uso" : "") + '"><div><div class="wf-ssid">' + esc(p.ssid) + '</div>' +
                 '<div class="wf-meta">banda: ' + (p.banda === "bg" ? "2.4 GHz" : p.banda === "a" ? "5 GHz" : "automática") +
                 '</div></div><div></div><div class="wf-acciones">' + acciones + "</div></div>";
         }).join("");
@@ -107,7 +107,7 @@
 
     // ---------------- escaneo ----------------
     function pintarRedes() {
-        if (!redes.length) { $("wfLista").innerHTML = '<div class="nd-empty">No se vio ninguna red.</div>'; return; }
+        if (!redes.length) { $("wfLista").innerHTML = '<div class="wf-vacio">No se vio ninguna red.</div>'; return; }
         $("wfLista").innerHTML = redes.map(function (r) {
             var bandas = r.bandas.map(function (b) {
                 return '<span class="wf-banda ' + (b === "2.4" ? "ok" : "no") + '">' + b + " GHz</span>";
@@ -115,14 +115,14 @@
             var seguridad = r.abierta ? "abierta" : r.empresarial ? "empresarial (no compatible)" : "con contraseña";
             var g = guardada(r.ssid);
             var accion;
-            if (!r.compatible) accion = '<span class="wf-meta">sólo 5 GHz</span>';
-            else if (r.empresarial) accion = '<span class="wf-meta">no compatible</span>';
+            if (!r.compatible) accion = '<span class="wf-nota-fila">sólo 5 GHz</span>';
+            else if (r.empresarial) accion = '<span class="wf-nota-fila">no compatible</span>';
             else if (g && g.activa) accion = '<span class="wf-activa">● en uso</span>';
-            else if (g) accion = '<button class="nd-btn start" data-conectar="' + esc(g.nombre) + '">Conectar</button>' +
-                                 '<button class="nd-btn" data-elegir="' + esc(r.ssid) + '">Cambiar clave</button>';
-            else accion = '<button class="nd-btn start" data-elegir="' + esc(r.ssid) + '">Elegir</button>';
+            else if (g) accion = '<button class="sv-btn ok" data-conectar="' + esc(g.nombre) + '">Conectar</button>' +
+                                 '<button class="sv-btn" data-elegir="' + esc(r.ssid) + '">Cambiar clave</button>';
+            else accion = '<button class="sv-btn ok" data-elegir="' + esc(r.ssid) + '">Elegir</button>';
             var gris = !r.compatible || r.empresarial;
-            return '<div class="wf-fila' + (gris ? " gris" : "") + '"><div><div class="wf-ssid">' + esc(r.ssid) +
+            return '<div class="wf-fila' + (gris ? " gris" : "") + (g && g.activa ? " en-uso" : "") + '"><div><div class="wf-ssid">' + esc(r.ssid) +
                 '</div><div class="wf-meta">' + bandas + seguridad + (g ? " · guardada" : "") + '</div></div>' +
                 '<div class="wf-senal" title="' + (r.senal_24 || r.senal) + '%">' + barras(r.senal_24 || r.senal) +
                 '</div><div class="wf-acciones">' + accion + "</div></div>";
