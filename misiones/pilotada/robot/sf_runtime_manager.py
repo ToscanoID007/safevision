@@ -262,6 +262,13 @@ def _rosnode_kill(*names):
         )
 
 
+# roslaunch en la Raspberry Pi tarda en arrancar: solo cargar roscore.xml puede
+# llevar 9 s con el sistema en marcha (medido el 2026-10-03). Toda espera de un
+# recurso lanzado con roslaunch usa este margen; si aparece antes, no se espera
+# de mas. Mismo valor que sf_mapping_manager.ESPERA_ROSLAUNCH.
+ESPERA_ROSLAUNCH = 45
+
+
 def _wait(predicate, timeout, interval=0.2):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -463,7 +470,7 @@ def _ensure_lidar():
 
         nodes_ok = _wait(
             registered,
-            15
+            ESPERA_ROSLAUNCH
         )
 
         if (
@@ -497,7 +504,7 @@ def _ensure_localization(map_path):
     _spawn("localization", command)
     return _wait(
         lambda: _nodes_present({"/amcl", "/sf_map_server"}) and _topic_present("/map"),
-        15,
+        ESPERA_ROSLAUNCH,
     )
 
 
@@ -516,7 +523,7 @@ def _ensure_navigation():
     _spawn("navigation", "roslaunch " + shlex.quote(str(launch)))
     return _wait(
         lambda: _nodes_present({"/move_base"}) and _service_present("/move_base/make_plan"),
-        18,
+        ESPERA_ROSLAUNCH,
     )
 
 
@@ -674,7 +681,7 @@ def _ensure_core():
             _nodes_present(
                 required
             ),
-        20
+        ESPERA_ROSLAUNCH
     )
 
     if not nodes_ok:
