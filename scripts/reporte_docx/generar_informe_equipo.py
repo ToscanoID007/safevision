@@ -414,7 +414,7 @@ def numerar(par, nid):
     numPr.append(il); numPr.append(ni); pPr.append(numPr)
 
 
-def tabla(doc, cab, filas, anchos, pie=None, miniaturas=None):
+def tabla(doc, cab, filas, anchos, pie=None, miniaturas=None, alto_miniatura=1.6):
     t = doc.add_table(rows=1, cols=len(cab))
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     t.style = doc.styles["Table Grid"] if "Table Grid" in [s.name for s in doc.styles] else t.style
@@ -432,7 +432,7 @@ def tabla(doc, cab, filas, anchos, pie=None, miniaturas=None):
             texto(par, c, 10.5)
             if miniaturas and i == 0 and miniaturas[k]:
                 p2 = celdas[i].add_paragraph(); p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p2.add_run().add_picture(miniaturas[k], height=Cm(1.6))
+                p2.add_run().add_picture(miniaturas[k], height=Cm(alto_miniatura))
             sombra(celdas[i], AZUL_CLARO); celdas[i].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     t.autofit = False
     for i, gc in enumerate(t._tbl.tblGrid.findall(qn("w:gridCol"))):
