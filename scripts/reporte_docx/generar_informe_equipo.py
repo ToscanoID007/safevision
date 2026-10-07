@@ -30,7 +30,8 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.abspath(os.path.join(AQUI, "..", ".."))
 EVID = os.path.join(RAIZ, "docs", "evidencias", "2026-10-03")
 IMG = os.path.join(RAIZ, "docs", "entrega", "img")
-SALIDA = os.path.join(RAIZ, "docs", "entrega", "informe-servicio-social.docx")
+SALIDA_DIR = os.path.join(RAIZ, "docs", "entrega")
+HOJA_FIRMAS = os.path.join(IMG, "hoja-firmas-itc.png")   # pagina 3 de la guia del ITC, tal cual
 PLANTILLA = os.path.join(AQUI, "plantilla_itc.docx")
 
 PROGRAMA = "Desarrollo de plataforma móvil para un sistema de navegación autónoma, Rosmaster X3"
@@ -39,7 +40,14 @@ PERIODO = "Del 2 de marzo al 2 de septiembre de 2026"
 RESPONSABLE = "David Díaz Delgado"
 CARGO = "Jefe del Departamento de Ingeniería Eléctrica y Electrónica (DIEE)"
 FECHA = "Colima, Colima, octubre de 2026"
-ALUMNOS = [("Flores Bueno Luis Adrian", "22460736"), ("Toscano Farias Andros Jair", "22460548")]
+# El informe es individual (la guia habla del prestante en singular): uno por alumno,
+# mismo contenido y diseno. El proyecto se hizo en equipo y el texto lo dice.
+ALUMNOS = [
+    {"nombre": "Flores Bueno Luis Adrian", "nombre_natural": "Luis Adrian Flores Bueno", "control": "22460736",
+     "archivo": "informe-servicio-social-luis-flores"},
+    {"nombre": "Toscano Farias Andros Jair", "nombre_natural": "Andros Jair Toscano Farias", "control": "22460548",
+     "archivo": "informe-servicio-social-andros-toscano"},
+]
 
 AZUL_OSCURO, AZUL_CABECERA, AZUL_CLARO = "073763", "1C4587", "C9DAF8"
 GRIS = RGBColor(0x59, 0x59, 0x59)
@@ -59,6 +67,7 @@ ORDEN_FIG = []  # se llena al construir: [(clave, numero)]
 # ---------------------------------------------------------------- contenido
 INTRODUCCION = [
     ("h2", "1.1 Significado del servicio social"),
+    ("equipo",),
     ("p", "Realizar el servicio social en este programa representó para nosotros pasar de lo aprendido en el "
           "aula a un sistema real que se mueve, falla y tiene que repararse. Durante seis meses trabajamos como "
           "equipo sobre un robot móvil completo: su sistema operativo, sus sensores, el software que lo controla "
@@ -91,6 +100,13 @@ INTRODUCCION = [
           "séptimo semestre en adelante que cursan la especialidad, de entre 20 y 24 años, y los docentes que "
           "imparten las asignaturas relacionadas. El personal del departamento es beneficiario indirecto, por el "
           "apoyo a la supervisión."),
+    ("p", "Los controles administrativos del programa son los del servicio social del Instituto: carta de "
+          "presentación y carta de aceptación al inicio, plan de trabajo con objetivos y cronograma (la propuesta "
+          "del proyecto), reportes bimestrales de actividades durante los seis meses, carta de término y este "
+          "informe final. Están orientados a los prestadores de servicio social, estudiantes de Ingeniería "
+          "Mecatrónica, y a su responsable de programa en el DIEE. Como control técnico, todo el trabajo quedó "
+          "registrado en un repositorio Git, con la fecha y la descripción de cada cambio, y los resultados de "
+          "las pruebas en un protocolo de validación."),
     ("h2", "1.3 Antecedentes"),
     ("p", "El departamento contaba con la plataforma ROSMASTER X3, pero no con un sistema de navegación "
           "autónoma operativo y documentado. Sin él, los estudiantes no podían desarrollar competencias prácticas "
@@ -463,7 +479,7 @@ def linea_indice(doc, t, pagina, sangria=0.0, tam=11):
 
 
 # ---------------------------------------------------------------- documento
-def construir(paginas):
+def construir(alumno, companero, paginas):
     doc = Document(PLANTILLA)
     from docx.enum.style import WD_STYLE_TYPE
     normal = doc.styles.default(WD_STYLE_TYPE.PARAGRAPH)
@@ -487,9 +503,10 @@ def construir(paginas):
     centro(CARRERA + ".", 12, cursiva=True, antes=4, despues=10)
     centro("Responsable del programa:", 12, alin=WD_ALIGN_PARAGRAPH.JUSTIFY, antes=8, despues=0)
     centro(RESPONSABLE + ", " + CARGO + ".", 12, cursiva=True, alin=WD_ALIGN_PARAGRAPH.LEFT, antes=4, despues=6)
-    centro("Alumnos:", 12, alin=WD_ALIGN_PARAGRAPH.JUSTIFY, antes=8, despues=0)
-    for nombre, control in ALUMNOS:
-        centro(nombre + ".  No. de control: " + control, 12, alin=WD_ALIGN_PARAGRAPH.LEFT, antes=6, despues=0)
+    centro("Alumno:", 12, alin=WD_ALIGN_PARAGRAPH.JUSTIFY, antes=8, despues=0)
+    centro(alumno["nombre"] + ".", 12, alin=WD_ALIGN_PARAGRAPH.LEFT, antes=6, despues=0)
+    centro("No. de control:", 12, alin=WD_ALIGN_PARAGRAPH.JUSTIFY, antes=8, despues=0)
+    centro(alumno["control"] + ".", 12, cursiva=True, alin=WD_ALIGN_PARAGRAPH.LEFT, antes=4, despues=0)
     centro("Periodo del servicio social:", 12, alin=WD_ALIGN_PARAGRAPH.JUSTIFY, antes=12, despues=0)
     centro(PERIODO + ".", 12, cursiva=True, alin=WD_ALIGN_PARAGRAPH.LEFT, antes=4, despues=0)
     centro(FECHA, 12, alin=WD_ALIGN_PARAGRAPH.RIGHT, antes=10, despues=0)
@@ -521,7 +538,12 @@ def construir(paginas):
         titulo(doc, t, 1)
         for b in bloques:
             tipo = b[0]
-            if tipo == "p":
+            if tipo == "equipo":
+                par = doc.add_paragraph(); formato(par)
+                texto(par, "Este informe corresponde a **" + alumno["nombre_natural"] + "**. El programa se realizó "
+                      "en equipo con " + companero["nombre_natural"] + ", por lo que las actividades y resultados que "
+                      "se describen son el trabajo de ambos prestadores.")
+            elif tipo == "p":
                 par = doc.add_paragraph(); formato(par); texto(par, b[1])
             elif tipo == "h2":
                 titulo(doc, b[1], 2)
@@ -538,39 +560,31 @@ def construir(paginas):
             elif tipo == "fig":
                 figura(doc, b[1], b[2])
 
-    # H. Hoja de firmas (formato de la guia, para los dos prestantes)
-    salto(doc)
-    centro("Instituto Tecnológico de Colima", 13, antes=0)
-    titulo(doc, "Hoja de firmas.", 1).alignment = WD_ALIGN_PARAGRAPH.CENTER
-    centro("Prestantes de Servicio Social", 12, antes=30, despues=10)
-    t = doc.add_table(rows=1, cols=2); t.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for i, (nombre, control) in enumerate(ALUMNOS):
-        cel = t.rows[0].cells[i]; cel.text = ""
-        for k, (txt, neg, tam, antes) in enumerate((("", False, 12, 40), ("_" * 30, False, 12, 0),
-                                                     (nombre, True, 11, 2), ("No. de control " + control, False, 10, 0),
-                                                     ("Nombre y firma", False, 10, 0))):
-            par = cel.paragraphs[0] if k == 0 else cel.add_paragraph()
-            formato(par, WD_ALIGN_PARAGRAPH.CENTER, 1.0, antes, 0)
-            texto(par, txt, tam, negrita=neg, color=GRIS if txt == "Nombre y firma" else None)
-    centro("Responsable del programa", 12, antes=40, despues=40)
-    centro("_" * 46, 12, negrita=False, antes=0, despues=2)
-    centro(RESPONSABLE, 11, antes=0, despues=0)
-    centro(CARGO, 10, negrita=False, antes=0, despues=0)
-    centro("Nombre, firma", 10, negrita=False, antes=0, despues=0)
-    centro("Sello de la dependencia", 12, antes=48, despues=0)
+    # H. Hoja de firmas: la de la guia del ITC tal cual (pagina 3), a pagina completa
+    from docx.enum.section import WD_SECTION
+    sec = doc.add_section(WD_SECTION.NEW_PAGE)
+    for parte in (sec.header, sec.footer, sec.first_page_header, sec.first_page_footer):
+        parte.is_linked_to_previous = False
+    sec.top_margin = sec.bottom_margin = sec.left_margin = sec.right_margin = Cm(0)
+    sec.header_distance = sec.footer_distance = Cm(0)
+    par = doc.add_paragraph(); par.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    f = par.paragraph_format; f.space_before = Pt(0); f.space_after = Pt(0); f.line_spacing = 1.0
+    par.add_run().add_picture(HOJA_FIRMAS, width=Cm(21.5))
     return doc
 
 
 def main():
     paginas = json.load(open(sys.argv[1], encoding="utf-8")) if len(sys.argv) > 1 and os.path.exists(sys.argv[1]) else {}
-    doc = construir(paginas)
-    doc.save(SALIDA)
+    for k, alumno in enumerate(ALUMNOS):
+        doc = construir(alumno, ALUMNOS[1 - k], paginas)
+        ruta = os.path.join(SALIDA_DIR, alumno["archivo"] + ".docx")
+        doc.save(ruta)
+        print("Escrito", os.path.relpath(ruta, RAIZ), "-", len(ORDEN_FIG), "figuras")
     titulos = ["Tabla de ilustraciones."] + [t for t, _ in APARTADOS]
     titulos_h2 = [b[1] for _t, bl in APARTADOS for b in bl if b[0] == "h2"]
     json.dump({"titulos": titulos, "subtitulos": titulos_h2, "figuras": ["Fig %d." % n for _c, n in ORDEN_FIG],
                "firmas": "Hoja de firmas."}, open(os.path.join(AQUI, "titulos_informe.json"), "w", encoding="utf-8"),
               ensure_ascii=False)
-    print("Escrito", os.path.relpath(SALIDA, RAIZ), "-", len(ORDEN_FIG), "figuras")
 
 
 if __name__ == "__main__":

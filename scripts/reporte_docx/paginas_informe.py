@@ -26,6 +26,7 @@ for fig in t["figuras"]:
     for p in range(inicio, n + 1):
         if any(l.startswith(fig + " ") for l in paginas[p - 1]):
             res[fig] = p; break
+res.setdefault(t["firmas"], n)   # la hoja oficial es una imagen: es la ultima pagina
 json.dump(res, open(salida, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 faltan = [x for x in t["titulos"] + t["subtitulos"] + t["figuras"] + [t["firmas"]] if x not in res]
 print("paginas: %d | encontrados %d | faltan %s" % (n, len(res), faltan or "ninguno"))
