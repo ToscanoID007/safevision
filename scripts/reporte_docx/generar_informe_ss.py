@@ -32,7 +32,7 @@ SALIDA = os.path.join(RAIZ, "docs", "entrega")
 
 PROGRAMA = "Desarrollo de un sistema de navegación autónoma para plataforma móvil Rosmaster X3"
 CARRERA = "Ingeniería Mecatrónica"
-PERIODO = "Marzo – 2 de septiembre de 2026"
+PERIODO = "Del 2 de marzo al 2 de septiembre de 2026"
 RESPONSABLE = "David Díaz Delgado"
 CARGO_RESPONSABLE = "Jefe del Departamento de Ingeniería Eléctrica y Electrónica (DIEE)"
 LUGAR_FECHA = "Colima, Colima, octubre de 2026"
