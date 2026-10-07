@@ -30,7 +30,7 @@ EVID = os.path.join(RAIZ, "docs", "evidencias", "2026-10-03")
 IMG = os.path.join(RAIZ, "docs", "entrega", "img")
 SALIDA = os.path.join(RAIZ, "docs", "entrega")
 
-PROGRAMA = "Desarrollo de un sistema de navegación autónoma para plataforma móvil Rosmaster X3"
+PROGRAMA = "Desarrollo de plataforma móvil para un sistema de navegación autónoma, Rosmaster X3"
 CARRERA = "Ingeniería Mecatrónica"
 PERIODO = "Del 2 de marzo al 2 de septiembre de 2026"
 RESPONSABLE = "David Díaz Delgado"
